@@ -1,0 +1,13 @@
+# Netlify security headers.
+# This file is only used if you deploy on Netlify — it's ignored by every
+# other host. It applies headers that cannot be set via an HTML <meta> tag
+# (frame-ancestors, X-Frame-Options, etc). See README.md "Security" section.
+# Docs: https://docs.netlify.com/routing/headers/
+
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:; frame-ancestors 'none';
