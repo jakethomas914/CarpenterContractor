@@ -1,0 +1,30 @@
+{
+  "name": "carpenter-contractor-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static marketing website for a Southwest Florida carpentry and general contracting business. No runtime dependencies — the tooling below is dev-only (linting and testing) and does not affect deployment.",
+  "scripts": {
+    "lint:js": "eslint js tests",
+    "lint:css": "stylelint \"css/**/*.css\"",
+    "lint:html": "html-validate index.html contact.html",
+    "lint": "npm run lint:js && npm run lint:css && npm run lint:html",
+    "lint:fix": "eslint js tests --fix && stylelint \"css/**/*.css\" --fix",
+    "test:unit": "jest tests/unit tests/integration",
+    "test:unit:coverage": "jest tests/unit tests/integration --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test": "npm run test:unit && npm run test:e2e",
+    "serve": "python3 -m http.server 8080"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.62.1",
+    "eslint": "^10.8.1",
+    "globals": "^16.4.0",
+    "html-validate": "^11.6.2",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1",
+    "stylelint": "^17.14.1",
+    "stylelint-config-standard": "^40.0.0"
+  }
+}
