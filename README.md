@@ -50,8 +50,12 @@ No build tools, package manager, or server framework are required. Any of
 the following work:
 
 - Open `index.html` directly in a browser, or
-- Serve the folder locally, e.g. `python3 -m http.server 8080` from the
-  project root, then visit `http://localhost:8080`.
+- From the project root, run `npm run serve` (or `python3 -m http.server 8080`)
+  then visit `http://localhost:8080`. The serve script only needs Python 3 —
+  no `npm install` required for viewing the site.
+
+Prefer a local HTTP server over `file://` when checking fonts, CSP, or the
+contact form — some browsers restrict `mailto:` / font loading from file URLs.
 
 ## Deploying
 
@@ -64,21 +68,28 @@ static host with no configuration, for example:
 - **GitHub Pages** — enable Pages on this repo, root directory.
 - Any traditional web host — upload the files via FTP/SFTP.
 
-If you deploy on **Netlify**, the contact form (`contact.html`) already
-includes the attributes Netlify needs (`data-netlify="true"`, a hidden
-`form-name` field, and a spam honeypot field) to automatically collect
-submissions in your Netlify site dashboard — no email inbox required. To
-use that instead of the default email behavior, remove the
-`initContactForm();` call inside `init()` in `js/main.js` (it's clearly
-commented) so Netlify's native form POST isn't intercepted by JavaScript.
+`_headers` (Netlify) and `vercel.json` (Vercel) apply the security headers
+described in the "Security" section automatically on those platforms.
 
-`_headers` (Netlify) and `vercel.json` (Vercel) are also included and apply
-the security headers described below automatically if you deploy on either
-of those platforms — see the "Security" section.
+### Contact form modes (operational runbook)
 
-By default (on any other host), submitting the contact form opens the
-visitor's email app with a pre-filled message addressed to the placeholder
-inbox — this requires no server and works everywhere.
+There is no backend. The form on `contact.html` supports two mutually
+exclusive submission modes:
+
+| Mode | When to use | How it works | Setup |
+|---|---|---|---|
+| **mailto (default)** | Any host; zero server config | JS intercepts submit, builds a `mailto:` URL from the fields, opens the visitor's email client | Keep `initContactForm()` in `init()` (`js/main.js`). Set `data-recipient` on the `<form>` to the real inbox. |
+| **Netlify Forms** | Deployed on Netlify; want submissions in the Netlify dashboard | Browser POSTs the form to Netlify; no email client needed | Form already has `data-netlify="true"`, hidden `form-name=contact`, and `bot-field` honeypot. **Remove** the `initContactForm();` call inside `init()` so JS no longer `preventDefault()`s the submit. |
+
+Constraints:
+
+- Do not leave both modes active. With `initContactForm()` enabled, the
+  submit handler always calls `event.preventDefault()`, so Netlify never
+  receives a real POST.
+- Changing the inbox means updating `data-recipient` on the form **and**
+  every visible `mailto:` / JSON-LD email placeholder (`info@example.com`).
+- Required fields (`name`, `phone`, `email`, `message`) rely on native
+  HTML5 validation; the JS path only runs after the browser accepts the form.
 
 ## Content you must update before launch
 
@@ -140,6 +151,34 @@ files in a text editor:
   photo in a new `assets/gallery/` folder.
 - To add a new testimonial, copy an existing `.testimonial-card` block and
   remove the `sample-badge` element once it's a real review.
+- Theme tokens live in the `:root` block of `css/styles.css`. Key variables:
+
+  | Token | Role |
+  |---|---|
+  | `--color-bg`, `--color-bg-alt`, `--color-surface` | Page / section backgrounds |
+  | `--color-text`, `--color-text-muted`, `--color-ink` | Body and emphasis text |
+  | `--color-wood*`, `--color-accent*` | Brand cedar + sage accents |
+  | `--font-heading`, `--font-body` | Fraunces / Inter stacks |
+  | `--container-width`, `--radius-*`, `--shadow-*`, `--transition` | Layout + motion |
+
+## JavaScript ↔ HTML contract
+
+`js/main.js` wires behavior through stable selectors. Renaming these without
+updating both the HTML and JS (and usually the tests) will silently disable
+features:
+
+| Hook | Used by | Behavior |
+|---|---|---|
+| `.nav-toggle` + `.primary-nav` | `initMobileNav` | Toggles `.is-open` and `aria-expanded`; closes on link click |
+| `[data-current-year]` | `initFooterYear` | Sets text to the current four-digit year |
+| `[data-reveal]` | `initScrollReveal` | Adds `.is-visible` on intersection (or immediately if `IntersectionObserver` is missing). CSS also force-shows reveals under `prefers-reduced-motion: reduce` |
+| `[data-contact-form]` + `data-recipient` | `initContactForm` | On submit: build mailto from named fields (`name`, `email`, `phone`, `service`, `message`), redirect via `navigation.redirect`, show `[data-form-status]` |
+| `main section[id]` + `.nav-links a[href^='#']` | `initActiveNavHighlight` | Sets `aria-current="true"` on the in-view section's nav link (homepage only) |
+
+Pure helpers exported for Jest (browser no-op via `typeof module` check):
+`sanitizeForHeader`, `buildMailtoUrl`, `getYear`, plus the `navigation`
+seam (tests spy on `navigation.redirect` because jsdom cannot assert real
+location changes).
 
 ## Architecture notes / code design decisions
 
@@ -213,10 +252,26 @@ visible phone numbers so they don't awkwardly line-wrap, and added a
 | End-to-end / regression | Playwright (Chromium + Mobile Safari emulation) | `tests/e2e/homepage.spec.js`, `tests/e2e/contact.spec.js` | Real-browser rendering: page loads/titles, heading hierarchy, image alt text, nav anchor scrolling, mobile hamburger menu, internal link 404 checks, CSP-violation checks, form fill + native HTML5 validation + submit. |
 | Accessibility | Playwright + `@axe-core/playwright` | `tests/e2e/accessibility.spec.js` | Automated WCAG 2 A/AA scan of both pages (0 serious/critical violations). |
 
-Current status: **21 Jest tests + 38 Playwright tests, all passing**
-(Playwright runs each spec against both a desktop Chromium profile and a
-Mobile Safari/iPhone 13 emulation profile). Run `npm run test:unit:coverage`
+Current status: **24 Jest tests + 38 Playwright tests, all passing**
+(Playwright runs each of 19 specs against both a desktop Chromium profile and a
+Mobile Safari/iPhone 13 emulation profile → 38 runs). Run `npm run test:unit:coverage`
 for a statement-coverage report of `js/main.js` (currently ~97%).
+
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and on every pull
+request:
+
+1. Node **22** + `npm ci`
+2. `npm run lint` (ESLint + Stylelint + html-validate)
+3. `npm run test:unit` (Jest)
+4. `npx playwright install --with-deps chromium webkit`, then `npm run test:e2e`
+5. `npm audit --audit-level=high`
+6. Uploads `playwright-report/` as a CI artifact (14-day retention), even on failure
+
+Locally, Playwright starts its own static server on port **4173**
+(`python3 -m http.server 4173` via `playwright.config.js`). CI always
+starts a fresh server; locally it reuses one if already running.
 
 ## Security
 
@@ -225,13 +280,13 @@ categories of web vulnerability (no server code, no database, no user
 authentication, no server-side template injection). The hardening below
 covers what's left:
 
-- **Content-Security-Policy** is set via `<meta>` tag in both HTML files
-  (works with zero server config on any host) and again via HTTP header in
-  `_headers`/`vercel.json` for hosts that support them. It restricts
-  scripts/styles/fonts/images/connections to `'self'` plus the two Google
+- **Content-Security-Policy** is set in **four places that must stay in sync**
+  when you change allowed origins: the `<meta>` tags in `index.html` and
+  `contact.html`, plus `_headers` (Netlify) and `vercel.json` (Vercel).
+  It restricts scripts/styles/fonts/images/connections to `'self'` plus the two Google
   Fonts domains actually used, blocks `<object>`/plugins, and restricts
   form submission targets. `contact.html` needs no inline-script
-  allowance; `index.html` allows inline scripts only because of its
+  allowance (`script-src 'self'` only); `index.html` allows inline scripts only because of its
   single static JSON-LD structured-data block (kept as `'unsafe-inline'`
   rather than a SHA-256 hash allowlist — hashing was considered, but it
   would silently break the page's structured data the next time someone
@@ -270,3 +325,16 @@ covers what's left:
   nothing to leak because the site has no backend to authenticate to.
 - **HTTPS-only external resources**: the only third-party resources loaded
   are the two Google Fonts domains, both over `https://`.
+
+## Troubleshooting & common pitfalls
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Fonts missing / CSP console errors after adding a CDN or analytics script | CSP allowlists are strict and duplicated | Update **all four** CSP copies (`index.html`, `contact.html`, `_headers`, `vercel.json`) together. Prefer hosting assets under `assets/` so `'self'` is enough. |
+| Netlify Forms dashboard stays empty | `initContactForm()` still intercepts submit | Remove `initContactForm();` from `init()` in `js/main.js` (see contact-form runbook above). Redeploy. |
+| mailto form does nothing / opens blank | Inbox still `info@example.com`, or opened via `file://` | Set `data-recipient` (and other email placeholders) to the real address; serve over `http://localhost`. |
+| `npm run test:e2e` fails on browser download | Playwright browsers not installed | Run `npx playwright install` (CI uses `chromium` + `webkit` with OS deps). |
+| axe color-contrast failures on reveals | Elements measured mid-fade (`opacity: 0`) | Accessibility e2e already emulates `prefers-reduced-motion: reduce`, which CSS uses to show `[data-reveal]` immediately — keep that pattern if you add more animated content. |
+| Mobile menu never opens after markup edit | Missing `.nav-toggle` / `.primary-nav` / `id="primary-nav"` pairing | Restore the contract in the table above; covered by integration + e2e tests. |
+| Header/footer drift between pages | Intentional duplication (no templating) | Edit **both** `index.html` and `contact.html`; comments mark the shared blocks. |
+| CI green locally but fails in GitHub Actions | Different Node / missing Playwright OS deps | Match CI: Node 22, `npm ci`, and `npx playwright install --with-deps chromium webkit`. Download the `playwright-report` artifact from the failed run. |
