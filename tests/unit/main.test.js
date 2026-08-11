@@ -32,6 +32,11 @@ describe("js/main.js pure helper functions", () => {
     test("coerces non-string values to strings", () => {
       expect(main.sanitizeForHeader(42)).toBe("42");
     });
+
+    test("returns an empty string for an empty string input", () => {
+      expect(main.sanitizeForHeader("")).toBe("");
+      expect(main.sanitizeForHeader("   ")).toBe("");
+    });
   });
 
   describe("buildMailtoUrl", () => {
@@ -74,6 +79,46 @@ describe("js/main.js pure helper functions", () => {
       expect(url.toLowerCase()).not.toContain("bcc:victim");
     });
 
+    test("sanitizes the recipient address against CRLF header injection", () => {
+      const url = main.buildMailtoUrl("info@example.com\r\nBcc:victim@example.com", {
+        name: "Jane",
+        message: "hi",
+      });
+
+      expect(url.startsWith("mailto:info@example.com Bcc:victim@example.com?")).toBe(true);
+      expect(url.toLowerCase()).not.toContain("%0d%0a");
+    });
+
+    test("sanitizes phone and service fields used in the mailto body labels", () => {
+      const url = main.buildMailtoUrl("info@example.com", {
+        phone: "239-555-0100\r\nCc:spam@example.com",
+        service: "Remodel\nBcc:other@example.com",
+        message: "hello",
+      });
+
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toContain("Phone: 239-555-0100 Cc:spam@example.com");
+      expect(decodedBody).toContain("Service interested in: Remodel Bcc:other@example.com");
+      expect(url.toLowerCase()).not.toContain("%0d%0a");
+    });
+
+    test("preserves intentional newlines in the free-form message body", () => {
+      // Message is only trimmed, not run through sanitizeForHeader, so
+      // visitors can still write multi-line project details.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Jane",
+        message: "Line one\nLine two\r\nLine three",
+      });
+
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toContain("Line one\nLine two\r\nLine three");
+    });
+
+    test("handles an empty recipient without throwing", () => {
+      const url = main.buildMailtoUrl("", { name: "Jane", message: "hi" });
+      expect(url.startsWith("mailto:?subject=")).toBe(true);
+    });
+
     test("does not throw and returns a string when fields is undefined", () => {
       expect(() => main.buildMailtoUrl("info@example.com", undefined)).not.toThrow();
       expect(typeof main.buildMailtoUrl("info@example.com", undefined)).toBe("string");
@@ -87,6 +132,21 @@ describe("js/main.js pure helper functions", () => {
 
     test("defaults to the current year when no date is supplied", () => {
       expect(main.getYear()).toBe(String(new Date().getFullYear()));
+    });
+  });
+
+  describe("navigation seam", () => {
+    test("exposes an overridable redirect function for form submit tests", () => {
+      // The real window.location.href assignment cannot be asserted in jsdom
+      // (location is non-configurable). Integration tests spy on this seam
+      // instead — keep the export shape stable.
+      expect(typeof main.navigation.redirect).toBe("function");
+      const original = main.navigation.redirect;
+      const spy = jest.fn();
+      main.navigation.redirect = spy;
+      main.navigation.redirect("mailto:info@example.com");
+      expect(spy).toHaveBeenCalledWith("mailto:info@example.com");
+      main.navigation.redirect = original;
     });
   });
 });

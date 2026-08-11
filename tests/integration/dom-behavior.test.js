@@ -64,6 +64,13 @@ describe("mobile navigation toggle", () => {
     expect(nav.classList.contains("is-open")).toBe(false);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
   });
+
+  test("does not throw when the toggle or primary nav is missing", () => {
+    expect(() => loadMainWithFixture("<header></header>")).not.toThrow();
+    expect(() =>
+      loadMainWithFixture('<header><button class="nav-toggle"></button></header>')
+    ).not.toThrow();
+  });
 });
 
 describe("footer year injection", () => {
@@ -140,6 +147,50 @@ describe("scroll reveal fallback", () => {
 
     delete window.IntersectionObserver;
   });
+
+  test("ignores non-intersecting observer entries", () => {
+    let capturedCallback;
+    const unobserve = jest.fn();
+    window.IntersectionObserver = class {
+      constructor(callback) {
+        capturedCallback = callback;
+      }
+
+      observe() {}
+      unobserve(target) {
+        unobserve(target);
+      }
+
+      disconnect() {}
+    };
+
+    loadMainWithFixture(revealFixture);
+    const el = document.querySelector("[data-reveal]");
+
+    capturedCallback([{ isIntersecting: false, target: el }]);
+
+    expect(el.classList.contains("is-visible")).toBe(false);
+    expect(unobserve).not.toHaveBeenCalled();
+
+    delete window.IntersectionObserver;
+  });
+
+  test("does nothing when no [data-reveal] elements exist", () => {
+    const observe = jest.fn();
+    window.IntersectionObserver = class {
+      observe() {
+        observe();
+      }
+
+      unobserve() {}
+      disconnect() {}
+    };
+
+    expect(() => loadMainWithFixture("<div></div>")).not.toThrow();
+    expect(observe).not.toHaveBeenCalled();
+
+    delete window.IntersectionObserver;
+  });
 });
 
 describe("active nav highlighting", () => {
@@ -182,8 +233,84 @@ describe("active nav highlighting", () => {
     delete window.IntersectionObserver;
   });
 
+  test("clears the previous aria-current when a different section intersects", () => {
+    let capturedCallback;
+    window.IntersectionObserver = class {
+      constructor(callback) {
+        capturedCallback = callback;
+      }
+
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(navHighlightFixture);
+
+    const servicesSection = document.getElementById("services");
+    const aboutSection = document.getElementById("about");
+    const servicesLink = document.querySelector('.nav-links a[href="#services"]');
+    const aboutLink = document.querySelector('.nav-links a[href="#about"]');
+
+    capturedCallback([{ isIntersecting: true, target: servicesSection }]);
+    expect(servicesLink.getAttribute("aria-current")).toBe("true");
+
+    capturedCallback([{ isIntersecting: true, target: aboutSection }]);
+    expect(aboutLink.getAttribute("aria-current")).toBe("true");
+    expect(servicesLink.hasAttribute("aria-current")).toBe(false);
+
+    delete window.IntersectionObserver;
+  });
+
+  test("ignores intersecting sections that have no matching nav link", () => {
+    let capturedCallback;
+    window.IntersectionObserver = class {
+      constructor(callback) {
+        capturedCallback = callback;
+      }
+
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(`
+      <nav>
+        <ul class="nav-links">
+          <li><a href="#services">Services</a></li>
+        </ul>
+      </nav>
+      <main>
+        <section id="services">Services content</section>
+        <section id="orphan">No matching nav link</section>
+      </main>
+    `);
+
+    const orphan = document.getElementById("orphan");
+    const servicesLink = document.querySelector('.nav-links a[href="#services"]');
+    servicesLink.setAttribute("aria-current", "true");
+
+    capturedCallback([{ isIntersecting: true, target: orphan }]);
+
+    expect(servicesLink.getAttribute("aria-current")).toBe("true");
+
+    delete window.IntersectionObserver;
+  });
+
   test("does not throw when there are no sections or nav links on the page", () => {
     expect(() => loadMainWithFixture("<div></div>")).not.toThrow();
+  });
+
+  test("skips highlighting when IntersectionObserver is unavailable", () => {
+    const original = window.IntersectionObserver;
+    delete window.IntersectionObserver;
+
+    expect(() => loadMainWithFixture(navHighlightFixture)).not.toThrow();
+    expect(
+      document.querySelectorAll(".nav-links a[aria-current]").length
+    ).toBe(0);
+
+    window.IntersectionObserver = original;
   });
 });
 
@@ -226,6 +353,81 @@ describe("contact form handling", () => {
 
     expect(status.classList.contains("is-visible")).toBe(true);
     expect(status.textContent.length).toBeGreaterThan(0);
+  });
+
+  test("prevents the browser's default form submission", () => {
+    const main = loadMainWithFixture(formFixture);
+    main.navigation.redirect = jest.fn();
+
+    const form = document.querySelector("[data-contact-form]");
+    const event = new window.Event("submit", { bubbles: true, cancelable: true });
+    form.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  test("falls back to an empty recipient when data-recipient is missing", () => {
+    const main = loadMainWithFixture(`
+      <form data-contact-form>
+        <input name="name" value="Jane Doe" />
+        <textarea name="message">Hello</textarea>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    expect(redirectSpy.mock.calls[0][0].startsWith("mailto:?subject=")).toBe(true);
+  });
+
+  test("submits successfully when the status element is absent", () => {
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="Jane Doe" />
+        <textarea name="message">Hello</textarea>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    expect(() => {
+      document
+        .querySelector("[data-contact-form]")
+        .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+    }).not.toThrow();
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("ignores Netlify honeypot and form-name fields when building the mailto URL", () => {
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com" data-netlify="true" netlify-honeypot="bot-field">
+        <input type="hidden" name="form-name" value="contact" />
+        <input name="bot-field" value="I am a bot" />
+        <input name="name" value="Jane Doe" />
+        <input name="email" value="jane@example.com" />
+        <input name="phone" value="239-555-0100" />
+        <select name="service"><option value="Kitchen & Bath Remodel" selected>Kitchen</option></select>
+        <textarea name="message">Please call me back.</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    const [calledUrl] = redirectSpy.mock.calls[0];
+    const decoded = decodeURIComponent(calledUrl);
+    expect(decoded).not.toContain("I am a bot");
+    expect(decoded).not.toContain("form-name");
+    expect(decoded).toContain("Jane Doe");
   });
 
   test("does not throw when the page has no contact form", () => {
