@@ -102,12 +102,16 @@ describe("scroll reveal fallback", () => {
 
   test("does not eagerly reveal elements when IntersectionObserver is available", () => {
     let capturedCallback;
+    const observe = jest.fn();
     window.IntersectionObserver = class {
       constructor(callback) {
         capturedCallback = callback;
       }
 
-      observe() {}
+      observe(target) {
+        observe(target);
+      }
+
       unobserve() {}
       disconnect() {}
     };
@@ -117,6 +121,7 @@ describe("scroll reveal fallback", () => {
     const el = document.querySelector("[data-reveal]");
     expect(el.classList.contains("is-visible")).toBe(false);
     expect(typeof capturedCallback).toBe("function");
+    expect(observe).toHaveBeenCalledWith(el);
 
     delete window.IntersectionObserver;
   });

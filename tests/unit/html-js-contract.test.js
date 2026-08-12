@@ -45,6 +45,15 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     }
   });
 
+  test("marks lead fields required and email as type=email for HTML5 validation", () => {
+    for (const id of ["name", "phone", "email", "message"]) {
+      expect(contactHtml).toMatch(
+        new RegExp(`<(input|textarea)\\b[^>]*id="${id}"[^>]*\\brequired\\b`, "i")
+      );
+    }
+    expect(contactHtml).toMatch(/<input\b[^>]*type="email"[^>]*id="email"/i);
+  });
+
   test("keeps Netlify Forms attributes that the mailto path must ignore", () => {
     expect(contactHtml).toMatch(/data-netlify="true"/);
     expect(contactHtml).toMatch(/netlify-honeypot="bot-field"/);
@@ -56,5 +65,19 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     expect(contactHtml).toMatch(/class="[^"]*\bnav-toggle\b/);
     expect(contactHtml).toMatch(/class="[^"]*\bprimary-nav\b/);
     expect(contactHtml).toMatch(/data-current-year/);
+  });
+});
+
+describe("JS ↔ HTML contract (shared wiring)", () => {
+  test("both pages load js/main.js", () => {
+    expect(indexHtml).toMatch(/<script\s+src="js\/main\.js"><\/script>/);
+    expect(contactHtml).toMatch(/<script\s+src="js\/main\.js"><\/script>/);
+  });
+
+  test("nav toggle is wired to primary-nav via aria-controls and id", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(/class="[^"]*\bnav-toggle\b[^"]*"[^>]*aria-controls="primary-nav"/s);
+      expect(html).toMatch(/class="[^"]*\bprimary-nav\b[^"]*"[^>]*\bid="primary-nav"/s);
+    }
   });
 });
