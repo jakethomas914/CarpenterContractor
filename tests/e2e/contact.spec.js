@@ -37,7 +37,7 @@ test.describe("Contact page", () => {
     await name.fill("Jane Doe");
     await phone.fill("239-555-0100");
     await email.fill("jane@example.com");
-    await service.selectOption({ label: "Kitchen & Bath Remodel" });
+    await service.selectOption({ label: "Kitchen & Bath Remodels" });
     await message.fill("I'd like a quote for a kitchen remodel.");
 
     await expect(name).toHaveValue("Jane Doe");
