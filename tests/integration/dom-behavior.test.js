@@ -212,6 +212,26 @@ describe("active nav highlighting", () => {
     </main>
   `;
 
+  test("observes each main section for active-nav highlighting", () => {
+    const observe = jest.fn();
+    window.IntersectionObserver = class {
+      observe(target) {
+        observe(target);
+      }
+
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(navHighlightFixture);
+
+    expect(observe).toHaveBeenCalledTimes(2);
+    expect(observe).toHaveBeenCalledWith(document.getElementById("services"));
+    expect(observe).toHaveBeenCalledWith(document.getElementById("about"));
+
+    delete window.IntersectionObserver;
+  });
+
   test("marks the nav link for the currently intersecting section as aria-current", () => {
     let capturedCallback;
     window.IntersectionObserver = class {
@@ -325,7 +345,7 @@ describe("contact form handling", () => {
       <input name="name" value="Jane Doe" />
       <input name="email" value="jane@example.com" />
       <input name="phone" value="239-555-0100" />
-      <select name="service"><option value="Kitchen & Bath Remodel" selected>Kitchen &amp; Bath Remodel</option></select>
+      <select name="service"><option value="Kitchen & Bath Remodels" selected>Kitchen &amp; Bath Remodels</option></select>
       <textarea name="message">Please call me back.</textarea>
       <div data-form-status></div>
     </form>
@@ -416,7 +436,7 @@ describe("contact form handling", () => {
         <input name="name" value="Jane Doe" />
         <input name="email" value="jane@example.com" />
         <input name="phone" value="239-555-0100" />
-        <select name="service"><option value="Kitchen & Bath Remodel" selected>Kitchen</option></select>
+        <select name="service"><option value="Kitchen & Bath Remodels" selected>Kitchen</option></select>
         <textarea name="message">Please call me back.</textarea>
         <div data-form-status></div>
       </form>
