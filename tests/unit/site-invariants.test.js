@@ -21,11 +21,14 @@ function collectMatches(source, pattern) {
 
 function decodeBasicEntities(value) {
   return String(value)
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
 }
 
 function extractFooterBottom(html) {
@@ -249,5 +252,181 @@ describe("accessibility motion contract (CSS)", () => {
       expect(html).toMatch(/class="skip-link"[^>]*href="#main-content"/);
       expect(html).toMatch(/id="main-content"/);
     }
+  });
+});
+
+describe("brand + contact identity launch placeholders", () => {
+  test("JSON-LD business name matches header brand-text and footer brand labels", () => {
+    const businessName = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).name;
+    expect(businessName).toBeTruthy();
+
+    for (const html of [indexHtml, contactHtml]) {
+      const headerBrands = collectMatches(
+        html,
+        /class="brand-text">\s*([\s\S]*?)<span class="placeholder-tag"/g
+      ).map((text) => decodeBasicEntities(text.replace(/\s+/g, " ").trim()));
+
+      expect(headerBrands.length).toBeGreaterThan(0);
+      for (const text of headerBrands) {
+        expect(text).toBe(businessName);
+      }
+
+      const footerBrand = collectMatches(
+        html,
+        /class="footer-brand"[\s\S]*?<a href="index\.html" class="brand">[\s\S]*?<\/svg>\s*([^<]+)/g
+      ).map((text) => decodeBasicEntities(text.replace(/\s+/g, " ").trim()));
+
+      expect(footerBrand).toEqual([businessName]);
+    }
+  });
+
+  test("document titles and OG title include the JSON-LD business name", () => {
+    const businessName = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).name;
+    const indexTitle = decodeBasicEntities(indexHtml.match(/<title>([^<]+)<\/title>/)[1]);
+    const contactTitle = decodeBasicEntities(contactHtml.match(/<title>([^<]+)<\/title>/)[1]);
+    const ogTitle = decodeBasicEntities(
+      indexHtml.match(/property="og:title"\s+content="([^"]+)"/)[1]
+    );
+
+    expect(indexTitle).toContain(businessName);
+    expect(contactTitle).toContain(businessName);
+    expect(ogTitle).toContain(businessName);
+  });
+
+  test("visible phone link text digits match every tel: href", () => {
+    const stripDigits = (value) => String(value).replace(/\D/g, "");
+    const pages = [indexHtml, contactHtml];
+
+    for (const html of pages) {
+      const telHrefs = collectMatches(html, /href="(tel:[^"]+)"/g);
+      expect(telHrefs.length).toBeGreaterThan(0);
+
+      const expectedDigits = stripDigits(telHrefs[0]);
+      expect(expectedDigits.length).toBeGreaterThanOrEqual(10);
+
+      for (const href of telHrefs) {
+        expect(stripDigits(href)).toBe(expectedDigits);
+      }
+
+      // Visible link text may use &#8209; non-breaking hyphens; digits must still match.
+      const phoneTexts = collectMatches(
+        html,
+        /href="tel:[^"]+"[^>]*>([\s\S]*?)<\/a>/g
+      ).map((text) => decodeBasicEntities(text.replace(/<[^>]+>/g, "")));
+
+      expect(phoneTexts.length).toBeGreaterThan(0);
+      for (const text of phoneTexts) {
+        const visibleDigits = stripDigits(text);
+        // Visible copy may omit the leading country code present in tel:+1...
+        expect(visibleDigits.length).toBeGreaterThanOrEqual(10);
+        expect(
+          expectedDigits === visibleDigits || expectedDigits.endsWith(visibleDigits)
+        ).toBe(true);
+      }
+    }
+  });
+});
+
+describe("service-area copy parity (contact sidebar ↔ homepage chips)", () => {
+  test("contact-page service-area list matches JSON-LD areaServed order", () => {
+    const areaServed = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).areaServed;
+    expect(Array.isArray(areaServed)).toBe(true);
+    expect(areaServed.length).toBeGreaterThan(0);
+
+    const contactAreaMatch = contactHtml.match(
+      /Southwest Florida<\/span>\s*<small>([^<]+)<\/small>/
+    );
+    expect(contactAreaMatch).toBeTruthy();
+    const listedCities = contactAreaMatch[1]
+      .split(",")
+      .map((city) => city.trim())
+      .filter(Boolean);
+
+    expect(listedCities).toEqual(areaServed);
+  });
+});
+
+describe("primary nav label parity across pages", () => {
+  function extractPrimaryNavLabels(html) {
+    const block = collectMatches(html, /class="nav-links"[\s\S]*?<\/ul>/g)[0];
+    expect(block).toBeTruthy();
+    return collectMatches(block, /<a\b[^>]*>([\s\S]*?)<\/a>/g).map((label) =>
+      decodeBasicEntities(label.replace(/\s+/g, " ").trim())
+    );
+  }
+
+  test("homepage and contact primary nav keep the same labels in the same order", () => {
+    expect(extractPrimaryNavLabels(indexHtml)).toEqual(extractPrimaryNavLabels(contactHtml));
+  });
+});
+
+describe("static asset + font loading contract", () => {
+  test("local stylesheet, script, and favicon hrefs resolve on disk", () => {
+    const localRefs = [
+      ...collectMatches(indexHtml, /(?:href|src)="((?:assets|css|js)\/[^"]+)"/g),
+      ...collectMatches(contactHtml, /(?:href|src)="((?:assets|css|js)\/[^"]+)"/g),
+    ];
+    expect(localRefs.length).toBeGreaterThan(0);
+
+    for (const ref of [...new Set(localRefs)]) {
+      expect(fs.existsSync(path.join(root, ref))).toBe(true);
+    }
+  });
+
+  test("Google Fonts stylesheet hosts used in HTML stay inside the CSP allowlists", () => {
+    const hostCsp = fs
+      .readFileSync(path.join(root, "_headers"), "utf8")
+      .match(/Content-Security-Policy:\s*(.+)/)[1];
+    const styleSrc = hostCsp.match(/style-src\s+([^;]+)/)[1];
+    const fontSrc = hostCsp.match(/font-src\s+([^;]+)/)[1];
+
+    for (const html of [indexHtml, contactHtml]) {
+      const fontStylesheet = html.match(
+        /href="(https:\/\/fonts\.googleapis\.com\/[^"]+)"/
+      );
+      expect(fontStylesheet).toBeTruthy();
+      expect(styleSrc).toContain("https://fonts.googleapis.com");
+      expect(fontSrc).toContain("https://fonts.gstatic.com");
+      expect(html).toContain('href="https://fonts.gstatic.com"');
+    }
+  });
+
+  test("theme-color stays identical across both pages", () => {
+    const indexTheme = indexHtml.match(/name="theme-color"\s+content="([^"]+)"/)[1];
+    const contactTheme = contactHtml.match(/name="theme-color"\s+content="([^"]+)"/)[1];
+    expect(indexTheme).toBeTruthy();
+    expect(contactTheme).toBe(indexTheme);
+  });
+});
+
+describe("inline-script vs CSP unsafe-inline split", () => {
+  test("homepage keeps a single inline JSON-LD script (requires CSP unsafe-inline)", () => {
+    const inlineScripts = collectMatches(
+      indexHtml,
+      /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi
+    );
+    expect(inlineScripts).toHaveLength(1);
+    expect(() => JSON.parse(inlineScripts[0])).not.toThrow();
+    expect(indexHtml).toMatch(
+      /Content-Security-Policy"[^>]*script-src[^;]*'unsafe-inline'/
+    );
+  });
+
+  test("contact page has no inline scripts and omits CSP unsafe-inline", () => {
+    const inlineScripts = collectMatches(
+      contactHtml,
+      /<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/gi
+    );
+    expect(inlineScripts).toHaveLength(0);
+    expect(contactHtml).toMatch(/Content-Security-Policy"[^>]*script-src 'self'/);
+    expect(contactHtml).not.toMatch(
+      /Content-Security-Policy"[^>]*script-src[^;]*'unsafe-inline'/
+    );
   });
 });
