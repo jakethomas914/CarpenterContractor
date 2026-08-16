@@ -54,6 +54,15 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     expect(contactHtml).toMatch(/<input\b[^>]*type="email"[^>]*id="email"/i);
   });
 
+  test("pairs every lead-field label[for] with a matching control id", () => {
+    for (const id of ["name", "phone", "email", "service", "message"]) {
+      expect(contactHtml).toMatch(new RegExp(`<label\\b[^>]*\\bfor="${id}"`, "i"));
+      expect(contactHtml).toMatch(
+        new RegExp(`<(input|select|textarea)\\b[^>]*\\bid="${id}"`, "i")
+      );
+    }
+  });
+
   test("keeps Netlify Forms attributes that the mailto path must ignore", () => {
     expect(contactHtml).toMatch(/data-netlify="true"/);
     expect(contactHtml).toMatch(/netlify-honeypot="bot-field"/);

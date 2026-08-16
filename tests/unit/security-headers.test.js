@@ -85,6 +85,19 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(netlify["X-Frame-Options"]).toBe("DENY");
     expect(netlify["Content-Security-Policy"]).toMatch(/frame-ancestors 'none'/);
   });
+
+  test("locks clickjacking/MIME/HSTS/Permissions-Policy to the documented hardened values", () => {
+    expect(netlify["X-Content-Type-Options"]).toBe("nosniff");
+    expect(netlify["Strict-Transport-Security"]).toBe(
+      "max-age=63072000; includeSubDomains; preload"
+    );
+    expect(netlify["Permissions-Policy"]).toBe(
+      "camera=(), microphone=(), geolocation=(), payment=()"
+    );
+    expect(vercel["X-Content-Type-Options"]).toBe(netlify["X-Content-Type-Options"]);
+    expect(vercel["Strict-Transport-Security"]).toBe(netlify["Strict-Transport-Security"]);
+    expect(vercel["Permissions-Policy"]).toBe(netlify["Permissions-Policy"]);
+  });
 });
 
 describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
