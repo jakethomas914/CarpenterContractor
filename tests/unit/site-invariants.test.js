@@ -430,3 +430,126 @@ describe("inline-script vs CSP unsafe-inline split", () => {
     );
   });
 });
+
+describe("footer contact + brand blurb parity", () => {
+  function extractFooterContactList(html) {
+    const match = html.match(/<h4>Contact<\/h4>\s*<ul>([\s\S]*?)<\/ul>/);
+    return match ? match[1].replace(/\s+/g, " ").trim() : null;
+  }
+
+  function extractFooterBrandBlurb(html) {
+    const match = html.match(/class="footer-brand"[\s\S]*?<p>([\s\S]*?)<\/p>/);
+    return match ? decodeBasicEntities(match[1].replace(/\s+/g, " ").trim()) : null;
+  }
+
+  test("footer Contact column stays identical across both pages", () => {
+    expect(extractFooterContactList(indexHtml)).toBe(extractFooterContactList(contactHtml));
+  });
+
+  test("footer brand blurb stays identical across both pages", () => {
+    expect(extractFooterBrandBlurb(indexHtml)).toBe(extractFooterBrandBlurb(contactHtml));
+  });
+
+  test("header placeholder-tag tagline stays identical across both pages", () => {
+    const tags = (html) =>
+      collectMatches(html, /class="placeholder-tag">([^<]+)/g).map((t) =>
+        decodeBasicEntities(t.replace(/\s+/g, " ").trim())
+      );
+
+    const indexTags = tags(indexHtml);
+    const contactTags = tags(contactHtml);
+    expect(indexTags.length).toBeGreaterThan(0);
+    expect(contactTags).toEqual(indexTags);
+  });
+});
+
+describe("owner / founder identity consistency", () => {
+  test("JSON-LD founder matches the about heading and both meta descriptions", () => {
+    const founder = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).founder;
+    expect(founder).toBeTruthy();
+
+    expect(indexHtml).toMatch(new RegExp(`<h2>\\s*Meet\\s+${founder}\\s*</h2>`));
+
+    for (const html of [indexHtml, contactHtml]) {
+      const description = html.match(/name="description"\s+content="([^"]+)"/)[1];
+      expect(decodeBasicEntities(description)).toContain(founder);
+    }
+  });
+});
+
+describe("visible mailto text ↔ href parity", () => {
+  test("every mailto: link's visible text matches its href address", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      const matches = [...html.matchAll(/href="mailto:([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)];
+      expect(matches.length).toBeGreaterThan(0);
+      for (const match of matches) {
+        const hrefAddress = match[1];
+        const visible = decodeBasicEntities(match[2].replace(/<[^>]+>/g, "")).trim();
+        expect(visible).toBe(hrefAddress);
+      }
+    }
+  });
+});
+
+describe("lead-form option values + autocomplete hardening", () => {
+  test("every service option has a unique non-empty value (feeds mailto body)", () => {
+    const values = collectMatches(
+      contactHtml,
+      /<option\b[^>]*\bvalue="([^"]*)"/g
+    );
+    expect(values.length).toBeGreaterThan(0);
+    for (const value of values) {
+      expect(value.trim().length).toBeGreaterThan(0);
+    }
+    expect(new Set(values).size).toBe(values.length);
+  });
+
+  test("lead fields keep autocomplete hints and honeypot stays out of autofill", () => {
+    expect(contactHtml).toMatch(/id="name"[^>]*autocomplete="name"/);
+    expect(contactHtml).toMatch(/id="phone"[^>]*autocomplete="tel"/);
+    expect(contactHtml).toMatch(/id="email"[^>]*autocomplete="email"/);
+    expect(contactHtml).toMatch(
+      /name="bot-field"[^>]*(?:autocomplete="off"[^>]*tabindex="-1"|tabindex="-1"[^>]*autocomplete="off")/
+    );
+  });
+});
+
+describe("discovery file → on-disk page mapping", () => {
+  test("every sitemap <loc> resolves to an existing local HTML page", () => {
+    const locs = collectMatches(sitemapXml, /<loc>\s*([^<]+?)\s*<\/loc>/g);
+    expect(locs.length).toBeGreaterThan(0);
+
+    for (const loc of locs) {
+      const pathname = new URL(loc).pathname.replace(/\/$/, "") || "/";
+      const relative =
+        pathname === "/" || pathname === "/index.html" ? "index.html" : pathname.replace(/^\//, "");
+      expect(fs.existsSync(path.join(root, relative))).toBe(true);
+    }
+  });
+});
+
+describe("JSON-LD GeneralContractor required identity fields", () => {
+  test("keeps the schema fields lead-gen and local SEO depend on", () => {
+    const data = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    );
+
+    expect(data["@context"]).toBe("https://schema.org");
+    expect(data["@type"]).toBe("GeneralContractor");
+    for (const key of ["name", "founder", "telephone", "email", "url", "description"]) {
+      expect(typeof data[key]).toBe("string");
+      expect(data[key].trim().length).toBeGreaterThan(0);
+    }
+    expect(Array.isArray(data.areaServed)).toBe(true);
+    expect(data.areaServed.length).toBeGreaterThan(0);
+    expect(data.address).toEqual(
+      expect.objectContaining({
+        "@type": "PostalAddress",
+        addressRegion: "FL",
+        addressCountry: "US",
+      })
+    );
+  });
+});
