@@ -337,6 +337,37 @@ describe("active nav highlighting", () => {
 
     window.IntersectionObserver = original;
   });
+
+  test("skips highlighting when nav links are page-prefixed (contact-page style)", () => {
+    // Contact page uses `index.html#…` hrefs, which must not match
+    // `a[href^='#']` — otherwise the observer would run with no useful targets.
+    const observe = jest.fn();
+    window.IntersectionObserver = class {
+      observe(target) {
+        observe(target);
+      }
+
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(`
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html#services">Services</a></li>
+          <li><a href="index.html#about">About</a></li>
+        </ul>
+      </nav>
+      <main>
+        <section id="services">Services content</section>
+        <section id="about">About content</section>
+      </main>
+    `);
+
+    expect(observe).not.toHaveBeenCalled();
+
+    delete window.IntersectionObserver;
+  });
 });
 
 describe("contact form handling", () => {

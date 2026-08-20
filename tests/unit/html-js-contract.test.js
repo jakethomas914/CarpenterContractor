@@ -30,6 +30,18 @@ describe("JS ↔ HTML contract (index.html)", () => {
       expect(indexHtml).toContain(`href="#${id}"`);
     }
   });
+
+  test("homepage primary nav uses bare #hashes so initActiveNavHighlight can match them", () => {
+    // initActiveNavHighlight selects `.nav-links a[href^='#']`. Prefixed
+    // hrefs like `index.html#services` would silently disable highlighting.
+    const navBlock = indexHtml.match(/class="nav-links"[\s\S]*?<\/ul>/)[0];
+    const hrefs = [...navBlock.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect(href.startsWith("#")).toBe(true);
+      expect(href.includes("index.html")).toBe(false);
+    }
+  });
 });
 
 describe("JS ↔ HTML contract (contact.html)", () => {
@@ -74,6 +86,17 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     expect(contactHtml).toMatch(/class="[^"]*\bnav-toggle\b/);
     expect(contactHtml).toMatch(/class="[^"]*\bprimary-nav\b/);
     expect(contactHtml).toMatch(/data-current-year/);
+  });
+
+  test("contact primary nav uses index.html# targets (not bare hashes)", () => {
+    // Bare #hashes on contact would scroll nowhere useful and would also
+    // accidentally activate initActiveNavHighlight without matching sections.
+    const navBlock = contactHtml.match(/class="nav-links"[\s\S]*?<\/ul>/)[0];
+    const hrefs = [...navBlock.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect(href.startsWith("index.html#")).toBe(true);
+    }
   });
 });
 
