@@ -613,10 +613,11 @@ describe("quote CTA destinations", () => {
   });
 
   test("homepage primary quote CTAs point at the local contact page", () => {
-    const quoteHrefs = collectMatches(
-      indexHtml,
-      /href="([^"]+)"[^>]*>[\s\S]*?(?:Free Quote|Request a Free Quote)/gi
-    );
+    const quoteHrefs = [
+      ...indexHtml.matchAll(
+        /<a\b[^>]*\bhref="([^"]+)"[^>]*>[\s\S]*?(?:Get a Free Quote|Request a Free Quote)[\s\S]*?<\/a>/gi
+      ),
+    ].map((match) => match[1]);
     expect(quoteHrefs.length).toBeGreaterThan(0);
     for (const href of quoteHrefs) {
       expect(href).toBe("contact.html");
