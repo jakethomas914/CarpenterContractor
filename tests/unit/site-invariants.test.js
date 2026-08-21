@@ -553,3 +553,120 @@ describe("JSON-LD GeneralContractor required identity fields", () => {
     );
   });
 });
+
+describe("footer Explore link contract", () => {
+  function extractExploreLinks(html) {
+    const block = html.match(/<h4>Explore<\/h4>\s*<ul>([\s\S]*?)<\/ul>/);
+    expect(block).toBeTruthy();
+    return [...block[1].matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map(
+      (match) => ({
+        href: match[1],
+        label: decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+      })
+    );
+  }
+
+  test("Explore labels stay identical across pages", () => {
+    const indexLinks = extractExploreLinks(indexHtml);
+    const contactLinks = extractExploreLinks(contactHtml);
+    expect(indexLinks.map((l) => l.label)).toEqual(contactLinks.map((l) => l.label));
+  });
+
+  test("homepage Explore uses bare section hashes plus contact.html", () => {
+    const sectionIds = collectMatches(indexHtml, /<section[^>]*\bid="([^"]+)"/g);
+    const links = extractExploreLinks(indexHtml);
+    expect(links.length).toBeGreaterThan(0);
+
+    for (const link of links) {
+      if (link.label === "Contact") {
+        expect(link.href).toBe("contact.html");
+        continue;
+      }
+      expect(link.href.startsWith("#")).toBe(true);
+      expect(sectionIds).toContain(link.href.slice(1));
+    }
+  });
+
+  test("contact Explore uses index.html# section targets plus contact.html", () => {
+    const sectionIds = collectMatches(indexHtml, /<section[^>]*\bid="([^"]+)"/g);
+    const links = extractExploreLinks(contactHtml);
+    expect(links.length).toBeGreaterThan(0);
+
+    for (const link of links) {
+      if (link.label === "Contact") {
+        expect(link.href).toBe("contact.html");
+        continue;
+      }
+      expect(link.href.startsWith("index.html#")).toBe(true);
+      expect(sectionIds).toContain(link.href.slice("index.html#".length));
+    }
+  });
+});
+
+describe("quote CTA destinations", () => {
+  test("header nav-cta quote button points at contact.html on both pages", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      const navCta = html.match(/<div class="nav-cta">([\s\S]*?)<\/div>/);
+      expect(navCta).toBeTruthy();
+      expect(navCta[1]).toMatch(/href="contact\.html"/);
+    }
+  });
+
+  test("homepage primary quote CTAs point at the local contact page", () => {
+    // Keep the match inside a single text node so we do not span across anchors.
+    const quoteHrefs = [
+      ...indexHtml.matchAll(
+        /<a\b[^>]*\bhref="([^"]+)"[^>]*>\s*(?:Get a Free Quote|Request a Free Quote)\s*<\/a>/gi
+      ),
+    ].map((match) => match[1]);
+    expect(quoteHrefs.length).toBeGreaterThan(0);
+    for (const href of quoteHrefs) {
+      expect(href).toBe("contact.html");
+    }
+  });
+});
+
+describe("transport + font loading hardening", () => {
+  test("absolute href/src/content URLs in HTML stay on https", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      const urls = collectMatches(html, /(?:href|src|content)="(https?:\/\/[^"]+)"/g);
+      expect(urls.length).toBeGreaterThan(0);
+      for (const url of urls) {
+        expect(url.startsWith("https://")).toBe(true);
+      }
+    }
+  });
+
+  test("Google Fonts stylesheet URL stays identical across both pages", () => {
+    const fontHref = (html) =>
+      html.match(/href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/)?.[1];
+    expect(fontHref(indexHtml)).toBeTruthy();
+    expect(fontHref(contactHtml)).toBe(fontHref(indexHtml));
+  });
+
+  test("fonts.gstatic.com preconnect keeps crossorigin (required for font CORS)", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(
+        /rel="preconnect"\s+href="https:\/\/fonts\.gstatic\.com"\s+crossorigin|href="https:\/\/fonts\.gstatic\.com"\s+rel="preconnect"\s+crossorigin/
+      );
+    }
+  });
+
+  test("viewport meta stays identical across both pages", () => {
+    const viewport = (html) => html.match(/name="viewport"\s+content="([^"]+)"/)?.[1];
+    expect(viewport(indexHtml)).toBeTruthy();
+    expect(viewport(contactHtml)).toBe(viewport(indexHtml));
+  });
+});
+
+describe("CI safety-net contract", () => {
+  test("workflow still runs lint, Jest, Playwright, and high-severity audit on Node 22", () => {
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(/node-version:\s*22/);
+    expect(ci).toMatch(/npm run lint/);
+    expect(ci).toMatch(/npm run test:unit/);
+    expect(ci).toMatch(/npm run test:e2e/);
+    expect(ci).toMatch(/npm audit --audit-level=high/);
+    expect(ci).toMatch(/playwright install --with-deps chromium webkit/);
+  });
+});

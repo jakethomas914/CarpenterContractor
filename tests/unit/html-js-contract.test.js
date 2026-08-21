@@ -66,6 +66,22 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     expect(contactHtml).toMatch(/<input\b[^>]*type="email"[^>]*id="email"/i);
   });
 
+  test("phone field uses type=tel so mobile browsers offer a dial pad", () => {
+    expect(contactHtml).toMatch(/<input\b[^>]*type="tel"[^>]*id="phone"/i);
+  });
+
+  test("data-form-status lives inside the contact form (initContactForm scopes to it)", () => {
+    const form = contactHtml.match(/<form\b[^>]*data-contact-form[\s\S]*?<\/form>/i);
+    expect(form).toBeTruthy();
+    expect(form[0]).toMatch(/data-form-status/);
+  });
+
+  test("contact form has no absolute action URL (Netlify posts to the page; mailto uses JS)", () => {
+    const formOpen = contactHtml.match(/<form\b[^>]*data-contact-form[^>]*>/i);
+    expect(formOpen).toBeTruthy();
+    expect(formOpen[0]).not.toMatch(/\baction\s*=\s*["']https?:/i);
+  });
+
   test("pairs every lead-field label[for] with a matching control id", () => {
     for (const id of ["name", "phone", "email", "service", "message"]) {
       expect(contactHtml).toMatch(new RegExp(`<label\\b[^>]*\\bfor="${id}"`, "i"));
@@ -111,5 +127,14 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
       expect(html).toMatch(/class="[^"]*\bnav-toggle\b[^"]*"[^>]*aria-controls="primary-nav"/s);
       expect(html).toMatch(/class="[^"]*\bprimary-nav\b[^"]*"[^>]*\bid="primary-nav"/s);
     }
+  });
+
+  test("init() keeps initContactForm wired (default mailto mode per README runbook)", () => {
+    // Removing this call is the documented switch to Netlify Forms. Leaving both
+    // active silently breaks Netlify; removing it without intending to breaks mailto.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const initBody = mainJs.match(/function init\(\)\s*\{([\s\S]*?)\n\s*\}/);
+    expect(initBody).toBeTruthy();
+    expect(initBody[1]).toMatch(/initContactForm\s*\(\s*\)\s*;/);
   });
 });
