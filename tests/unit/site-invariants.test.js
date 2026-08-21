@@ -430,3 +430,243 @@ describe("inline-script vs CSP unsafe-inline split", () => {
     );
   });
 });
+
+describe("footer contact + brand blurb parity", () => {
+  function extractFooterContactList(html) {
+    const match = html.match(/<h4>Contact<\/h4>\s*<ul>([\s\S]*?)<\/ul>/);
+    return match ? match[1].replace(/\s+/g, " ").trim() : null;
+  }
+
+  function extractFooterBrandBlurb(html) {
+    const match = html.match(/class="footer-brand"[\s\S]*?<p>([\s\S]*?)<\/p>/);
+    return match ? decodeBasicEntities(match[1].replace(/\s+/g, " ").trim()) : null;
+  }
+
+  test("footer Contact column stays identical across both pages", () => {
+    expect(extractFooterContactList(indexHtml)).toBe(extractFooterContactList(contactHtml));
+  });
+
+  test("footer brand blurb stays identical across both pages", () => {
+    expect(extractFooterBrandBlurb(indexHtml)).toBe(extractFooterBrandBlurb(contactHtml));
+  });
+
+  test("header placeholder-tag tagline stays identical across both pages", () => {
+    const tags = (html) =>
+      collectMatches(html, /class="placeholder-tag">([^<]+)/g).map((t) =>
+        decodeBasicEntities(t.replace(/\s+/g, " ").trim())
+      );
+
+    const indexTags = tags(indexHtml);
+    const contactTags = tags(contactHtml);
+    expect(indexTags.length).toBeGreaterThan(0);
+    expect(contactTags).toEqual(indexTags);
+  });
+});
+
+describe("owner / founder identity consistency", () => {
+  test("JSON-LD founder matches the about heading and both meta descriptions", () => {
+    const founder = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).founder;
+    expect(founder).toBeTruthy();
+
+    expect(indexHtml).toMatch(new RegExp(`<h2>\\s*Meet\\s+${founder}\\s*</h2>`));
+
+    for (const html of [indexHtml, contactHtml]) {
+      const description = html.match(/name="description"\s+content="([^"]+)"/)[1];
+      expect(decodeBasicEntities(description)).toContain(founder);
+    }
+  });
+});
+
+describe("visible mailto text ↔ href parity", () => {
+  test("every mailto: link's visible text matches its href address", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      const matches = [...html.matchAll(/href="mailto:([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)];
+      expect(matches.length).toBeGreaterThan(0);
+      for (const match of matches) {
+        const hrefAddress = match[1];
+        const visible = decodeBasicEntities(match[2].replace(/<[^>]+>/g, "")).trim();
+        expect(visible).toBe(hrefAddress);
+      }
+    }
+  });
+});
+
+describe("lead-form option values + autocomplete hardening", () => {
+  test("every service option has a unique non-empty value (feeds mailto body)", () => {
+    const values = collectMatches(
+      contactHtml,
+      /<option\b[^>]*\bvalue="([^"]*)"/g
+    );
+    expect(values.length).toBeGreaterThan(0);
+    for (const value of values) {
+      expect(value.trim().length).toBeGreaterThan(0);
+    }
+    expect(new Set(values).size).toBe(values.length);
+  });
+
+  test("lead fields keep autocomplete hints and honeypot stays out of autofill", () => {
+    expect(contactHtml).toMatch(/id="name"[^>]*autocomplete="name"/);
+    expect(contactHtml).toMatch(/id="phone"[^>]*autocomplete="tel"/);
+    expect(contactHtml).toMatch(/id="email"[^>]*autocomplete="email"/);
+    expect(contactHtml).toMatch(
+      /name="bot-field"[^>]*(?:autocomplete="off"[^>]*tabindex="-1"|tabindex="-1"[^>]*autocomplete="off")/
+    );
+  });
+});
+
+describe("discovery file → on-disk page mapping", () => {
+  test("every sitemap <loc> resolves to an existing local HTML page", () => {
+    const locs = collectMatches(sitemapXml, /<loc>\s*([^<]+?)\s*<\/loc>/g);
+    expect(locs.length).toBeGreaterThan(0);
+
+    for (const loc of locs) {
+      const pathname = new URL(loc).pathname.replace(/\/$/, "") || "/";
+      const relative =
+        pathname === "/" || pathname === "/index.html" ? "index.html" : pathname.replace(/^\//, "");
+      expect(fs.existsSync(path.join(root, relative))).toBe(true);
+    }
+  });
+});
+
+describe("JSON-LD GeneralContractor required identity fields", () => {
+  test("keeps the schema fields lead-gen and local SEO depend on", () => {
+    const data = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    );
+
+    expect(data["@context"]).toBe("https://schema.org");
+    expect(data["@type"]).toBe("GeneralContractor");
+    for (const key of ["name", "founder", "telephone", "email", "url", "description"]) {
+      expect(typeof data[key]).toBe("string");
+      expect(data[key].trim().length).toBeGreaterThan(0);
+    }
+    expect(Array.isArray(data.areaServed)).toBe(true);
+    expect(data.areaServed.length).toBeGreaterThan(0);
+    expect(data.address).toEqual(
+      expect.objectContaining({
+        "@type": "PostalAddress",
+        addressRegion: "FL",
+        addressCountry: "US",
+      })
+    );
+  });
+});
+
+describe("footer Explore link contract", () => {
+  function extractExploreLinks(html) {
+    const block = html.match(/<h4>Explore<\/h4>\s*<ul>([\s\S]*?)<\/ul>/);
+    expect(block).toBeTruthy();
+    return [...block[1].matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map(
+      (match) => ({
+        href: match[1],
+        label: decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+      })
+    );
+  }
+
+  test("Explore labels stay identical across pages", () => {
+    const indexLinks = extractExploreLinks(indexHtml);
+    const contactLinks = extractExploreLinks(contactHtml);
+    expect(indexLinks.map((l) => l.label)).toEqual(contactLinks.map((l) => l.label));
+  });
+
+  test("homepage Explore uses bare section hashes plus contact.html", () => {
+    const sectionIds = collectMatches(indexHtml, /<section[^>]*\bid="([^"]+)"/g);
+    const links = extractExploreLinks(indexHtml);
+    expect(links.length).toBeGreaterThan(0);
+
+    for (const link of links) {
+      if (link.label === "Contact") {
+        expect(link.href).toBe("contact.html");
+        continue;
+      }
+      expect(link.href.startsWith("#")).toBe(true);
+      expect(sectionIds).toContain(link.href.slice(1));
+    }
+  });
+
+  test("contact Explore uses index.html# section targets plus contact.html", () => {
+    const sectionIds = collectMatches(indexHtml, /<section[^>]*\bid="([^"]+)"/g);
+    const links = extractExploreLinks(contactHtml);
+    expect(links.length).toBeGreaterThan(0);
+
+    for (const link of links) {
+      if (link.label === "Contact") {
+        expect(link.href).toBe("contact.html");
+        continue;
+      }
+      expect(link.href.startsWith("index.html#")).toBe(true);
+      expect(sectionIds).toContain(link.href.slice("index.html#".length));
+    }
+  });
+});
+
+describe("quote CTA destinations", () => {
+  test("header nav-cta quote button points at contact.html on both pages", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      const navCta = html.match(/<div class="nav-cta">([\s\S]*?)<\/div>/);
+      expect(navCta).toBeTruthy();
+      expect(navCta[1]).toMatch(/href="contact\.html"/);
+    }
+  });
+
+  test("homepage primary quote CTAs point at the local contact page", () => {
+    // Keep the match inside a single text node so we do not span across anchors.
+    const quoteHrefs = [
+      ...indexHtml.matchAll(
+        /<a\b[^>]*\bhref="([^"]+)"[^>]*>\s*(?:Get a Free Quote|Request a Free Quote)\s*<\/a>/gi
+      ),
+    ].map((match) => match[1]);
+    expect(quoteHrefs.length).toBeGreaterThan(0);
+    for (const href of quoteHrefs) {
+      expect(href).toBe("contact.html");
+    }
+  });
+});
+
+describe("transport + font loading hardening", () => {
+  test("absolute href/src/content URLs in HTML stay on https", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      const urls = collectMatches(html, /(?:href|src|content)="(https?:\/\/[^"]+)"/g);
+      expect(urls.length).toBeGreaterThan(0);
+      for (const url of urls) {
+        expect(url.startsWith("https://")).toBe(true);
+      }
+    }
+  });
+
+  test("Google Fonts stylesheet URL stays identical across both pages", () => {
+    const fontHref = (html) =>
+      html.match(/href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/)?.[1];
+    expect(fontHref(indexHtml)).toBeTruthy();
+    expect(fontHref(contactHtml)).toBe(fontHref(indexHtml));
+  });
+
+  test("fonts.gstatic.com preconnect keeps crossorigin (required for font CORS)", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(
+        /rel="preconnect"\s+href="https:\/\/fonts\.gstatic\.com"\s+crossorigin|href="https:\/\/fonts\.gstatic\.com"\s+rel="preconnect"\s+crossorigin/
+      );
+    }
+  });
+
+  test("viewport meta stays identical across both pages", () => {
+    const viewport = (html) => html.match(/name="viewport"\s+content="([^"]+)"/)?.[1];
+    expect(viewport(indexHtml)).toBeTruthy();
+    expect(viewport(contactHtml)).toBe(viewport(indexHtml));
+  });
+});
+
+describe("CI safety-net contract", () => {
+  test("workflow still runs lint, Jest, Playwright, and high-severity audit on Node 22", () => {
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(/node-version:\s*22/);
+    expect(ci).toMatch(/npm run lint/);
+    expect(ci).toMatch(/npm run test:unit/);
+    expect(ci).toMatch(/npm run test:e2e/);
+    expect(ci).toMatch(/npm audit --audit-level=high/);
+    expect(ci).toMatch(/playwright install --with-deps chromium webkit/);
+  });
+});

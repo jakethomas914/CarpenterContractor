@@ -138,6 +138,17 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
     expect(contact["script-src"]).not.toMatch(/https?:/);
   });
 
+  test("contact meta CSP matches host allowlists for non-script fetch directives", () => {
+    // script-src may differ (no 'unsafe-inline' on contact). Everything else that
+    // gates fonts/images/XHR must stay aligned or contact page loads break.
+    const contact = parseCspDirectives(contactCsp);
+    const host = parseCspDirectives(hostCsp);
+
+    for (const directive of ["style-src", "font-src", "img-src", "connect-src"]) {
+      expect(contact[directive]).toBe(host[directive]);
+    }
+  });
+
   test("all CSP copies share font and style Google Fonts allowlists", () => {
     for (const csp of [hostCsp, indexCsp, contactCsp]) {
       const directives = parseCspDirectives(csp);
