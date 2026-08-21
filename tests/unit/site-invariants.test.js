@@ -613,9 +613,10 @@ describe("quote CTA destinations", () => {
   });
 
   test("homepage primary quote CTAs point at the local contact page", () => {
+    // Keep the match inside a single text node so we do not span across anchors.
     const quoteHrefs = [
       ...indexHtml.matchAll(
-        /<a\b[^>]*\bhref="([^"]+)"[^>]*>[\s\S]*?(?:Get a Free Quote|Request a Free Quote)[\s\S]*?<\/a>/gi
+        /<a\b[^>]*\bhref="([^"]+)"[^>]*>\s*(?:Get a Free Quote|Request a Free Quote)\s*<\/a>/gi
       ),
     ].map((match) => match[1]);
     expect(quoteHrefs.length).toBeGreaterThan(0);
