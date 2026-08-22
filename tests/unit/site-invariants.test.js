@@ -528,6 +528,28 @@ describe("discovery file → on-disk page mapping", () => {
       expect(fs.existsSync(path.join(root, relative))).toBe(true);
     }
   });
+
+  test("every on-disk HTML page is listed in sitemap.xml (bidirectional discovery)", () => {
+    // Sitemap → disk is covered above. The reverse catches a new page that never
+    // gets added to the sitemap (silent discovery / SEO gap).
+    const htmlPages = fs
+      .readdirSync(root)
+      .filter((name) => name.endsWith(".html"))
+      .sort();
+    expect(htmlPages.length).toBeGreaterThan(0);
+
+    const locs = collectMatches(sitemapXml, /<loc>\s*([^<]+?)\s*<\/loc>/g);
+    const sitemapFiles = locs.map((loc) => {
+      const pathname = new URL(loc).pathname.replace(/\/$/, "") || "/";
+      return pathname === "/" || pathname === "/index.html"
+        ? "index.html"
+        : pathname.replace(/^\//, "");
+    });
+
+    for (const page of htmlPages) {
+      expect(sitemapFiles).toContain(page);
+    }
+  });
 });
 
 describe("JSON-LD GeneralContractor required identity fields", () => {
@@ -668,5 +690,123 @@ describe("CI safety-net contract", () => {
     expect(ci).toMatch(/npm run test:e2e/);
     expect(ci).toMatch(/npm audit --audit-level=high/);
     expect(ci).toMatch(/playwright install --with-deps chromium webkit/);
+  });
+});
+
+describe("Netlify form name ↔ form-name value", () => {
+  test("form name attribute matches the hidden form-name field Netlify posts", () => {
+    // Netlify Forms keys submissions by form-name. Drift between the form's
+    // name= and the hidden field silently drops leads into the wrong bucket.
+    const formOpen = contactHtml.match(/<form\b[^>]*data-contact-form[^>]*>/i)[0];
+    const formName = formOpen.match(/\bname="([^"]+)"/i)?.[1];
+    const hiddenName = contactHtml.match(/name="form-name"[^>]*value="([^"]+)"/)?.[1];
+    expect(formName).toBeTruthy();
+    expect(hiddenName).toBe(formName);
+  });
+});
+
+describe("Open Graph identity ↔ JSON-LD founder", () => {
+  test("og:description includes the JSON-LD founder and og:type stays website", () => {
+    const founder = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).founder;
+    const ogDescription = decodeBasicEntities(
+      indexHtml.match(/property="og:description"\s+content="([^"]+)"/)[1]
+    );
+    const ogType = indexHtml.match(/property="og:type"\s+content="([^"]+)"/)[1];
+
+    expect(founder).toBeTruthy();
+    expect(ogDescription).toContain(founder);
+    expect(ogType).toBe("website");
+  });
+});
+
+describe("brand home link + favicon chrome", () => {
+  test("every brand anchor points at index.html on both pages", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      const brandHrefs = collectMatches(
+        html,
+        /<a\b[^>]*\bclass="[^"]*\bbrand\b[^"]*"[^>]*\bhref="([^"]+)"/g
+      );
+      // Also catch href-before-class order.
+      const brandHrefsAlt = collectMatches(
+        html,
+        /<a\b[^>]*\bhref="([^"]+)"[^>]*\bclass="[^"]*\bbrand\b[^"]*"/g
+      );
+      const hrefs = [...new Set([...brandHrefs, ...brandHrefsAlt])];
+      expect(hrefs.length).toBeGreaterThan(0);
+      for (const href of hrefs) {
+        expect(href).toBe("index.html");
+      }
+    }
+  });
+
+  test("favicon link stays identical on both pages", () => {
+    const favicon = (html) =>
+      html.match(/<link\b[^>]*\brel="icon"[^>]*>/i)?.[0]?.replace(/\s+/g, " ").trim();
+    expect(favicon(indexHtml)).toBeTruthy();
+    expect(favicon(contactHtml)).toBe(favicon(indexHtml));
+    expect(favicon(indexHtml)).toMatch(/href="assets\/favicon\.svg"/);
+  });
+});
+
+describe("document encoding + language parity", () => {
+  test("both pages declare UTF-8 charset and lang=en", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(/<html\b[^>]*\blang="en"/i);
+      expect(html).toMatch(/<meta\b[^>]*\bcharset="UTF-8"/i);
+    }
+  });
+});
+
+describe("in-site relative link integrity", () => {
+  test("every relative .html href target exists on disk", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      const hrefs = collectMatches(html, /\bhref="([^"]+)"/g);
+      for (const href of hrefs) {
+        if (href.startsWith("#") || /^(mailto:|tel:|https?:)/i.test(href)) {
+          continue;
+        }
+        const filePart = href.split("#")[0];
+        if (!filePart || !filePart.endsWith(".html")) {
+          continue;
+        }
+        expect(fs.existsSync(path.join(root, filePart))).toBe(true);
+      }
+    }
+  });
+});
+
+describe("contact availability block", () => {
+  test("contact page keeps a structured Availability hours section", () => {
+    // README launch checklist calls out confirming hours — deleting the block
+    // would remove visitor expectations without failing other chrome checks.
+    expect(contactHtml).toMatch(/<h4>\s*Availability\s*<\/h4>/);
+    const hoursRows = [
+      ...contactHtml.matchAll(
+        /class="hours-row"[^>]*>\s*<span>([\s\S]*?)<\/span>\s*<span>([\s\S]*?)<\/span>/g
+      ),
+    ].map((match) => ({
+      day: decodeBasicEntities(match[1].replace(/\s+/g, " ").trim()),
+      hours: decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+    }));
+
+    expect(hoursRows.length).toBeGreaterThanOrEqual(3);
+    expect(hoursRows.some((row) => /Monday/i.test(row.day))).toBe(true);
+    expect(hoursRows.some((row) => /Saturday/i.test(row.day))).toBe(true);
+    expect(hoursRows.some((row) => /Sunday/i.test(row.day))).toBe(true);
+    for (const row of hoursRows) {
+      expect(row.hours.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("Google Fonts preconnect parity", () => {
+  test("both pages preconnect to fonts.googleapis.com (pairs with gstatic CORS preconnect)", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(
+        /rel="preconnect"\s+href="https:\/\/fonts\.googleapis\.com"|href="https:\/\/fonts\.googleapis\.com"\s+rel="preconnect"/
+      );
+    }
   });
 });

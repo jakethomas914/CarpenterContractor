@@ -123,6 +123,23 @@ describe("js/main.js pure helper functions", () => {
       expect(() => main.buildMailtoUrl("info@example.com", undefined)).not.toThrow();
       expect(typeof main.buildMailtoUrl("info@example.com", undefined)).toBe("string");
     });
+
+    test("percent-encodes ampersands in subject/body so mailto query parsing stays intact", () => {
+      // Service option values intentionally contain "&" (e.g. Kitchen & Bath).
+      // An unencoded "&" would truncate the mailto query string in many clients.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Jane & Co",
+        service: "Kitchen & Bath Remodels",
+        message: "Cabinets & trim",
+      });
+
+      expect(url).toContain(encodeURIComponent("Jane & Co"));
+      expect(url).toContain(encodeURIComponent("Kitchen & Bath Remodels"));
+      expect(url).toContain(encodeURIComponent("Cabinets & trim"));
+      const query = url.slice(url.indexOf("?") + 1);
+      expect(query.includes("Jane & Co")).toBe(false);
+      expect(query.includes("Kitchen & Bath")).toBe(false);
+    });
   });
 
   describe("getYear", () => {
