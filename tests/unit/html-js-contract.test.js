@@ -51,6 +51,14 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     expect(contactHtml).toMatch(/data-form-status/);
   });
 
+  test("marks lead-capture cards with data-reveal (hiding gated on js-reveal)", () => {
+    // Contact info + quote form use data-reveal. Hiding them is gated on
+    // html.js-reveal from initScrollReveal — if that gate regresses, a
+    // blocked script load makes the quote form permanently invisible.
+    expect(contactHtml).toMatch(/contact-info-card"[^>]*data-reveal/);
+    expect(contactHtml).toMatch(/contact-form-card"[^>]*data-reveal/);
+  });
+
   test("includes the named fields buildMailtoUrl reads from FormData", () => {
     for (const name of ["name", "email", "phone", "service", "message"]) {
       expect(contactHtml).toMatch(new RegExp(`name="${name}"`));
@@ -136,5 +144,10 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     const initBody = mainJs.match(/function init\(\)\s*\{([\s\S]*?)\n\s*\}/);
     expect(initBody).toBeTruthy();
     expect(initBody[1]).toMatch(/initContactForm\s*\(\s*\)\s*;/);
+  });
+
+  test("initScrollReveal opts into hide-until-revealed via html.js-reveal", () => {
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).toMatch(/classList\.add\(\s*["']js-reveal["']\s*\)/);
   });
 });

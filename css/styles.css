@@ -1288,20 +1288,24 @@ section {
 
 /* -------------------------------------------------------------------------
    Scroll reveal
-   ------------------------------------------------------------------------- */
-[data-reveal] {
+   -------------------------------------------------------------------------
+   Hide-until-revealed styles apply ONLY after js/main.js opts in via the
+   `js-reveal` class on <html>. Without that gate, a failed/blocked script
+   load would leave contact info, the quote form, and service cards at
+   opacity:0 forever (lead-capture breakage). */
+html.js-reveal [data-reveal] {
   opacity: 0;
   transform: translateY(18px);
   transition: opacity 600ms ease, transform 600ms ease;
 }
 
-[data-reveal].is-visible {
+html.js-reveal [data-reveal].is-visible {
   opacity: 1;
   transform: translateY(0);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal] {
+  html.js-reveal [data-reveal] {
     opacity: 1;
     transform: none;
     transition: none;

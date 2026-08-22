@@ -8,6 +8,7 @@
  */
 
 function loadMainWithFixture(html) {
+  document.documentElement.classList.remove("js-reveal");
   document.body.innerHTML = html;
   jest.resetModules();
   return require("../../js/main.js");
@@ -88,6 +89,16 @@ describe("footer year injection", () => {
 describe("scroll reveal fallback", () => {
   const revealFixture = '<section data-reveal>Content</section>';
 
+  test("opts into hide-until-revealed CSS via html.js-reveal when reveals exist", () => {
+    loadMainWithFixture(revealFixture);
+    expect(document.documentElement.classList.contains("js-reveal")).toBe(true);
+  });
+
+  test("does not add js-reveal when the page has no [data-reveal] elements", () => {
+    loadMainWithFixture("<div></div>");
+    expect(document.documentElement.classList.contains("js-reveal")).toBe(false);
+  });
+
   test("reveals elements immediately when IntersectionObserver is unavailable", () => {
     const original = window.IntersectionObserver;
     delete window.IntersectionObserver;
@@ -96,6 +107,7 @@ describe("scroll reveal fallback", () => {
 
     const el = document.querySelector("[data-reveal]");
     expect(el.classList.contains("is-visible")).toBe(true);
+    expect(document.documentElement.classList.contains("js-reveal")).toBe(true);
 
     window.IntersectionObserver = original;
   });

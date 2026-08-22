@@ -241,10 +241,20 @@ describe("security + Netlify form posture", () => {
 });
 
 describe("accessibility motion contract (CSS)", () => {
-  test("prefers-reduced-motion force-shows [data-reveal] without waiting for JS", () => {
+  test("scroll-reveal hide styles are gated behind html.js-reveal (no-JS safe)", () => {
+    // Without this gate, a failed main.js load leaves contact form/info at
+    // opacity:0 forever — lead-capture breakage. CSS must not hide
+    // [data-reveal] until JS opts in.
+    expect(stylesCss).toMatch(/html\.js-reveal\s+\[data-reveal\]\s*\{[^}]*opacity:\s*0/s);
+    expect(stylesCss).not.toMatch(/(?:^|})\s*\[data-reveal\]\s*\{[^}]*opacity:\s*0/s);
+  });
+
+  test("prefers-reduced-motion force-shows [data-reveal] without waiting for IO", () => {
     // Accessibility e2e relies on this so axe measures final contrast.
     expect(stylesCss).toMatch(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
-    expect(stylesCss).toMatch(/\[data-reveal\]\s*\{[^}]*opacity:\s*1/s);
+    expect(stylesCss).toMatch(
+      /html\.js-reveal\s+\[data-reveal\]\s*\{[^}]*opacity:\s*1/s
+    );
   });
 
   test("both pages expose a skip link to #main-content", () => {
