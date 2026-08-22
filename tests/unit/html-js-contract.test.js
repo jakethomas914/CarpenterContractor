@@ -137,4 +137,31 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     expect(initBody).toBeTruthy();
     expect(initBody[1]).toMatch(/initContactForm\s*\(\s*\)\s*;/);
   });
+
+  test("init() still wires every DOM feature entry point", () => {
+    // Dropping any of these from init() silently disables the feature while leaving
+    // the function and HTML hooks intact — a common "safe cleanup" regression.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const initBody = mainJs.match(/function init\(\)\s*\{([\s\S]*?)\n\s*\}/);
+    expect(initBody).toBeTruthy();
+    for (const call of [
+      "initMobileNav",
+      "initFooterYear",
+      "initScrollReveal",
+      "initContactForm",
+      "initActiveNavHighlight",
+    ]) {
+      expect(initBody[1]).toMatch(new RegExp(`${call}\\s*\\(\\s*\\)\\s*;`));
+    }
+  });
+
+  test("nav toggle is type=button with an accessible name on both pages", () => {
+    // type=submit (the HTML default for button) inside a form would POST; an
+    // unlabeled toggle also fails basic a11y checks the e2e suite relies on.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(
+        /<button\b[^>]*\bclass="[^"]*\bnav-toggle\b[^"]*"[^>]*\btype="button"[^>]*\baria-label="[^"]+"/s
+      );
+    }
+  });
 });
