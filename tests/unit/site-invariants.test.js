@@ -810,3 +810,101 @@ describe("Google Fonts preconnect parity", () => {
     }
   });
 });
+
+describe("JS ↔ CSS toggle-class contract", () => {
+  test("CSS still styles the classes main.js toggles for nav, reveal, and form status", () => {
+    // JS only flips class names; removing these selectors leaves features "working"
+    // in tests while the UI stays invisible (display:none / opacity:0 / visibility:hidden).
+    expect(stylesCss).toMatch(/\.primary-nav\.is-open\s*\{/);
+    expect(stylesCss).toMatch(/\[data-reveal\]\.is-visible\s*\{/);
+    expect(stylesCss).toMatch(/\.form-status\.is-visible\s*\{/);
+    expect(stylesCss).toMatch(/\.form-status\s*\{[^}]*display:\s*none/s);
+    expect(stylesCss).toMatch(/\.form-status\.is-visible\s*\{[^}]*display:\s*block/s);
+  });
+
+  test("data-form-status keeps the form-status class CSS needs to reveal feedback", () => {
+    // initContactForm adds .is-visible; styles only show .form-status.is-visible.
+    // Dropping class="form-status" keeps the JS path green while status stays hidden.
+    const statusEl = contactHtml.match(/<[^>]*\bdata-form-status\b[^>]*>/);
+    expect(statusEl).toBeTruthy();
+    expect(statusEl[0]).toMatch(/\bclass="[^"]*\bform-status\b[^"]*"/);
+    expect(statusEl[0]).toMatch(/\brole="status"/);
+  });
+
+  test("skip-link:focus styles keep the skip target reachable for keyboard users", () => {
+    expect(stylesCss).toMatch(/\.skip-link:focus\s*\{/);
+  });
+});
+
+describe("Netlify honeypot attribute ↔ field name pairing", () => {
+  test("netlify-honeypot value matches the honeypot input name", () => {
+    // Netlify only treats the named field as a honeypot when the attribute matches.
+    // Renaming one without the other silently disables spam filtering.
+    const honeypotAttr = contactHtml.match(/\bnetlify-honeypot="([^"]+)"/)?.[1];
+    const honeypotName = contactHtml.match(
+      /<input\b[^>]*\bname="([^"]+)"[^>]*(?:tabindex="-1"|autocomplete="off")/i
+    )?.[1];
+    expect(honeypotAttr).toBeTruthy();
+    expect(honeypotName).toBe(honeypotAttr);
+    expect(contactHtml).toMatch(new RegExp(`\\bname="${honeypotAttr}"`));
+  });
+});
+
+describe("lead-form submit control", () => {
+  test("contact form keeps an explicit type=submit primary button", () => {
+    // type="button" (or a non-button control) would break Enter-key submit and
+    // Netlify's native POST path once mailto interception is removed.
+    const form = contactHtml.match(/<form\b[^>]*data-contact-form[\s\S]*?<\/form>/i)?.[0];
+    expect(form).toBeTruthy();
+    expect(form).toMatch(/<button\b[^>]*\btype="submit"[^>]*>/i);
+  });
+});
+
+describe("script load order (DOM-ready init)", () => {
+  test("both pages load main.js immediately before </body> so init() finds hooks", () => {
+    // Script is not deferred/async. Moving it into <head> runs init() before the
+    // DOM exists and silently disables nav, reveal, footer year, and the form.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(/<script\s+src="js\/main\.js"><\/script>\s*<\/body>/i);
+    }
+  });
+});
+
+describe("Open Graph URL ↔ canonical exact match", () => {
+  test("homepage og:url equals the canonical href (not just the same origin)", () => {
+    const canonical = indexHtml.match(/rel="canonical"\s+href="([^"]+)"/)?.[1];
+    const ogUrl = indexHtml.match(/property="og:url"\s+content="([^"]+)"/)?.[1];
+    expect(canonical).toBeTruthy();
+    expect(ogUrl).toBe(canonical);
+  });
+});
+
+describe("font display swap contract", () => {
+  test("Google Fonts stylesheet requests keep display=swap (avoids invisible text)", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      const fontHref = html.match(
+        /href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/
+      )?.[1];
+      expect(fontHref).toBeTruthy();
+      expect(fontHref).toMatch(/display=swap/);
+    }
+  });
+});
+
+describe("brand accessible name ↔ JSON-LD identity", () => {
+  test("brand aria-label on both pages includes the JSON-LD business name", () => {
+    const name = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).name;
+    for (const html of [indexHtml, contactHtml]) {
+      const labels = [
+        ...html.matchAll(/<a\b[^>]*\bclass="[^"]*\bbrand\b[^"]*"[^>]*\baria-label="([^"]+)"/g),
+        ...html.matchAll(/<a\b[^>]*\baria-label="([^"]+)"[^>]*\bclass="[^"]*\bbrand\b[^"]*"/g),
+      ].map((match) => decodeBasicEntities(match[1]));
+      expect(labels.length).toBeGreaterThan(0);
+      for (const label of labels) {
+        expect(label).toContain(name);
+      }
+    }
+  });
+});

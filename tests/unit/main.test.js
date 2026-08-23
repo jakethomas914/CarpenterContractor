@@ -140,6 +140,27 @@ describe("js/main.js pure helper functions", () => {
       expect(query.includes("Jane & Co")).toBe(false);
       expect(query.includes("Kitchen & Bath")).toBe(false);
     });
+
+    test("percent-encodes ?, #, and = in fields so they cannot rewrite the mailto URL", () => {
+      // Unencoded reserved characters in subject/body can truncate or retarget the
+      // mailto URI (new query params, fragment, or key/value splits).
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Pat? #1",
+        email: "pat=test@example.com",
+        phone: "239#440",
+        service: "Repairs?=urgent",
+        message: "Need a quote? Call #2 after 5=pm",
+      });
+
+      const query = url.slice(url.indexOf("?") + 1);
+      for (const raw of ["Pat? #1", "Repairs?=urgent", "Need a quote? Call #2 after 5=pm"]) {
+        expect(url).toContain(encodeURIComponent(raw));
+        expect(query.includes(raw)).toBe(false);
+      }
+      expect(query.match(/subject=/g)).toHaveLength(1);
+      expect(query.match(/body=/g)).toHaveLength(1);
+      expect(query.includes("#")).toBe(false);
+    });
   });
 
   describe("getYear", () => {

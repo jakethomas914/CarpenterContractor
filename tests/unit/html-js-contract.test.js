@@ -164,4 +164,21 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
       );
     }
   });
+
+  test("nav toggle starts collapsed with aria-expanded=false on both pages", () => {
+    // initMobileNav toggles this attribute; a wrong initial value lies to AT users
+    // before the first click and can desync the open/closed state.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(
+        /<button\b[^>]*\bclass="[^"]*\bnav-toggle\b[^"]*"[^>]*\baria-expanded="false"/s
+      );
+    }
+  });
+
+  test("data-form-status element keeps form-status class and role=status", () => {
+    const statusEl = contactHtml.match(/<[^>]*\bdata-form-status\b[^>]*>/);
+    expect(statusEl).toBeTruthy();
+    expect(statusEl[0]).toMatch(/\bclass="[^"]*\bform-status\b/);
+    expect(statusEl[0]).toMatch(/\brole="status"/);
+  });
 });
