@@ -181,4 +181,31 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     expect(statusEl[0]).toMatch(/\bclass="[^"]*\bform-status\b/);
     expect(statusEl[0]).toMatch(/\brole="status"/);
   });
+
+  test("marks lead-capture cards with data-reveal (contact info + quote form)", () => {
+    // Both cards use scroll-reveal. CSS currently hides [data-reveal] until
+    // .is-visible — a blocked/missing main.js leaves the quote form invisible.
+    // Locking the hooks documents that dependency so reveal CSS changes stay deliberate.
+    expect(contactHtml).toMatch(/contact-info-card"[^>]*data-reveal/);
+    expect(contactHtml).toMatch(/contact-form-card"[^>]*data-reveal/);
+  });
+
+  test("contact form keeps native HTML5 validation (no novalidate)", () => {
+    // e2e and lead quality rely on required/email/tel constraints. novalidate
+    // would let empty submissions reach mailto/Netlify without browser checks.
+    const formOpen = contactHtml.match(/<form\b[^>]*data-contact-form[^>]*>/i);
+    expect(formOpen).toBeTruthy();
+    expect(formOpen[0]).not.toMatch(/\bnovalidate\b/i);
+  });
+
+  test("main.js script tags are not deferred or async (init runs after body hooks)", () => {
+    // async/defer can race ahead of DOM parsing or reorder after body hooks.
+    // Combined with end-of-body placement, a plain sync script is required.
+    for (const html of [indexHtml, contactHtml]) {
+      const scriptTag = html.match(/<script\b[^>]*\bsrc="js\/main\.js"[^>]*>/i);
+      expect(scriptTag).toBeTruthy();
+      expect(scriptTag[0]).not.toMatch(/\bdefer\b/i);
+      expect(scriptTag[0]).not.toMatch(/\basync\b/i);
+    }
+  });
 });

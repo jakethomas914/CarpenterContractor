@@ -908,3 +908,42 @@ describe("brand accessible name ↔ JSON-LD identity", () => {
     }
   });
 });
+
+describe("shared stylesheet contract", () => {
+  test("both pages load the local css/styles.css stylesheet", () => {
+    // Chrome parity and reveal/form-status CSS assume one shared sheet. A CDN
+    // swap or path typo on one page silently splits design and JS↔CSS contracts.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(/<link\b[^>]*\brel="stylesheet"[^>]*\bhref="css\/styles\.css"/i);
+    }
+  });
+});
+
+describe("JSON-LD url ↔ homepage canonical", () => {
+  test("JSON-LD url matches the homepage canonical href", () => {
+    // Structured data and the canonical tag are launch placeholders that must
+    // stay in lockstep; drift sends search engines competing homepage URLs.
+    const data = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    );
+    const canonical = indexHtml.match(/rel="canonical"\s+href="([^"]+)"/)?.[1];
+    expect(canonical).toBeTruthy();
+    expect(data.url).toBe(canonical);
+  });
+});
+
+describe("service select lead-quality defaults", () => {
+  test("service select has no blank placeholder option (first choice is a real service)", () => {
+    // An empty first <option value=""> without required would submit blank
+    // service lines into mailto/Netlify and weaken lead triage.
+    const select = contactHtml.match(/<select\b[^>]*\bid="service"[^>]*>([\s\S]*?)<\/select>/i)?.[1];
+    expect(select).toBeTruthy();
+    const firstOption = select.match(/<option\b[^>]*>/i)?.[0];
+    expect(firstOption).toBeTruthy();
+    const value = firstOption.match(/\bvalue="([^"]*)"/i)?.[1];
+    expect(value).toBeTruthy();
+    expect(value.trim().length).toBeGreaterThan(0);
+    expect(firstOption).not.toMatch(/\bdisabled\b/i);
+    expect(firstOption).not.toMatch(/\bhidden\b/i);
+  });
+});
