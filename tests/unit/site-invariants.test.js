@@ -947,3 +947,125 @@ describe("service select lead-quality defaults", () => {
     expect(firstOption).not.toMatch(/\bhidden\b/i);
   });
 });
+
+describe("mobile nav CSS visibility contract", () => {
+  test("at max-width 920px, closed primary-nav stays hidden until .is-open", () => {
+    // initMobileNav only toggles .is-open. If the closed rule loses opacity/visibility
+    // hiding — or .is-open loses the reveal — mobile menus "work" in Jest while
+    // remaining invisible (or permanently visible) in real browsers.
+    expect(stylesCss).toMatch(/@media\s*\(\s*max-width:\s*920px\s*\)/);
+    expect(stylesCss).toMatch(
+      /\.primary-nav\s*\{[^}]*opacity:\s*0[^}]*visibility:\s*hidden/s
+    );
+    expect(stylesCss).toMatch(
+      /\.primary-nav\.is-open\s*\{[^}]*opacity:\s*1[^}]*visibility:\s*visible/s
+    );
+  });
+
+  test("nav-toggle is hidden on desktop and shown inside the mobile breakpoint", () => {
+    // Without display:none by default, desktop gets a duplicate hamburger.
+    // Without display:inline-flex in the mobile media query, the toggle never appears.
+    expect(stylesCss).toMatch(/\.nav-toggle\s*\{[^}]*display:\s*none/s);
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*920px\s*\)[\s\S]*?\.nav-toggle\s*\{[^}]*display:\s*inline-flex/s
+    );
+  });
+});
+
+describe("theme-color ↔ CSS background parity", () => {
+  test("theme-color matches the --color-bg custom property on both pages", () => {
+    // Browser chrome / PWA toolbar color should track the page background.
+    // Diverging these leaves a jarring flash of the wrong color on load.
+    const bg = stylesCss.match(/--color-bg:\s*(#[0-9a-fA-F]+)/)?.[1];
+    expect(bg).toBeTruthy();
+    for (const html of [indexHtml, contactHtml]) {
+      const theme = html.match(/name="theme-color"\s+content="([^"]+)"/)?.[1];
+      expect(theme).toBeTruthy();
+      expect(theme.toLowerCase()).toBe(bg.toLowerCase());
+    }
+  });
+});
+
+describe("loaded font families ↔ CSS stacks", () => {
+  test("Google Fonts request includes Fraunces and Inter used by CSS variables", () => {
+    // Swapping the stylesheet families without updating --font-heading/--font-body
+    // (or the reverse) silently falls back to Georgia/system fonts.
+    expect(stylesCss).toMatch(/--font-heading:\s*"Fraunces"/);
+    expect(stylesCss).toMatch(/--font-body:\s*"Inter"/);
+    for (const html of [indexHtml, contactHtml]) {
+      const fontHref = html.match(
+        /href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/
+      )?.[1];
+      expect(fontHref).toBeTruthy();
+      expect(fontHref).toMatch(/family=Fraunces/);
+      expect(fontHref).toMatch(/family=Inter/);
+    }
+  });
+});
+
+describe("skip-link landmark target", () => {
+  test("both pages put id=main-content on the <main> landmark", () => {
+    // Skip links that land on a non-main wrapper still "pass" href checks but
+    // fail the intended landmark jump for keyboard / AT users.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(/<main\b[^>]*\bid="main-content"/i);
+    }
+  });
+});
+
+describe("external link hardening", () => {
+  test("any target=_blank link keeps rel with noopener", () => {
+    // Without noopener, a new tab can reach window.opener (tabnabbing risk).
+    for (const html of [indexHtml, contactHtml]) {
+      const blankAnchors = [...html.matchAll(/<a\b[^>]*\btarget="_blank"[^>]*>/gi)];
+      for (const match of blankAnchors) {
+        expect(match[0]).toMatch(/\brel="/i);
+        expect(match[0]).toMatch(/\bnoopener\b/i);
+      }
+    }
+  });
+});
+
+describe("script sourcing posture", () => {
+  test("every script src is a local js/ path (no third-party script hosts)", () => {
+    // A CDN or analytics script would also need CSP script-src expansion; catching
+    // the HTML side first prevents silent CSP breakage or unexpected supply-chain deps.
+    for (const html of [indexHtml, contactHtml]) {
+      const srcs = collectMatches(html, /<script\b[^>]*\bsrc="([^"]+)"/gi);
+      expect(srcs.length).toBeGreaterThan(0);
+      for (const src of srcs) {
+        expect(src.startsWith("js/")).toBe(true);
+        expect(src).not.toMatch(/^https?:/i);
+      }
+    }
+  });
+});
+
+describe("primary CTA button CSS contract", () => {
+  test("btn-primary and btn-block rules exist for quote CTAs and the submit control", () => {
+    // Quote links and the contact submit button rely on these classes for visible
+    // affordance. Dropping the CSS leaves functional but invisible/unstyled CTAs.
+    expect(stylesCss).toMatch(/\.btn-primary\s*\{/);
+    expect(stylesCss).toMatch(/\.btn-block\s*\{/);
+    expect(contactHtml).toMatch(
+      /<button\b[^>]*\btype="submit"[^>]*\bclass="[^"]*\bbtn\b[^"]*\bbtn-primary\b[^"]*\bbtn-block\b/i
+    );
+  });
+});
+
+describe("meta description identity on both pages", () => {
+  test("both meta descriptions include the JSON-LD business name", () => {
+    // Founder is already locked; business-name drift in descriptions breaks
+    // search-snippet identity after the launch rename from [Business Name].
+    const businessName = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).name;
+    expect(businessName).toBeTruthy();
+    for (const html of [indexHtml, contactHtml]) {
+      const description = decodeBasicEntities(
+        html.match(/name="description"\s+content="([^"]+)"/)[1]
+      );
+      expect(description).toContain(businessName);
+    }
+  });
+});
