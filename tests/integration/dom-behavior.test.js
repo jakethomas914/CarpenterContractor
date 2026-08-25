@@ -408,7 +408,7 @@ describe("contact form handling", () => {
     form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
 
     expect(status.classList.contains("is-visible")).toBe(true);
-    expect(status.textContent.length).toBeGreaterThan(0);
+    expect(status.textContent).toBe("Opening your email app to send this message…");
   });
 
   test("prevents the browser's default form submission", () => {
