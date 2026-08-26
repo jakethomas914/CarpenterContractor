@@ -196,6 +196,31 @@ describe("scroll reveal fallback", () => {
 
     delete window.IntersectionObserver;
   });
+
+  test("constructs the scroll-reveal observer with the documented threshold and rootMargin", () => {
+    // These options control when lead-capture cards become visible. Drifting them
+    // (e.g. threshold 1.0 or a large negative rootMargin) can leave the contact
+    // form/info stuck at opacity:0 until near the bottom of the viewport.
+    const constructedOptions = [];
+    window.IntersectionObserver = class {
+      constructor(_callback, options) {
+        constructedOptions.push(options);
+      }
+
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(revealFixture);
+
+    expect(constructedOptions).toContainEqual({
+      threshold: 0.12,
+      rootMargin: "0px 0px -60px 0px",
+    });
+
+    delete window.IntersectionObserver;
+  });
 });
 
 describe("active nav highlighting", () => {
@@ -228,6 +253,29 @@ describe("active nav highlighting", () => {
     expect(observe).toHaveBeenCalledTimes(2);
     expect(observe).toHaveBeenCalledWith(document.getElementById("services"));
     expect(observe).toHaveBeenCalledWith(document.getElementById("about"));
+
+    delete window.IntersectionObserver;
+  });
+
+  test("constructs the active-nav observer with the documented rootMargin band", () => {
+    // rootMargin "-45% 0px -50% 0px" keeps aria-current on the mid-viewport section.
+    // Widening or dropping it makes every section "current" or none, confusing AT users.
+    const constructedOptions = [];
+    window.IntersectionObserver = class {
+      constructor(_callback, options) {
+        constructedOptions.push(options);
+      }
+
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(navHighlightFixture);
+
+    expect(constructedOptions).toContainEqual({
+      rootMargin: "-45% 0px -50% 0px",
+    });
 
     delete window.IntersectionObserver;
   });

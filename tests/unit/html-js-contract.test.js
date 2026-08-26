@@ -57,6 +57,18 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     }
   });
 
+  test("lead-field id and name attributes stay paired (labels ↔ FormData keys)", () => {
+    // label[for] targets id; FormData uses name. Splitting them leaves accessible
+    // labels while mailto/Netlify receive blank or wrong keys.
+    for (const id of ["name", "email", "phone", "service", "message"]) {
+      const control = contactHtml.match(
+        new RegExp(`<(?:input|select|textarea)\\b[^>]*\\bid="${id}"[^>]*>`, "i")
+      );
+      expect(control).toBeTruthy();
+      expect(control[0]).toMatch(new RegExp(`\\bname="${id}"`, "i"));
+    }
+  });
+
   test("marks lead fields required and email as type=email for HTML5 validation", () => {
     for (const id of ["name", "phone", "email", "message"]) {
       expect(contactHtml).toMatch(
@@ -153,6 +165,19 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     ]) {
       expect(initBody[1]).toMatch(new RegExp(`${call}\\s*\\(\\s*\\)\\s*;`));
     }
+  });
+
+  test("active-nav and scroll-reveal keep the README selector + observer contracts", () => {
+    // README documents these exact selectors/options. Softening them (e.g. observing
+    // all sections, or dropping rootMargin) silently changes highlighting and reveal timing.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).toMatch(/querySelectorAll\(\s*["']main section\[id\]["']\s*\)/);
+    expect(mainJs).toMatch(
+      /querySelectorAll\(\s*["']\.nav-links a\[href\^='#']["']\s*\)/
+    );
+    expect(mainJs).toMatch(/threshold:\s*0\.12/);
+    expect(mainJs).toMatch(/rootMargin:\s*["']0px 0px -60px 0px["']/);
+    expect(mainJs).toMatch(/rootMargin:\s*["']-45% 0px -50% 0px["']/);
   });
 
   test("nav toggle is type=button with an accessible name on both pages", () => {

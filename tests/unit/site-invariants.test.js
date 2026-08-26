@@ -1069,3 +1069,50 @@ describe("meta description identity on both pages", () => {
     }
   });
 });
+
+describe("contact form recipient shape", () => {
+  test("data-recipient is a non-empty email-shaped address", () => {
+    // Empty or non-email recipients produce mailto:? / broken clients while every
+    // other identity check can still pass against a shared bad placeholder.
+    const recipient = contactHtml.match(/data-recipient="([^"]*)"/)?.[1];
+    expect(recipient).toBeTruthy();
+    expect(recipient.trim().length).toBeGreaterThan(0);
+    expect(recipient).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+  });
+});
+
+describe("Netlify lead fields stay inside the contact form", () => {
+  test("honeypot and form-name fields are nested under data-contact-form", () => {
+    // Fields outside the <form> are ignored by Netlify POST and by FormData, so
+    // spam filtering / form routing silently disappear while attribute checks pass.
+    const form = contactHtml.match(/<form\b[^>]*data-contact-form[\s\S]*?<\/form>/i)?.[0];
+    expect(form).toBeTruthy();
+    expect(form).toMatch(/\bname="form-name"/i);
+    expect(form).toMatch(/\bname="bot-field"/i);
+  });
+});
+
+describe("Jest export surface for pure helpers + DOM entry points", () => {
+  test("main.js still exports the documented test seams", () => {
+    // Accidental removal of navigation / init* exports breaks the integration suite
+    // in opaque ways; keep the README export contract explicit.
+    jest.resetModules();
+    document.body.innerHTML = "";
+    const main = require("../../js/main.js");
+    expect(Object.keys(main).sort()).toEqual(
+      [
+        "sanitizeForHeader",
+        "buildMailtoUrl",
+        "getYear",
+        "navigation",
+        "initMobileNav",
+        "initFooterYear",
+        "initScrollReveal",
+        "initContactForm",
+        "initActiveNavHighlight",
+        "init",
+      ].sort()
+    );
+    expect(typeof main.navigation.redirect).toBe("function");
+  });
+});
