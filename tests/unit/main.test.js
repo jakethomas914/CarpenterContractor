@@ -61,6 +61,29 @@ describe("js/main.js pure helper functions", () => {
       expect(decodedBody).toContain("Please call me back.");
     });
 
+    test("keeps stable mailto body triage labels in a fixed field order", () => {
+      // Inbox triage depends on these exact prefixes. Renaming/reordering them
+      // breaks filters and human scanning even when FormData keys stay correct.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Jane Doe",
+        email: "jane@example.com",
+        phone: "239-555-0100",
+        service: "Decks",
+        message: "Ready to start.",
+      });
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toBe(
+        [
+          "Name: Jane Doe",
+          "Email: jane@example.com",
+          "Phone: 239-555-0100",
+          "Service interested in: Decks",
+          "",
+          "Ready to start.",
+        ].join("\n")
+      );
+    });
+
     test("falls back to a generic subject when no name is supplied", () => {
       const url = main.buildMailtoUrl("info@example.com", {});
       expect(url).toContain(encodeURIComponent("New project inquiry from website visitor"));
@@ -139,6 +162,27 @@ describe("js/main.js pure helper functions", () => {
       const query = url.slice(url.indexOf("?") + 1);
       expect(query.includes("Jane & Co")).toBe(false);
       expect(query.includes("Kitchen & Bath")).toBe(false);
+    });
+
+    test("percent-encodes ?, #, and = in fields so they cannot rewrite the mailto URL", () => {
+      // Unencoded reserved characters in subject/body can truncate or retarget the
+      // mailto URI (new query params, fragment, or key/value splits).
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Pat? #1",
+        email: "pat=test@example.com",
+        phone: "239#440",
+        service: "Repairs?=urgent",
+        message: "Need a quote? Call #2 after 5=pm",
+      });
+
+      const query = url.slice(url.indexOf("?") + 1);
+      for (const raw of ["Pat? #1", "Repairs?=urgent", "Need a quote? Call #2 after 5=pm"]) {
+        expect(url).toContain(encodeURIComponent(raw));
+        expect(query.includes(raw)).toBe(false);
+      }
+      expect(query.match(/subject=/g)).toHaveLength(1);
+      expect(query.match(/body=/g)).toHaveLength(1);
+      expect(query.includes("#")).toBe(false);
     });
   });
 

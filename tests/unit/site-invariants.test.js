@@ -810,3 +810,393 @@ describe("Google Fonts preconnect parity", () => {
     }
   });
 });
+
+describe("JS ↔ CSS toggle-class contract", () => {
+  test("CSS still styles the classes main.js toggles for nav, reveal, and form status", () => {
+    // JS only flips class names; removing these selectors leaves features "working"
+    // in tests while the UI stays invisible (display:none / opacity:0 / visibility:hidden).
+    expect(stylesCss).toMatch(/\.primary-nav\.is-open\s*\{/);
+    expect(stylesCss).toMatch(/\[data-reveal\]\.is-visible\s*\{/);
+    expect(stylesCss).toMatch(/\.form-status\.is-visible\s*\{/);
+    expect(stylesCss).toMatch(/\.form-status\s*\{[^}]*display:\s*none/s);
+    expect(stylesCss).toMatch(/\.form-status\.is-visible\s*\{[^}]*display:\s*block/s);
+  });
+
+  test("data-form-status keeps the form-status class CSS needs to reveal feedback", () => {
+    // initContactForm adds .is-visible; styles only show .form-status.is-visible.
+    // Dropping class="form-status" keeps the JS path green while status stays hidden.
+    const statusEl = contactHtml.match(/<[^>]*\bdata-form-status\b[^>]*>/);
+    expect(statusEl).toBeTruthy();
+    expect(statusEl[0]).toMatch(/\bclass="[^"]*\bform-status\b[^"]*"/);
+    expect(statusEl[0]).toMatch(/\brole="status"/);
+  });
+
+  test("skip-link:focus styles keep the skip target reachable for keyboard users", () => {
+    expect(stylesCss).toMatch(/\.skip-link:focus\s*\{/);
+  });
+});
+
+describe("Netlify honeypot attribute ↔ field name pairing", () => {
+  test("netlify-honeypot value matches the honeypot input name", () => {
+    // Netlify only treats the named field as a honeypot when the attribute matches.
+    // Renaming one without the other silently disables spam filtering.
+    const honeypotAttr = contactHtml.match(/\bnetlify-honeypot="([^"]+)"/)?.[1];
+    const honeypotName = contactHtml.match(
+      /<input\b[^>]*\bname="([^"]+)"[^>]*(?:tabindex="-1"|autocomplete="off")/i
+    )?.[1];
+    expect(honeypotAttr).toBeTruthy();
+    expect(honeypotName).toBe(honeypotAttr);
+    expect(contactHtml).toMatch(new RegExp(`\\bname="${honeypotAttr}"`));
+  });
+});
+
+describe("lead-form submit control", () => {
+  test("contact form keeps an explicit type=submit primary button", () => {
+    // type="button" (or a non-button control) would break Enter-key submit and
+    // Netlify's native POST path once mailto interception is removed.
+    const form = contactHtml.match(/<form\b[^>]*data-contact-form[\s\S]*?<\/form>/i)?.[0];
+    expect(form).toBeTruthy();
+    expect(form).toMatch(/<button\b[^>]*\btype="submit"[^>]*>/i);
+  });
+});
+
+describe("script load order (DOM-ready init)", () => {
+  test("both pages load main.js immediately before </body> so init() finds hooks", () => {
+    // Script is not deferred/async. Moving it into <head> runs init() before the
+    // DOM exists and silently disables nav, reveal, footer year, and the form.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(/<script\s+src="js\/main\.js"><\/script>\s*<\/body>/i);
+    }
+  });
+});
+
+describe("Open Graph URL ↔ canonical exact match", () => {
+  test("homepage og:url equals the canonical href (not just the same origin)", () => {
+    const canonical = indexHtml.match(/rel="canonical"\s+href="([^"]+)"/)?.[1];
+    const ogUrl = indexHtml.match(/property="og:url"\s+content="([^"]+)"/)?.[1];
+    expect(canonical).toBeTruthy();
+    expect(ogUrl).toBe(canonical);
+  });
+});
+
+describe("font display swap contract", () => {
+  test("Google Fonts stylesheet requests keep display=swap (avoids invisible text)", () => {
+    for (const html of [indexHtml, contactHtml]) {
+      const fontHref = html.match(
+        /href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/
+      )?.[1];
+      expect(fontHref).toBeTruthy();
+      expect(fontHref).toMatch(/display=swap/);
+    }
+  });
+});
+
+describe("brand accessible name ↔ JSON-LD identity", () => {
+  test("brand aria-label on both pages includes the JSON-LD business name", () => {
+    const name = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).name;
+    for (const html of [indexHtml, contactHtml]) {
+      const labels = [
+        ...html.matchAll(/<a\b[^>]*\bclass="[^"]*\bbrand\b[^"]*"[^>]*\baria-label="([^"]+)"/g),
+        ...html.matchAll(/<a\b[^>]*\baria-label="([^"]+)"[^>]*\bclass="[^"]*\bbrand\b[^"]*"/g),
+      ].map((match) => decodeBasicEntities(match[1]));
+      expect(labels.length).toBeGreaterThan(0);
+      for (const label of labels) {
+        expect(label).toContain(name);
+      }
+    }
+  });
+});
+
+describe("shared stylesheet contract", () => {
+  test("both pages load the local css/styles.css stylesheet", () => {
+    // Chrome parity and reveal/form-status CSS assume one shared sheet. A CDN
+    // swap or path typo on one page silently splits design and JS↔CSS contracts.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(/<link\b[^>]*\brel="stylesheet"[^>]*\bhref="css\/styles\.css"/i);
+    }
+  });
+});
+
+describe("JSON-LD url ↔ homepage canonical", () => {
+  test("JSON-LD url matches the homepage canonical href", () => {
+    // Structured data and the canonical tag are launch placeholders that must
+    // stay in lockstep; drift sends search engines competing homepage URLs.
+    const data = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    );
+    const canonical = indexHtml.match(/rel="canonical"\s+href="([^"]+)"/)?.[1];
+    expect(canonical).toBeTruthy();
+    expect(data.url).toBe(canonical);
+  });
+});
+
+describe("service select lead-quality defaults", () => {
+  test("service select has no blank placeholder option (first choice is a real service)", () => {
+    // An empty first <option value=""> without required would submit blank
+    // service lines into mailto/Netlify and weaken lead triage.
+    const select = contactHtml.match(/<select\b[^>]*\bid="service"[^>]*>([\s\S]*?)<\/select>/i)?.[1];
+    expect(select).toBeTruthy();
+    const firstOption = select.match(/<option\b[^>]*>/i)?.[0];
+    expect(firstOption).toBeTruthy();
+    const value = firstOption.match(/\bvalue="([^"]*)"/i)?.[1];
+    expect(value).toBeTruthy();
+    expect(value.trim().length).toBeGreaterThan(0);
+    expect(firstOption).not.toMatch(/\bdisabled\b/i);
+    expect(firstOption).not.toMatch(/\bhidden\b/i);
+  });
+});
+
+describe("mobile nav CSS visibility contract", () => {
+  test("at max-width 920px, closed primary-nav stays hidden until .is-open", () => {
+    // initMobileNav only toggles .is-open. If the closed rule loses opacity/visibility
+    // hiding — or .is-open loses the reveal — mobile menus "work" in Jest while
+    // remaining invisible (or permanently visible) in real browsers.
+    expect(stylesCss).toMatch(/@media\s*\(\s*max-width:\s*920px\s*\)/);
+    expect(stylesCss).toMatch(
+      /\.primary-nav\s*\{[^}]*opacity:\s*0[^}]*visibility:\s*hidden/s
+    );
+    expect(stylesCss).toMatch(
+      /\.primary-nav\.is-open\s*\{[^}]*opacity:\s*1[^}]*visibility:\s*visible/s
+    );
+  });
+
+  test("nav-toggle is hidden on desktop and shown inside the mobile breakpoint", () => {
+    // Without display:none by default, desktop gets a duplicate hamburger.
+    // Without display:inline-flex in the mobile media query, the toggle never appears.
+    expect(stylesCss).toMatch(/\.nav-toggle\s*\{[^}]*display:\s*none/s);
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*920px\s*\)[\s\S]*?\.nav-toggle\s*\{[^}]*display:\s*inline-flex/s
+    );
+  });
+});
+
+describe("theme-color ↔ CSS background parity", () => {
+  test("theme-color matches the --color-bg custom property on both pages", () => {
+    // Browser chrome / PWA toolbar color should track the page background.
+    // Diverging these leaves a jarring flash of the wrong color on load.
+    const bg = stylesCss.match(/--color-bg:\s*(#[0-9a-fA-F]+)/)?.[1];
+    expect(bg).toBeTruthy();
+    for (const html of [indexHtml, contactHtml]) {
+      const theme = html.match(/name="theme-color"\s+content="([^"]+)"/)?.[1];
+      expect(theme).toBeTruthy();
+      expect(theme.toLowerCase()).toBe(bg.toLowerCase());
+    }
+  });
+});
+
+describe("loaded font families ↔ CSS stacks", () => {
+  test("Google Fonts request includes Fraunces and Inter used by CSS variables", () => {
+    // Swapping the stylesheet families without updating --font-heading/--font-body
+    // (or the reverse) silently falls back to Georgia/system fonts.
+    expect(stylesCss).toMatch(/--font-heading:\s*"Fraunces"/);
+    expect(stylesCss).toMatch(/--font-body:\s*"Inter"/);
+    for (const html of [indexHtml, contactHtml]) {
+      const fontHref = html.match(
+        /href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/
+      )?.[1];
+      expect(fontHref).toBeTruthy();
+      expect(fontHref).toMatch(/family=Fraunces/);
+      expect(fontHref).toMatch(/family=Inter/);
+    }
+  });
+});
+
+describe("skip-link landmark target", () => {
+  test("both pages put id=main-content on the <main> landmark", () => {
+    // Skip links that land on a non-main wrapper still "pass" href checks but
+    // fail the intended landmark jump for keyboard / AT users.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(/<main\b[^>]*\bid="main-content"/i);
+    }
+  });
+});
+
+describe("external link hardening", () => {
+  test("any target=_blank link keeps rel with noopener", () => {
+    // Without noopener, a new tab can reach window.opener (tabnabbing risk).
+    for (const html of [indexHtml, contactHtml]) {
+      const blankAnchors = [...html.matchAll(/<a\b[^>]*\btarget="_blank"[^>]*>/gi)];
+      for (const match of blankAnchors) {
+        expect(match[0]).toMatch(/\brel="/i);
+        expect(match[0]).toMatch(/\bnoopener\b/i);
+      }
+    }
+  });
+});
+
+describe("script sourcing posture", () => {
+  test("every script src is a local js/ path (no third-party script hosts)", () => {
+    // A CDN or analytics script would also need CSP script-src expansion; catching
+    // the HTML side first prevents silent CSP breakage or unexpected supply-chain deps.
+    for (const html of [indexHtml, contactHtml]) {
+      const srcs = collectMatches(html, /<script\b[^>]*\bsrc="([^"]+)"/gi);
+      expect(srcs.length).toBeGreaterThan(0);
+      for (const src of srcs) {
+        expect(src.startsWith("js/")).toBe(true);
+        expect(src).not.toMatch(/^https?:/i);
+      }
+    }
+  });
+});
+
+describe("primary CTA button CSS contract", () => {
+  test("btn-primary and btn-block rules exist for quote CTAs and the submit control", () => {
+    // Quote links and the contact submit button rely on these classes for visible
+    // affordance. Dropping the CSS leaves functional but invisible/unstyled CTAs.
+    expect(stylesCss).toMatch(/\.btn-primary\s*\{/);
+    expect(stylesCss).toMatch(/\.btn-block\s*\{/);
+    expect(contactHtml).toMatch(
+      /<button\b[^>]*\btype="submit"[^>]*\bclass="[^"]*\bbtn\b[^"]*\bbtn-primary\b[^"]*\bbtn-block\b/i
+    );
+  });
+});
+
+describe("meta description identity on both pages", () => {
+  test("both meta descriptions include the JSON-LD business name", () => {
+    // Founder is already locked; business-name drift in descriptions breaks
+    // search-snippet identity after the launch rename from [Business Name].
+    const businessName = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).name;
+    expect(businessName).toBeTruthy();
+    for (const html of [indexHtml, contactHtml]) {
+      const description = decodeBasicEntities(
+        html.match(/name="description"\s+content="([^"]+)"/)[1]
+      );
+      expect(description).toContain(businessName);
+    }
+  });
+});
+
+describe("contact form recipient shape", () => {
+  test("data-recipient is a non-empty email-shaped address", () => {
+    // Empty or non-email recipients produce mailto:? / broken clients while every
+    // other identity check can still pass against a shared bad placeholder.
+    const recipient = contactHtml.match(/data-recipient="([^"]*)"/)?.[1];
+    expect(recipient).toBeTruthy();
+    expect(recipient.trim().length).toBeGreaterThan(0);
+    expect(recipient).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+  });
+});
+
+describe("Netlify lead fields stay inside the contact form", () => {
+  test("honeypot and form-name fields are nested under data-contact-form", () => {
+    // Fields outside the <form> are ignored by Netlify POST and by FormData, so
+    // spam filtering / form routing silently disappear while attribute checks pass.
+    const form = contactHtml.match(/<form\b[^>]*data-contact-form[\s\S]*?<\/form>/i)?.[0];
+    expect(form).toBeTruthy();
+    expect(form).toMatch(/\bname="form-name"/i);
+    expect(form).toMatch(/\bname="bot-field"/i);
+  });
+});
+
+describe("Jest export surface for pure helpers + DOM entry points", () => {
+  test("main.js still exports the documented test seams", () => {
+    // Accidental removal of navigation / init* exports breaks the integration suite
+    // in opaque ways; keep the README export contract explicit.
+    jest.resetModules();
+    document.body.innerHTML = "";
+    const main = require("../../js/main.js");
+    expect(Object.keys(main).sort()).toEqual(
+      [
+        "sanitizeForHeader",
+        "buildMailtoUrl",
+        "getYear",
+        "navigation",
+        "initMobileNav",
+        "initFooterYear",
+        "initScrollReveal",
+        "initContactForm",
+        "initActiveNavHighlight",
+        "init",
+      ].sort()
+    );
+    expect(typeof main.navigation.redirect).toBe("function");
+  });
+});
+
+describe("primary nav section-target parity", () => {
+  function extractPrimaryNavSectionIds(html, { bareHashes }) {
+    const block = collectMatches(html, /class="nav-links"[\s\S]*?<\/ul>/g)[0];
+    expect(block).toBeTruthy();
+    const pattern = bareHashes
+      ? /href="#([^"]+)"/g
+      : /href="index\.html#([^"]+)"/g;
+    return collectMatches(block, pattern);
+  }
+
+  test("homepage and contact primary nav target the same section ids in order", () => {
+    // Label parity alone misses href drift (e.g. "About" pointing at #services).
+    // Active-nav + cross-page jumps depend on identical destination ids.
+    expect(extractPrimaryNavSectionIds(indexHtml, { bareHashes: true })).toEqual(
+      extractPrimaryNavSectionIds(contactHtml, { bareHashes: false })
+    );
+  });
+
+  test("homepage primary nav hashes are bidirectional with main section ids", () => {
+    // Dead hash links and orphan sections both break in-page nav / aria-current.
+    const sectionIds = collectMatches(indexHtml, /<section[^>]*\bid="([^"]+)"/g);
+    const navIds = extractPrimaryNavSectionIds(indexHtml, { bareHashes: true });
+    expect(navIds.length).toBeGreaterThan(0);
+    expect(navIds).toEqual(sectionIds);
+  });
+});
+
+describe("unique element ids", () => {
+  test("each page keeps unique non-empty id attributes", () => {
+    // Duplicate ids break label[for], skip-link targets, aria-controls, and
+    // active-nav querySelector matches (first-only).
+    for (const html of [indexHtml, contactHtml]) {
+      const ids = collectMatches(html, /\bid="([^"]*)"/g);
+      expect(ids.length).toBeGreaterThan(0);
+      for (const id of ids) {
+        expect(id.trim().length).toBeGreaterThan(0);
+      }
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+});
+
+describe("contact document title identity", () => {
+  test("contact <title> includes the JSON-LD business name", () => {
+    // Meta descriptions already lock business name; title drift still breaks
+    // tab/share identity after the launch rename from [Business Name].
+    const businessName = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).name;
+    const title = decodeBasicEntities(contactHtml.match(/<title>([^<]+)<\/title>/)[1]);
+    expect(businessName).toBeTruthy();
+    expect(title).toContain(businessName);
+  });
+});
+
+describe("contact Availability hours copy", () => {
+  test("locks the published weekday / weekend availability rows", () => {
+    // Structured presence is already checked; exact hours are what visitors
+    // and the README launch checklist treat as the business commitment.
+    const hoursRows = [
+      ...contactHtml.matchAll(
+        /class="hours-row"[^>]*>\s*<span>([\s\S]*?)<\/span>\s*<span>([\s\S]*?)<\/span>/g
+      ),
+    ].map((match) => ({
+      day: decodeBasicEntities(match[1].replace(/\s+/g, " ").trim()),
+      hours: decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+    }));
+
+    expect(hoursRows).toEqual([
+      { day: "Monday – Friday", hours: "7:00 AM – 5:00 PM" },
+      { day: "Saturday", hours: "By appointment" },
+      { day: "Sunday", hours: "Closed" },
+    ]);
+  });
+});
+
+describe("sticky header chrome contract", () => {
+  test("site-header stays position:sticky so mobile nav overlays content", () => {
+    // initMobileNav assumes a persistent header. Losing sticky positioning
+    // scrolls the toggle away and makes the open menu harder to dismiss.
+    expect(stylesCss).toMatch(/\.site-header\s*\{[^}]*position:\s*sticky/s);
+  });
+});

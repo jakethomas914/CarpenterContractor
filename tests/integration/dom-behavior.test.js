@@ -196,6 +196,57 @@ describe("scroll reveal fallback", () => {
 
     delete window.IntersectionObserver;
   });
+
+  test("constructs the scroll-reveal observer with the documented threshold and rootMargin", () => {
+    // These options control when lead-capture cards become visible. Drifting them
+    // (e.g. threshold 1.0 or a large negative rootMargin) can leave the contact
+    // form/info stuck at opacity:0 until near the bottom of the viewport.
+    const constructedOptions = [];
+    window.IntersectionObserver = class {
+      constructor(_callback, options) {
+        constructedOptions.push(options);
+      }
+
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(revealFixture);
+
+    expect(constructedOptions).toContainEqual({
+      threshold: 0.12,
+      rootMargin: "0px 0px -60px 0px",
+    });
+
+    delete window.IntersectionObserver;
+  });
+
+  test("observes every [data-reveal] element (not just the first)", () => {
+    // Contact lead cards and homepage service tiles each need their own observe.
+    // Observing only the first match leaves later lead UI stuck at opacity:0.
+    const observe = jest.fn();
+    window.IntersectionObserver = class {
+      constructor() {}
+      observe(target) {
+        observe(target);
+      }
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(`
+      <section data-reveal>One</section>
+      <section data-reveal>Two</section>
+      <section data-reveal>Three</section>
+    `);
+
+    expect(observe).toHaveBeenCalledTimes(3);
+    const observed = observe.mock.calls.map((call) => call[0]);
+    expect(observed).toEqual([...document.querySelectorAll("[data-reveal]")]);
+
+    delete window.IntersectionObserver;
+  });
 });
 
 describe("active nav highlighting", () => {
@@ -228,6 +279,51 @@ describe("active nav highlighting", () => {
     expect(observe).toHaveBeenCalledTimes(2);
     expect(observe).toHaveBeenCalledWith(document.getElementById("services"));
     expect(observe).toHaveBeenCalledWith(document.getElementById("about"));
+
+    delete window.IntersectionObserver;
+  });
+
+  test("constructs the active-nav observer with the documented rootMargin band", () => {
+    // rootMargin "-45% 0px -50% 0px" keeps aria-current on the mid-viewport section.
+    // Widening or dropping it makes every section "current" or none, confusing AT users.
+    const constructedOptions = [];
+    window.IntersectionObserver = class {
+      constructor(_callback, options) {
+        constructedOptions.push(options);
+      }
+
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(navHighlightFixture);
+
+    expect(constructedOptions).toContainEqual({
+      rootMargin: "-45% 0px -50% 0px",
+    });
+
+    delete window.IntersectionObserver;
+  });
+
+  test("observes every main section[id] used for aria-current highlighting", () => {
+    // Skipping a section means scrolling into it never updates aria-current,
+    // so AT users hear a stale "current" nav item.
+    const observe = jest.fn();
+    window.IntersectionObserver = class {
+      constructor() {}
+      observe(target) {
+        observe(target);
+      }
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(navHighlightFixture);
+
+    expect(observe).toHaveBeenCalledTimes(2);
+    const observed = observe.mock.calls.map((call) => call[0]);
+    expect(observed).toEqual([...document.querySelectorAll("main section[id]")]);
 
     delete window.IntersectionObserver;
   });
@@ -408,7 +504,7 @@ describe("contact form handling", () => {
     form.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
 
     expect(status.classList.contains("is-visible")).toBe(true);
-    expect(status.textContent.length).toBeGreaterThan(0);
+    expect(status.textContent).toBe("Opening your email app to send this message…");
   });
 
   test("prevents the browser's default form submission", () => {
