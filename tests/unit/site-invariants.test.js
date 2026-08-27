@@ -1116,3 +1116,87 @@ describe("Jest export surface for pure helpers + DOM entry points", () => {
     expect(typeof main.navigation.redirect).toBe("function");
   });
 });
+
+describe("primary nav section-target parity", () => {
+  function extractPrimaryNavSectionIds(html, { bareHashes }) {
+    const block = collectMatches(html, /class="nav-links"[\s\S]*?<\/ul>/g)[0];
+    expect(block).toBeTruthy();
+    const pattern = bareHashes
+      ? /href="#([^"]+)"/g
+      : /href="index\.html#([^"]+)"/g;
+    return collectMatches(block, pattern);
+  }
+
+  test("homepage and contact primary nav target the same section ids in order", () => {
+    // Label parity alone misses href drift (e.g. "About" pointing at #services).
+    // Active-nav + cross-page jumps depend on identical destination ids.
+    expect(extractPrimaryNavSectionIds(indexHtml, { bareHashes: true })).toEqual(
+      extractPrimaryNavSectionIds(contactHtml, { bareHashes: false })
+    );
+  });
+
+  test("homepage primary nav hashes are bidirectional with main section ids", () => {
+    // Dead hash links and orphan sections both break in-page nav / aria-current.
+    const sectionIds = collectMatches(indexHtml, /<section[^>]*\bid="([^"]+)"/g);
+    const navIds = extractPrimaryNavSectionIds(indexHtml, { bareHashes: true });
+    expect(navIds.length).toBeGreaterThan(0);
+    expect(navIds).toEqual(sectionIds);
+  });
+});
+
+describe("unique element ids", () => {
+  test("each page keeps unique non-empty id attributes", () => {
+    // Duplicate ids break label[for], skip-link targets, aria-controls, and
+    // active-nav querySelector matches (first-only).
+    for (const html of [indexHtml, contactHtml]) {
+      const ids = collectMatches(html, /\bid="([^"]*)"/g);
+      expect(ids.length).toBeGreaterThan(0);
+      for (const id of ids) {
+        expect(id.trim().length).toBeGreaterThan(0);
+      }
+      expect(new Set(ids).size).toBe(ids.length);
+    }
+  });
+});
+
+describe("contact document title identity", () => {
+  test("contact <title> includes the JSON-LD business name", () => {
+    // Meta descriptions already lock business name; title drift still breaks
+    // tab/share identity after the launch rename from [Business Name].
+    const businessName = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).name;
+    const title = decodeBasicEntities(contactHtml.match(/<title>([^<]+)<\/title>/)[1]);
+    expect(businessName).toBeTruthy();
+    expect(title).toContain(businessName);
+  });
+});
+
+describe("contact Availability hours copy", () => {
+  test("locks the published weekday / weekend availability rows", () => {
+    // Structured presence is already checked; exact hours are what visitors
+    // and the README launch checklist treat as the business commitment.
+    const hoursRows = [
+      ...contactHtml.matchAll(
+        /class="hours-row"[^>]*>\s*<span>([\s\S]*?)<\/span>\s*<span>([\s\S]*?)<\/span>/g
+      ),
+    ].map((match) => ({
+      day: decodeBasicEntities(match[1].replace(/\s+/g, " ").trim()),
+      hours: decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+    }));
+
+    expect(hoursRows).toEqual([
+      { day: "Monday – Friday", hours: "7:00 AM – 5:00 PM" },
+      { day: "Saturday", hours: "By appointment" },
+      { day: "Sunday", hours: "Closed" },
+    ]);
+  });
+});
+
+describe("sticky header chrome contract", () => {
+  test("site-header stays position:sticky so mobile nav overlays content", () => {
+    // initMobileNav assumes a persistent header. Losing sticky positioning
+    // scrolls the toggle away and makes the open menu harder to dismiss.
+    expect(stylesCss).toMatch(/\.site-header\s*\{[^}]*position:\s*sticky/s);
+  });
+});

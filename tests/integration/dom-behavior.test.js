@@ -221,6 +221,32 @@ describe("scroll reveal fallback", () => {
 
     delete window.IntersectionObserver;
   });
+
+  test("observes every [data-reveal] element (not just the first)", () => {
+    // Contact lead cards and homepage service tiles each need their own observe.
+    // Observing only the first match leaves later lead UI stuck at opacity:0.
+    const observe = jest.fn();
+    window.IntersectionObserver = class {
+      constructor() {}
+      observe(target) {
+        observe(target);
+      }
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(`
+      <section data-reveal>One</section>
+      <section data-reveal>Two</section>
+      <section data-reveal>Three</section>
+    `);
+
+    expect(observe).toHaveBeenCalledTimes(3);
+    const observed = observe.mock.calls.map((call) => call[0]);
+    expect(observed).toEqual([...document.querySelectorAll("[data-reveal]")]);
+
+    delete window.IntersectionObserver;
+  });
 });
 
 describe("active nav highlighting", () => {
@@ -276,6 +302,28 @@ describe("active nav highlighting", () => {
     expect(constructedOptions).toContainEqual({
       rootMargin: "-45% 0px -50% 0px",
     });
+
+    delete window.IntersectionObserver;
+  });
+
+  test("observes every main section[id] used for aria-current highlighting", () => {
+    // Skipping a section means scrolling into it never updates aria-current,
+    // so AT users hear a stale "current" nav item.
+    const observe = jest.fn();
+    window.IntersectionObserver = class {
+      constructor() {}
+      observe(target) {
+        observe(target);
+      }
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(navHighlightFixture);
+
+    expect(observe).toHaveBeenCalledTimes(2);
+    const observed = observe.mock.calls.map((call) => call[0]);
+    expect(observed).toEqual([...document.querySelectorAll("main section[id]")]);
 
     delete window.IntersectionObserver;
   });
