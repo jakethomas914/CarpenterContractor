@@ -180,6 +180,15 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     expect(mainJs).toMatch(/rootMargin:\s*["']-45% 0px -50% 0px["']/);
   });
 
+  test("active-nav sets aria-current to the token true (not page/location)", () => {
+    // Integration tests assert the attribute appears; locking the source token
+    // prevents a "cleanup" to aria-current="page" that would desync AT announcements
+    // from the documented README contract without failing selector checks.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).toMatch(/setAttribute\(\s*["']aria-current["']\s*,\s*["']true["']\s*\)/);
+    expect(mainJs).toMatch(/removeAttribute\(\s*["']aria-current["']\s*\)/);
+  });
+
   test("nav toggle is type=button with an accessible name on both pages", () => {
     // type=submit (the HTML default for button) inside a form would POST; an
     // unlabeled toggle also fails basic a11y checks the e2e suite relies on.
