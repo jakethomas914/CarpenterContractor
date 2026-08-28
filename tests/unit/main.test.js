@@ -89,6 +89,19 @@ describe("js/main.js pure helper functions", () => {
       expect(url).toContain(encodeURIComponent("New project inquiry from website visitor"));
     });
 
+    test("locks the inquiry subject prefix used for inbox filters", () => {
+      // Mail clients and owner-side filters key off this exact prefix. Rewording
+      // it (e.g. "Quote request from") silently breaks triage rules even when
+      // the mailto body labels stay correct.
+      const withName = main.buildMailtoUrl("info@example.com", { name: "Pat" });
+      const withoutName = main.buildMailtoUrl("info@example.com", {});
+      expect(withName).toContain(encodeURIComponent("New project inquiry from Pat"));
+      expect(withoutName).toContain(
+        encodeURIComponent("New project inquiry from website visitor")
+      );
+      expect(withName).toMatch(/subject=[^&]*New%20project%20inquiry%20from/);
+    });
+
     test("sanitizes header-relevant fields to prevent mailto header injection", () => {
       const url = main.buildMailtoUrl("info@example.com", {
         name: "Evil\r\nBcc:victim@example.com",

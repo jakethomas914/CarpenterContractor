@@ -1199,4 +1199,93 @@ describe("sticky header chrome contract", () => {
     // scrolls the toggle away and makes the open menu harder to dismiss.
     expect(stylesCss).toMatch(/\.site-header\s*\{[^}]*position:\s*sticky/s);
   });
+
+  test("site-header keeps top:0 and a stacking z-index above page content", () => {
+    // Sticky without top:0 is unreliable across browsers. Without z-index, the
+    // absolute mobile .primary-nav paints under following sections so the open
+    // menu looks broken even though .is-open toggles correctly in Jest.
+    expect(stylesCss).toMatch(/\.site-header\s*\{[^}]*top:\s*0/s);
+    const z = stylesCss.match(/\.site-header\s*\{[^}]*z-index:\s*(\d+)/s);
+    expect(z).toBeTruthy();
+    expect(Number(z[1])).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("mobile nav overlay positioning", () => {
+  test("at max-width 920px, primary-nav is absolutely positioned under the sticky header", () => {
+    // Sticky header + absolute dropdown is the overlay contract. Switching the
+    // open menu to static/relative flow pushes page content down instead of
+    // covering it, and loses the top:100% anchor under .site-header.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*920px\s*\)[\s\S]*?\.primary-nav\s*\{[^}]*position:\s*absolute[^}]*top:\s*100%/s
+    );
+  });
+});
+
+describe("skip-link focus visibility contract", () => {
+  test("skip-link stays off-screen until :focus moves it into view", () => {
+    // A skip link that is only opacity/visually styled but never repositioned
+    // on :focus remains unreachable for keyboard users despite the href contract.
+    expect(stylesCss).toMatch(/\.skip-link\s*\{[^}]*top:\s*-\d+px/s);
+    expect(stylesCss).toMatch(/\.skip-link:focus\s*\{[^}]*top:\s*\d+px/s);
+  });
+
+  test("skip-link z-index stays above the sticky site-header", () => {
+    // If skip-link stacks under the header, :focus brings it on-screen but it
+    // remains covered — keyboard users never see or activate it.
+    const skipZ = stylesCss.match(/\.skip-link\s*\{[^}]*z-index:\s*(\d+)/s);
+    const headerZ = stylesCss.match(/\.site-header\s*\{[^}]*z-index:\s*(\d+)/s);
+    expect(skipZ).toBeTruthy();
+    expect(headerZ).toBeTruthy();
+    expect(Number(skipZ[1])).toBeGreaterThan(Number(headerZ[1]));
+  });
+});
+
+describe("scroll motion + reduced-motion contract", () => {
+  test("smooth scrolling is enabled by default and disabled under prefers-reduced-motion", () => {
+    // In-page nav hashes rely on smooth scrolling for UX, but reduced-motion
+    // users must get instant jumps (WCAG / axe e2e posture).
+    expect(stylesCss).toMatch(/html\s*\{[^}]*scroll-behavior:\s*smooth/s);
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)[\s\S]*?html\s*\{[^}]*scroll-behavior:\s*auto/s
+    );
+  });
+});
+
+describe("scroll-reveal visible-state CSS contract", () => {
+  test("[data-reveal].is-visible restores opacity so IO-driven reveals actually show", () => {
+    // initScrollReveal only adds .is-visible. If that rule loses opacity:1,
+    // observed elements stay at the default opacity:0 forever — including the
+    // contact quote form — while observer tests still pass.
+    expect(stylesCss).toMatch(
+      /\[data-reveal\]\.is-visible\s*\{[^}]*opacity:\s*1/s
+    );
+  });
+});
+
+describe("primary nav landmark label parity", () => {
+  test("both pages keep aria-label=Primary on the primary-nav landmark", () => {
+    // Screen readers announce this landmark name; drift between pages makes
+    // nav discovery inconsistent after chrome copy edits.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(
+        /<nav\b[^>]*\bclass="[^"]*\bprimary-nav\b[^"]*"[^>]*\baria-label="Primary"/i
+      );
+    }
+  });
+});
+
+describe("Netlify honeypot input type", () => {
+  test("honeypot field stays type=text so it remains a fillable spam trap", () => {
+    // type=hidden removes the field from bot autofill heuristics Netlify
+    // relies on; README called out restoring type=text during lint hardening.
+    const honeypotName = contactHtml.match(/\bnetlify-honeypot="([^"]+)"/)?.[1];
+    expect(honeypotName).toBeTruthy();
+    expect(contactHtml).toMatch(
+      new RegExp(
+        `<input\\b[^>]*\\btype="text"[^>]*\\bname="${honeypotName}"|<input\\b[^>]*\\bname="${honeypotName}"[^>]*\\btype="text"`,
+        "i"
+      )
+    );
+  });
 });
