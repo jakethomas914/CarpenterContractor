@@ -100,6 +100,21 @@ describe("discovery / SEO file consistency", () => {
     expect(sitemapXml).toContain(`${siteOrigin}/contact.html`);
   });
 
+  test("sitemap keeps homepage priority above the contact page", () => {
+    // Soft signal for crawlers; accidental inversion after content edits is
+    // easy and never caught by loc↔disk checks alone.
+    const urls = [
+      ...sitemapXml.matchAll(
+        /<url>\s*<loc>\s*([^<]+?)\s*<\/loc>[\s\S]*?<priority>\s*([^<]+?)\s*<\/priority>/g
+      ),
+    ].map((match) => ({ loc: match[1].trim(), priority: Number(match[2].trim()) }));
+    const home = urls.find((u) => u.loc === `${siteOrigin}/` || u.loc === `${siteOrigin}`);
+    const contact = urls.find((u) => u.loc === `${siteOrigin}/contact.html`);
+    expect(home).toBeTruthy();
+    expect(contact).toBeTruthy();
+    expect(home.priority).toBeGreaterThan(contact.priority);
+  });
+
   test("canonical URLs on each page match the sitemap locs", () => {
     expect(indexHtml).toMatch(/rel="canonical" href="https:\/\/www\.example\.com\/"/);
     expect(contactHtml).toMatch(
@@ -245,6 +260,11 @@ describe("accessibility motion contract (CSS)", () => {
     // Accessibility e2e relies on this so axe measures final contrast.
     expect(stylesCss).toMatch(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
     expect(stylesCss).toMatch(/\[data-reveal\]\s*\{[^}]*opacity:\s*1/s);
+    // Without transform:none, reduced-motion users still see a permanent
+    // translateY offset even when opacity is forced to 1.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)[\s\S]*?\[data-reveal\]\s*\{[^}]*transform:\s*none/s
+    );
   });
 
   test("both pages expose a skip link to #main-content", () => {
@@ -504,6 +524,52 @@ describe("lead-form option values + autocomplete hardening", () => {
       expect(value.trim().length).toBeGreaterThan(0);
     }
     expect(new Set(values).size).toBe(values.length);
+  });
+
+  test("locks service option value↔label pairs (mailto body uses value, UI shows label)", () => {
+    // Catalog parity asserts labels match homepage cards, but buildMailtoUrl
+    // reads <option value>. Decks intentionally abbreviates the value — either
+    // side drifting corrupts lead triage without failing label-only checks.
+    const select = contactHtml.match(
+      /<select\b[^>]*\bid="service"[^>]*>([\s\S]*?)<\/select>/i
+    )?.[1];
+    expect(select).toBeTruthy();
+    const pairs = [...select.matchAll(/<option\b([^>]*)>([\s\S]*?)<\/option>/gi)].map(
+      (match) => ({
+        value: (match[1].match(/\bvalue="([^"]*)"/i) || [])[1] || "",
+        label: decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+      })
+    );
+    expect(pairs).toEqual([
+      {
+        value: "Custom Trim & Millwork",
+        label: "Custom Trim & Millwork",
+      },
+      {
+        value: "Custom Cabinetry & Built-Ins",
+        label: "Custom Cabinetry & Built-Ins",
+      },
+      {
+        value: "Doors & Entryways",
+        label: "Doors & Entryways",
+      },
+      {
+        value: "Decks & Outdoor Structures",
+        label: "Decks, Framing & Outdoor Structures",
+      },
+      {
+        value: "Kitchen & Bath Remodels",
+        label: "Kitchen & Bath Remodels",
+      },
+      {
+        value: "Repairs & Small Renovations",
+        label: "Repairs & Small Renovations",
+      },
+      {
+        value: "Not sure yet",
+        label: "Not sure yet",
+      },
+    ]);
   });
 
   test("lead fields keep autocomplete hints and honeypot stays out of autofill", () => {
@@ -877,6 +943,21 @@ describe("Open Graph URL ↔ canonical exact match", () => {
     expect(canonical).toBeTruthy();
     expect(ogUrl).toBe(canonical);
   });
+
+  test("homepage keeps the required Open Graph property set for link previews", () => {
+    for (const property of ["og:type", "og:title", "og:description", "og:url"]) {
+      expect(indexHtml).toMatch(
+        new RegExp(`property="${property}"\\s+content="[^"]+"`)
+      );
+    }
+  });
+
+  test("contact page intentionally omits Open Graph tags (meta description is the share fallback)", () => {
+    // Homepage owns social preview chrome today. Accidental half-added OG on
+    // contact (title without url/description) produces worse share cards than
+    // falling back to <title> + meta description.
+    expect(contactHtml).not.toMatch(/property="og:/);
+  });
 });
 
 describe("font display swap contract", () => {
@@ -1157,6 +1238,16 @@ describe("unique element ids", () => {
       expect(new Set(ids).size).toBe(ids.length);
     }
   });
+
+  test("homepage section ids stay CSS-selector-safe for active-nav querySelector", () => {
+    // initActiveNavHighlight builds '.nav-links a[href="#' + id + '"]'.
+    // Ids with spaces, quotes, or CSS specials silently fail to match.
+    const ids = collectMatches(indexHtml, /<section\b[^>]*\bid="([^"]+)"/gi);
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) {
+      expect(id).toMatch(/^[a-z][a-z0-9-]*$/);
+    }
+  });
 });
 
 describe("contact document title identity", () => {
@@ -1259,6 +1350,17 @@ describe("scroll-reveal visible-state CSS contract", () => {
     // contact quote form — while observer tests still pass.
     expect(stylesCss).toMatch(
       /\[data-reveal\]\.is-visible\s*\{[^}]*opacity:\s*1/s
+    );
+  });
+
+  test("[data-reveal].is-visible clears the entry translate so revealed content is not offset", () => {
+    // Default [data-reveal] uses translateY. Opacity-only .is-visible leaves
+    // lead cards visually shifted (and potentially clipped under sticky chrome).
+    expect(stylesCss).toMatch(
+      /\[data-reveal\]\s*\{[^}]*transform:\s*translateY\(/s
+    );
+    expect(stylesCss).toMatch(
+      /\[data-reveal\]\.is-visible\s*\{[^}]*transform:\s*translateY\(0\)/s
     );
   });
 });
