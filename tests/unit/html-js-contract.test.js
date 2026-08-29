@@ -78,6 +78,20 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     expect(contactHtml).toMatch(/<input\b[^>]*type="email"[^>]*id="email"/i);
   });
 
+  test("name field stays type=text (not email/tel/hidden) for HTML5 name entry", () => {
+    // Wrong type breaks autocomplete=name and mobile keyboards; type=hidden
+    // would drop the lead name from visible validation entirely.
+    expect(contactHtml).toMatch(/<input\b[^>]*type="text"[^>]*id="name"/i);
+  });
+
+  test("Netlify form-name field stays type=hidden so it is not editable chrome", () => {
+    // A visible form-name input confuses visitors and risks renaming the Netlify
+    // form away from name="contact" / form-name value pairing.
+    expect(contactHtml).toMatch(
+      /<input\b[^>]*(?:type="hidden"[^>]*name="form-name"|name="form-name"[^>]*type="hidden")/i
+    );
+  });
+
   test("phone field uses type=tel so mobile browsers offer a dial pad", () => {
     expect(contactHtml).toMatch(/<input\b[^>]*type="tel"[^>]*id="phone"/i);
   });
@@ -187,6 +201,18 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
     expect(mainJs).toMatch(/setAttribute\(\s*["']aria-current["']\s*,\s*["']true["']\s*\)/);
     expect(mainJs).toMatch(/removeAttribute\(\s*["']aria-current["']\s*\)/);
+  });
+
+  test("active-nav keeps observing sections (does not unobserve after first hit)", () => {
+    // Scroll-reveal unobserves once visible. Active-nav must keep observing so
+    // scrolling back to a prior section still updates aria-current.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const activeNav = mainJs.match(
+      /function initActiveNavHighlight\(\)\s*\{[\s\S]*?\n  \}\n/
+    );
+    expect(activeNav).toBeTruthy();
+    expect(activeNav[0]).not.toMatch(/\.unobserve\s*\(/);
+    expect(mainJs).toMatch(/observer\.unobserve\s*\(\s*entry\.target\s*\)/);
   });
 
   test("nav toggle is type=button with an accessible name on both pages", () => {

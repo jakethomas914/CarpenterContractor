@@ -98,6 +98,17 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(vercel["Strict-Transport-Security"]).toBe(netlify["Strict-Transport-Security"]);
     expect(vercel["Permissions-Policy"]).toBe(netlify["Permissions-Policy"]);
   });
+
+  test("locks CSP default-src/object-src/base-uri/connect-src/img-src deny-self defaults", () => {
+    // Parity alone can pass while both hosts grow more permissive. These
+    // directives gate plugins, <base> hijacks, third-party XHR, and remote images.
+    const host = parseCspDirectives(netlify["Content-Security-Policy"]);
+    expect(host["default-src"]).toBe("'self'");
+    expect(host["object-src"]).toBe("'none'");
+    expect(host["base-uri"]).toBe("'self'");
+    expect(host["connect-src"]).toBe("'self'");
+    expect(host["img-src"]).toBe("'self' data:");
+  });
 });
 
 describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
