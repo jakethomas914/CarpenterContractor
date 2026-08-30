@@ -180,6 +180,42 @@ describe("scroll reveal fallback", () => {
     delete window.IntersectionObserver;
   });
 
+  test("reveals every intersecting target when the observer fires a batch", () => {
+    // IO often delivers multiple entries per callback. Handling only entries[0]
+    // would leave sibling lead cards / service tiles stuck at opacity:0.
+    let capturedCallback;
+    const unobserve = jest.fn();
+    window.IntersectionObserver = class {
+      constructor(callback) {
+        capturedCallback = callback;
+      }
+
+      observe() {}
+      unobserve(target) {
+        unobserve(target);
+      }
+
+      disconnect() {}
+    };
+
+    loadMainWithFixture(`
+      <section data-reveal>One</section>
+      <section data-reveal>Two</section>
+    `);
+    const els = [...document.querySelectorAll("[data-reveal]")];
+
+    capturedCallback([
+      { isIntersecting: true, target: els[0] },
+      { isIntersecting: true, target: els[1] },
+    ]);
+
+    expect(els[0].classList.contains("is-visible")).toBe(true);
+    expect(els[1].classList.contains("is-visible")).toBe(true);
+    expect(unobserve).toHaveBeenCalledTimes(2);
+
+    delete window.IntersectionObserver;
+  });
+
   test("does nothing when no [data-reveal] elements exist", () => {
     const observe = jest.fn();
     window.IntersectionObserver = class {
@@ -383,6 +419,34 @@ describe("active nav highlighting", () => {
     delete window.IntersectionObserver;
   });
 
+  test("ignores non-intersecting active-nav entries so aria-current is not cleared mid-scroll", () => {
+    // Clearing on isIntersecting:false flickers AT announcements while the
+    // mid-viewport rootMargin band briefly reports every section as leaving.
+    let capturedCallback;
+    window.IntersectionObserver = class {
+      constructor(callback) {
+        capturedCallback = callback;
+      }
+
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(navHighlightFixture);
+
+    const servicesSection = document.getElementById("services");
+    const servicesLink = document.querySelector('.nav-links a[href="#services"]');
+
+    capturedCallback([{ isIntersecting: true, target: servicesSection }]);
+    expect(servicesLink.getAttribute("aria-current")).toBe("true");
+
+    capturedCallback([{ isIntersecting: false, target: servicesSection }]);
+    expect(servicesLink.getAttribute("aria-current")).toBe("true");
+
+    delete window.IntersectionObserver;
+  });
+
   test("ignores intersecting sections that have no matching nav link", () => {
     let capturedCallback;
     window.IntersectionObserver = class {
@@ -534,6 +598,32 @@ describe("contact form handling", () => {
 
     expect(redirectSpy).toHaveBeenCalledTimes(1);
     expect(redirectSpy.mock.calls[0][0].startsWith("mailto:?subject=")).toBe(true);
+  });
+
+  test("builds mailto when optional FormData keys are absent (null field values)", () => {
+    // FormData.get returns null for missing names. sanitize/buildMailto must
+    // coerce those to empty strings — a regression here throws on submit.
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="Jane Doe" />
+        <textarea name="message">Hello</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    const decoded = decodeURIComponent(redirectSpy.mock.calls[0][0]);
+    expect(decoded).toContain("Name: Jane Doe");
+    expect(decoded).toContain("Email: ");
+    expect(decoded).toContain("Phone: ");
+    expect(decoded).toContain("Service interested in: ");
+    expect(decoded).toContain("Hello");
   });
 
   test("submits successfully when the status element is absent", () => {

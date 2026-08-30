@@ -135,6 +135,18 @@ describe("discovery / SEO file consistency", () => {
     expect(robotsTxt).toContain(`${siteOrigin}/sitemap.xml`);
   });
 
+  test("robots Sitemap URL origin matches the homepage canonical origin", () => {
+    // Hardcoded example.com checks can drift independently of the live canonical.
+    // Crawlers that follow robots to a different host miss the real sitemap.
+    const canonical = indexHtml.match(/rel="canonical"\s+href="([^"]+)"/)?.[1];
+    expect(canonical).toBeTruthy();
+    const canonicalOrigin = new URL(canonical).origin;
+    const sitemapLine = robotsTxt.match(/Sitemap:\s*(\S+)/i)?.[1];
+    expect(sitemapLine).toBeTruthy();
+    expect(new URL(sitemapLine).origin).toBe(canonicalOrigin);
+    expect(sitemapLine).toBe(`${canonicalOrigin}/sitemap.xml`);
+  });
+
   test("Open Graph title stays aligned with the homepage document title", () => {
     const title = indexHtml.match(/<title>([^<]+)<\/title>/)[1];
     const ogTitle = indexHtml.match(/property="og:title"\s+content="([^"]+)"/)[1];
@@ -241,6 +253,9 @@ describe("security + Netlify form posture", () => {
       /class="visually-hidden"[\s\S]*?name="bot-field"/
     );
     expect(stylesCss).toMatch(/\.visually-hidden\s*\{[^}]*clip-path:/s);
+    // clip-path alone without absolute positioning can leave a layout hole or
+    // fail to remove the honeypot from the visual flow on some engines.
+    expect(stylesCss).toMatch(/\.visually-hidden\s*\{[^}]*position:\s*absolute/s);
     expect(stylesCss).not.toMatch(/\.visually-hidden\s*\{[^}]*display\s*:\s*none/s);
   });
 
@@ -1389,5 +1404,50 @@ describe("Netlify honeypot input type", () => {
         "i"
       )
     );
+  });
+});
+
+describe("lead form keyboard focus visibility", () => {
+  test("form controls keep a visible focus ring after outline:none", () => {
+    // outline:none without a compensatory ring fails WCAG focus visibility on
+    // the quote form — visitors tabbing through lead fields see no caret cue.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea):focus[\s\S]*?outline:\s*none/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea):focus[\s\S]*?box-shadow:\s*0\s+0\s+0\s+3px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea):focus[\s\S]*?border-color:\s*var\(--color-accent\)/s
+    );
+  });
+});
+
+describe("primary nav keyboard focus affordance", () => {
+  test("nav links keep a :focus-visible color change for keyboard users", () => {
+    // Hover-only styling leaves keyboard users without a current-link cue while
+    // aria-current remains attribute-only (no visual CSS yet).
+    expect(stylesCss).toMatch(/\.nav-links a:focus-visible\s*[,{]/);
+    expect(stylesCss).toMatch(
+      /\.nav-links a:focus-visible\s*[^{]*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+});
+
+describe("nav toggle aria-controls ↔ primary-nav id pairing", () => {
+  test("aria-controls value matches the primary-nav id on both pages", () => {
+    // Hardcoding both sides to "primary-nav" still passes if they diverge to
+    // different shared typos; extract and compare so AT wiring stays linked.
+    for (const html of [indexHtml, contactHtml]) {
+      const controls = html.match(
+        /<button\b[^>]*\bclass="[^"]*\bnav-toggle\b[^"]*"[^>]*\baria-controls="([^"]+)"/s
+      )?.[1];
+      const navId = html.match(
+        /<(?:nav|div)\b[^>]*\bclass="[^"]*\bprimary-nav\b[^"]*"[^>]*\bid="([^"]+)"/s
+      )?.[1];
+      expect(controls).toBeTruthy();
+      expect(navId).toBeTruthy();
+      expect(controls).toBe(navId);
+    }
   });
 });
