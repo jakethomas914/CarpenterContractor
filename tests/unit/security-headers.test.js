@@ -109,6 +109,24 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(host["connect-src"]).toBe("'self'");
     expect(host["img-src"]).toBe("'self' data:");
   });
+
+  test("locks CSP form-action to self + mailto (Netlify POST and lead mailto)", () => {
+    // mailto:-only checks pass if 'self' is dropped, which breaks Netlify Forms
+    // POST while the JS mailto path still appears healthy in unit tests.
+    const host = parseCspDirectives(netlify["Content-Security-Policy"]);
+    expect(host["form-action"]).toBe("'self' mailto:");
+    expect(parseCspDirectives(vercel["Content-Security-Policy"])["form-action"]).toBe(
+      "'self' mailto:"
+    );
+  });
+
+  test("locks host script-src to self + unsafe-inline (JSON-LD on homepage)", () => {
+    // Dropping 'unsafe-inline' blocks the homepage JSON-LD <script> under CSP.
+    // Expanding to https: would allow third-party script hosts the README forbids.
+    const host = parseCspDirectives(netlify["Content-Security-Policy"]);
+    expect(host["script-src"]).toBe("'self' 'unsafe-inline'");
+    expect(host["script-src"]).not.toMatch(/https?:/);
+  });
 });
 
 describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
@@ -144,9 +162,10 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
     expect(contact["object-src"]).toBe(host["object-src"]);
     expect(contact["base-uri"]).toBe(host["base-uri"]);
     expect(contact["form-action"]).toBe(host["form-action"]);
-    expect(contact["form-action"]).toMatch(/mailto:/);
-    expect(contact["script-src"]).toMatch(/'self'/);
+    expect(contact["form-action"]).toBe("'self' mailto:");
+    expect(contact["script-src"]).toBe("'self'");
     expect(contact["script-src"]).not.toMatch(/https?:/);
+    expect(contact["script-src"]).not.toMatch(/'unsafe-inline'/);
   });
 
   test("contact meta CSP matches host allowlists for non-script fetch directives", () => {

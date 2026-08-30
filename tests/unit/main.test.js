@@ -89,6 +89,14 @@ describe("js/main.js pure helper functions", () => {
       expect(url).toContain(encodeURIComponent("New project inquiry from website visitor"));
     });
 
+    test("falls back to the generic subject when name is whitespace-only after sanitize", () => {
+      // Trimmed-empty names must not produce "from " with a blank suffix — inbox
+      // filters key off the stable "website visitor" fallback token.
+      const url = main.buildMailtoUrl("info@example.com", { name: "   \t  " });
+      expect(url).toContain(encodeURIComponent("New project inquiry from website visitor"));
+      expect(url).not.toContain(encodeURIComponent("New project inquiry from  "));
+    });
+
     test("locks the inquiry subject prefix used for inbox filters", () => {
       // Mail clients and owner-side filters key off this exact prefix. Rewording
       // it (e.g. "Quote request from") silently breaks triage rules even when
