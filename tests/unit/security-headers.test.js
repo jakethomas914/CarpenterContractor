@@ -127,6 +127,30 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(host["script-src"]).toBe("'self' 'unsafe-inline'");
     expect(host["script-src"]).not.toMatch(/https?:/);
   });
+
+  test("locks CSP style-src/font-src to self + Google Fonts only", () => {
+    // Contains-only checks pass if https: or * is appended. Exact allowlists keep
+    // stylesheet/font loading on the documented hosts and block silent CDN sprawl.
+    const host = parseCspDirectives(netlify["Content-Security-Policy"]);
+    expect(host["style-src"]).toBe("'self' https://fonts.googleapis.com");
+    expect(host["font-src"]).toBe("'self' https://fonts.gstatic.com");
+    expect(parseCspDirectives(vercel["Content-Security-Policy"])["style-src"]).toBe(
+      host["style-src"]
+    );
+    expect(parseCspDirectives(vercel["Content-Security-Policy"])["font-src"]).toBe(
+      host["font-src"]
+    );
+  });
+
+  test("security headers apply site-wide on both hosts", () => {
+    // Narrowing /* or /(.*) to a single path silently drops framing/CSP/HSTS on
+    // contact.html and static assets while unit parity on the shared key set still passes.
+    const netlifyRaw = fs.readFileSync(path.join(root, "_headers"), "utf8");
+    expect(netlifyRaw).toMatch(/^\/\*\s*$/m);
+    const vercelConfig = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"));
+    const sources = (vercelConfig.headers || []).map((entry) => entry.source);
+    expect(sources).toContain("/(.*)");
+  });
 });
 
 describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
