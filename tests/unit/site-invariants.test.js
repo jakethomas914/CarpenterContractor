@@ -115,6 +115,38 @@ describe("discovery / SEO file consistency", () => {
     expect(home.priority).toBeGreaterThan(contact.priority);
   });
 
+  test("sitemap locks exact priority and changefreq tokens for listed URLs", () => {
+    // Comparative priority alone still passes if both drop to 0.1 or changefreq
+    // becomes "never" — crawler soft signals the README launch checklist expects.
+    const urls = [
+      ...sitemapXml.matchAll(
+        /<url>\s*<loc>\s*([^<]+?)\s*<\/loc>\s*<changefreq>\s*([^<]+?)\s*<\/changefreq>\s*<priority>\s*([^<]+?)\s*<\/priority>/g
+      ),
+    ].map((match) => ({
+      loc: match[1].trim(),
+      changefreq: match[2].trim(),
+      priority: match[3].trim(),
+    }));
+    const home = urls.find((u) => u.loc === `${siteOrigin}/` || u.loc === `${siteOrigin}`);
+    const contact = urls.find((u) => u.loc === `${siteOrigin}/contact.html`);
+    expect(home).toEqual({
+      loc: `${siteOrigin}/`,
+      changefreq: "monthly",
+      priority: "1.0",
+    });
+    expect(contact).toEqual({
+      loc: `${siteOrigin}/contact.html`,
+      changefreq: "monthly",
+      priority: "0.8",
+    });
+  });
+
+  test("robots.txt does not disallow the whole site", () => {
+    // Allow:/ plus a Sitemap line can coexist with Disallow:/ which blocks
+    // indexing entirely — a common "secure the staging site" leftover.
+    expect(robotsTxt).not.toMatch(/^\s*Disallow:\s*\/\s*$/im);
+  });
+
   test("canonical URLs on each page match the sitemap locs", () => {
     expect(indexHtml).toMatch(/rel="canonical" href="https:\/\/www\.example\.com\/"/);
     expect(contactHtml).toMatch(
@@ -279,6 +311,14 @@ describe("accessibility motion contract (CSS)", () => {
     // translateY offset even when opacity is forced to 1.
     expect(stylesCss).toMatch(
       /@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)[\s\S]*?\[data-reveal\]\s*\{[^}]*transform:\s*none/s
+    );
+  });
+
+  test("prefers-reduced-motion disables [data-reveal] transition animation", () => {
+    // Opacity/transform restores alone still animate under reduce if transition
+    // remains — axe e2e and WCAG reduced-motion posture expect transition:none.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)[\s\S]*?\[data-reveal\]\s*\{[^}]*transition:\s*none/s
     );
   });
 
@@ -655,6 +695,15 @@ describe("JSON-LD GeneralContractor required identity fields", () => {
       })
     );
   });
+
+  test("telephone stays a +1 NANP-shaped string for click-to-call parity", () => {
+    // Digit-only equality with tel: can pass while JSON-LD becomes a bare
+    // local number or drops the country code — rich results and dialer links diverge.
+    const data = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    );
+    expect(data.telephone).toMatch(/^\+1-\d{3}-\d{3}-\d{4}$/);
+  });
 });
 
 describe("footer Explore link contract", () => {
@@ -760,6 +809,15 @@ describe("transport + font loading hardening", () => {
     expect(viewport(indexHtml)).toBeTruthy();
     expect(viewport(contactHtml)).toBe(viewport(indexHtml));
   });
+
+  test("viewport meta keeps width=device-width and initial-scale=1.0", () => {
+    // Parity alone passes if both pages drop initial-scale or pin a desktop
+    // width — mobile lead capture and e2e small-viewport checks then degrade.
+    for (const html of [indexHtml, contactHtml]) {
+      const content = html.match(/name="viewport"\s+content="([^"]+)"/)?.[1];
+      expect(content).toBe("width=device-width, initial-scale=1.0");
+    }
+  });
 });
 
 describe("CI safety-net contract", () => {
@@ -828,6 +886,17 @@ describe("brand home link + favicon chrome", () => {
     expect(favicon(indexHtml)).toBeTruthy();
     expect(favicon(contactHtml)).toBe(favicon(indexHtml));
     expect(favicon(indexHtml)).toMatch(/href="assets\/favicon\.svg"/);
+  });
+
+  test("favicon declares image/svg+xml so browsers treat the asset as SVG", () => {
+    // Href parity alone still passes if type drifts to image/png while the file
+    // remains SVG — some browsers then refuse or mis-render the icon.
+    for (const html of [indexHtml, contactHtml]) {
+      const tag = html.match(/<link\b[^>]*\brel="icon"[^>]*>/i)?.[0];
+      expect(tag).toBeTruthy();
+      expect(tag).toMatch(/\btype="image\/svg\+xml"/i);
+      expect(tag).toMatch(/\bhref="assets\/favicon\.svg"/i);
+    }
   });
 });
 

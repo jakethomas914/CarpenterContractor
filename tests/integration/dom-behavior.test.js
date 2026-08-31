@@ -482,6 +482,39 @@ describe("active nav highlighting", () => {
     delete window.IntersectionObserver;
   });
 
+  test("processes every intersecting entry in an active-nav observer batch", () => {
+    // IO can deliver multiple mid-band sections together. Handling only
+    // entries[0] leaves aria-current on a stale section when a later entry
+    // in the same callback is the true current target.
+    let capturedCallback;
+    window.IntersectionObserver = class {
+      constructor(callback) {
+        capturedCallback = callback;
+      }
+
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+
+    loadMainWithFixture(navHighlightFixture);
+
+    const servicesSection = document.getElementById("services");
+    const aboutSection = document.getElementById("about");
+    const servicesLink = document.querySelector('.nav-links a[href="#services"]');
+    const aboutLink = document.querySelector('.nav-links a[href="#about"]');
+
+    capturedCallback([
+      { isIntersecting: true, target: servicesSection },
+      { isIntersecting: true, target: aboutSection },
+    ]);
+
+    expect(aboutLink.getAttribute("aria-current")).toBe("true");
+    expect(servicesLink.hasAttribute("aria-current")).toBe(false);
+
+    delete window.IntersectionObserver;
+  });
+
   test("does not throw when there are no sections or nav links on the page", () => {
     expect(() => loadMainWithFixture("<div></div>")).not.toThrow();
   });
