@@ -32,7 +32,11 @@ to host and maintain long-term.
 ├── jest.config.js         Unit/integration test runner config
 ├── playwright.config.js   End-to-end/regression + accessibility test runner config
 ├── tests/
-│   ├── unit/              Pure-function unit tests (Jest)
+│   ├── unit/              Static + pure-function Jest suites
+│   │   ├── main.test.js           Pure helpers (mailto, sanitize, year)
+│   │   ├── html-js-contract.test.js  Selector / data-* / init() wiring
+│   │   ├── security-headers.test.js  CSP + host-header four-way sync
+│   │   └── site-invariants.test.js   Lead-capture, SEO, chrome parity
 │   ├── integration/       DOM-wiring tests against jsdom fixtures (Jest)
 │   └── e2e/               Real-browser regression + accessibility tests (Playwright)
 ├── .github/workflows/ci.yml   Runs lint + all tests on every push/PR
@@ -164,21 +168,33 @@ files in a text editor:
 ## JavaScript ↔ HTML contract
 
 `js/main.js` wires behavior through stable selectors. Renaming these without
-updating both the HTML and JS (and usually the tests) will silently disable
-features:
+updating both the HTML and JS (and the contract tests) will silently disable
+features. Guarded by `tests/unit/html-js-contract.test.js` and
+`tests/integration/dom-behavior.test.js`.
 
 | Hook | Used by | Behavior |
 |---|---|---|
-| `.nav-toggle` + `.primary-nav` | `initMobileNav` | Toggles `.is-open` and `aria-expanded`; closes on link click |
+| `.nav-toggle` + `.primary-nav` (`id="primary-nav"`, `aria-controls="primary-nav"`) | `initMobileNav` | Toggles `.is-open` and `aria-expanded`; closes on link click. Toggle must be `type="button"` with `aria-expanded="false"` initially |
 | `[data-current-year]` | `initFooterYear` | Sets text to the current four-digit year |
-| `[data-reveal]` | `initScrollReveal` | Adds `.is-visible` on intersection (or immediately if `IntersectionObserver` is missing). CSS also force-shows reveals under `prefers-reduced-motion: reduce` |
-| `[data-contact-form]` + `data-recipient` | `initContactForm` | On submit: build mailto from named fields (`name`, `email`, `phone`, `service`, `message`), redirect via `navigation.redirect`, show `[data-form-status]` |
-| `main section[id]` + `.nav-links a[href^='#']` | `initActiveNavHighlight` | Sets `aria-current="true"` on the in-view section's nav link (homepage only) |
+| `[data-reveal]` | `initScrollReveal` | Adds `.is-visible` on intersection (`threshold: 0.12`, `rootMargin: "0px 0px -60px 0px"`), then `unobserve`s. Falls back to immediate `.is-visible` if `IntersectionObserver` is missing. CSS also force-shows reveals under `prefers-reduced-motion: reduce` |
+| `[data-contact-form]` + `data-recipient` | `initContactForm` | On submit: `preventDefault`, build mailto from named fields (`name`, `email`, `phone`, `service`, `message`), redirect via `navigation.redirect`, show inner `[data-form-status]` (`role="status"`) |
+| `main section[id]` + `.nav-links a[href^='#']` | `initActiveNavHighlight` | Sets `aria-current="true"` on the in-view section's nav link (homepage only; `rootMargin: "-45% 0px -50% 0px"`). Keeps observing (unlike scroll-reveal) so scrolling back still updates the current link |
 
-Pure helpers exported for Jest (browser no-op via `typeof module` check):
-`sanitizeForHeader`, `buildMailtoUrl`, `getYear`, plus the `navigation`
-seam (tests spy on `navigation.redirect` because jsdom cannot assert real
-location changes).
+Nav href constraints (easy to break when copy-pasting chrome between pages):
+
+- **Homepage** primary nav must use bare `#services`, `#about`, … hashes — `initActiveNavHighlight` only selects `a[href^='#']`. Prefixed `index.html#…` links silently disable highlighting.
+- **Contact** primary nav must use `index.html#…` targets — bare hashes on that page scroll nowhere useful.
+
+Other constraints:
+
+- Both pages load a **synchronous** end-of-body `<script src="js/main.js">` (no `defer` / `async`) so `init()` runs after the hooks exist in the DOM.
+- Lead fields keep matching `id` / `name` / `label[for]` (`name`, `email`, `phone`, `service`, `message`); required fields use native HTML5 validation (no `novalidate`).
+- Homepage service-card titles must stay selectable in the contact `<select>` (plus “Not sure yet”) — locked by `site-invariants.test.js`.
+
+`module.exports` (browser no-op via `typeof module` check) exposes pure helpers
+`sanitizeForHeader`, `buildMailtoUrl`, `getYear`, the `navigation` seam (tests
+spy on `navigation.redirect` because jsdom cannot assert real location
+changes), and the `init*` / `init` entry points for integration tests.
 
 ## Architecture notes / code design decisions
 
@@ -200,13 +216,12 @@ case they come up in a future review:
   `css/styles.css`; all behavior lives in `js/main.js`. This keeps
   concerns separated, makes the CSS lintable/consistent, and is what
   allows the strict Content-Security-Policy described below.
-- **`js/main.js` is a single IIFE, not a bundle.** Its pure helper
-  functions (`sanitizeForHeader`, `buildMailtoUrl`, `getYear`) are grouped
-  separately from DOM-wiring functions (`initMobileNav`, `initContactForm`,
-  etc.), each independently callable and independently tested. The file
+- **`js/main.js` is a single IIFE, not a bundle.** Pure helpers
+  (`sanitizeForHeader`, `buildMailtoUrl`, `getYear`) are grouped separately
+  from DOM-wiring (`initMobileNav`, `initContactForm`, etc.). The file
   conditionally does `module.exports = {...}` at the end — a no-op in the
-  browser (no bundler/transpiler needed) — solely so Jest can `require()`
-  it and unit-test the pure functions directly.
+  browser — so Jest can `require()` both the pure helpers and the `init*`
+  entry points (integration tests call them against jsdom fixtures).
 
 ## Development tooling (lint + tests)
 
@@ -247,15 +262,21 @@ visible phone numbers so they don't awkwardly line-wrap, and added a
 
 | Layer | Tool | Location | What it covers |
 |---|---|---|---|
-| Unit | Jest | `tests/unit/main.test.js` | Pure logic: mailto URL construction, header-injection sanitization, year formatting — no DOM. |
-| Integration | Jest + jsdom | `tests/integration/dom-behavior.test.js` | Wiring between the DOM and `js/main.js`: mobile nav toggle, footer year injection, scroll-reveal (with/without `IntersectionObserver`), active-nav highlighting, contact form submit → mailto redirect + status message. |
-| End-to-end / regression | Playwright (Chromium + Mobile Safari emulation) | `tests/e2e/homepage.spec.js`, `tests/e2e/contact.spec.js` | Real-browser rendering: page loads/titles, heading hierarchy, image alt text, nav anchor scrolling, mobile hamburger menu, internal link 404 checks, CSP-violation checks, form fill + native HTML5 validation + submit. |
+| Unit (pure) | Jest | `tests/unit/main.test.js` | Mailto URL construction, CR/LF header sanitization, year formatting — no DOM. |
+| Unit (contracts) | Jest | `tests/unit/html-js-contract.test.js` | Selector / `data-*` / `init()` wiring; homepage bare-hash vs contact `index.html#` nav rules; form field id/name/label pairing. |
+| Unit (security) | Jest | `tests/unit/security-headers.test.js` | `_headers` ↔ `vercel.json` parity; CSP four-way sync with HTML `<meta>` tags (see Security). |
+| Unit (invariants) | Jest | `tests/unit/site-invariants.test.js` | Cross-file lead-capture identity (mailto/tel/JSON-LD), SEO discovery (`robots.txt` / `sitemap.xml` / canonicals), chrome/footer drift, service catalog ↔ form options, CI workflow gates. |
+| Integration | Jest + jsdom | `tests/integration/dom-behavior.test.js` | DOM ↔ `js/main.js` wiring: mobile nav, footer year, scroll-reveal (with/without `IntersectionObserver`), active-nav, contact form → mailto redirect + status. |
+| End-to-end / regression | Playwright (Chromium + Mobile Safari emulation) | `tests/e2e/homepage.spec.js`, `tests/e2e/contact.spec.js` | Real-browser rendering: titles, heading hierarchy, alt text, nav scrolling, mobile menu, internal 404 checks, CSP-violation checks, form fill + HTML5 validation + submit. |
 | Accessibility | Playwright + `@axe-core/playwright` | `tests/e2e/accessibility.spec.js` | Automated WCAG 2 A/AA scan of both pages (0 serious/critical violations). |
 
-Current status: **24 Jest tests + 38 Playwright tests, all passing**
-(Playwright runs each of 19 specs against both a desktop Chromium profile and a
-Mobile Safari/iPhone 13 emulation profile → 38 runs). Run `npm run test:unit:coverage`
-for a statement-coverage report of `js/main.js` (currently ~97%).
+Current status: **218 Jest tests + 38 Playwright tests, all passing**
+(Playwright: 19 specs × desktop Chromium + Mobile Safari/iPhone 13 → 38 runs).
+`js/main.js` statement coverage is ~99% via `npm run test:unit:coverage`.
+
+When editing markup or CSP, prefer the contract/invariant suites above as the
+source of truth for “what must stay in sync” — they exist specifically to catch
+silent cross-file drift that e2e alone often misses.
 
 ### Continuous integration
 
@@ -280,18 +301,21 @@ categories of web vulnerability (no server code, no database, no user
 authentication, no server-side template injection). The hardening below
 covers what's left:
 
-- **Content-Security-Policy** is set in **four places that must stay in sync**
+- **Content-Security-Policy** is set in **four places that must stay aligned**
   when you change allowed origins: the `<meta>` tags in `index.html` and
   `contact.html`, plus `_headers` (Netlify) and `vercel.json` (Vercel).
-  It restricts scripts/styles/fonts/images/connections to `'self'` plus the two Google
-  Fonts domains actually used, blocks `<object>`/plugins, and restricts
-  form submission targets. `contact.html` needs no inline-script
-  allowance (`script-src 'self'` only); `index.html` allows inline scripts only because of its
-  single static JSON-LD structured-data block (kept as `'unsafe-inline'`
-  rather than a SHA-256 hash allowlist — hashing was considered, but it
-  would silently break the page's structured data the next time someone
-  edits that JSON-LD without knowing to regenerate the hash, which
-  conflicts with this site's "safe for a non-developer to edit" goal).
+  Locked by `tests/unit/security-headers.test.js`. Rules of the sync:
+
+  | Copy | Must match host CSP? | Notable differences |
+  |---|---|---|
+  | `_headers` / `vercel.json` | Each other, exactly | Include `frame-ancestors 'none'` (HTTP-only). Site-wide: Netlify `/*`, Vercel `/(.*)`. |
+  | `index.html` `<meta>` | Host CSP minus `frame-ancestors` | `script-src 'self' 'unsafe-inline'` for the static JSON-LD block (hash allowlists were rejected — regenerating a SHA on every JSON-LD edit conflicts with “safe for a non-developer to edit”). |
+  | `contact.html` `<meta>` | Shared fetch allowlists + `form-action` | `script-src 'self'` only (no JSON-LD / no `'unsafe-inline'`). Must not be more permissive than the host policy. |
+
+  Shared allowlists: `style-src` / `font-src` = `'self'` + Google Fonts;
+  `form-action 'self' mailto:` (Netlify POST **and** the JS mailto path);
+  `img-src 'self' data:`; `connect-src` / `default-src` / `base-uri` `'self'`;
+  `object-src 'none'`.
 - **No inline styles or event handler attributes anywhere** — besides
   being cleaner code, this means the CSP `style-src` needs no
   `'unsafe-inline'` exception.
@@ -330,11 +354,16 @@ covers what's left:
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Fonts missing / CSP console errors after adding a CDN or analytics script | CSP allowlists are strict and duplicated | Update **all four** CSP copies (`index.html`, `contact.html`, `_headers`, `vercel.json`) together. Prefer hosting assets under `assets/` so `'self'` is enough. |
+| Fonts missing / CSP console errors after adding a CDN or analytics script | CSP allowlists are strict and duplicated | Update **all four** CSP copies together (see Security table). Prefer hosting assets under `assets/` so `'self'` is enough. |
 | Netlify Forms dashboard stays empty | `initContactForm()` still intercepts submit | Remove `initContactForm();` from `init()` in `js/main.js` (see contact-form runbook above). Redeploy. |
 | mailto form does nothing / opens blank | Inbox still `info@example.com`, or opened via `file://` | Set `data-recipient` (and other email placeholders) to the real address; serve over `http://localhost`. |
+| Form submit blocked by CSP (`form-action`) | Host/meta CSP missing `mailto:` or `'self'` | Keep `form-action 'self' mailto:` on every CSP copy — `'self'` alone breaks mailto; `mailto:` alone breaks Netlify Forms POST. |
+| Active nav highlight never moves on homepage | Nav links use `index.html#…` instead of bare `#…` | Restore bare hashes in the homepage `.nav-links` list (see contract above). |
+| Contact “Explore” / section links go nowhere | Contact nav uses bare `#…` hashes | Use `index.html#section` on `contact.html` only. |
+| New service on homepage missing from quote form | Catalog / `<option>` drift | Add a matching `<option>` (label must equal the service-card `<h3>`); `site-invariants` enforces this. |
+| Quote form invisible until scroll / permanently hidden | `[data-reveal]` on contact cards + missing/blocked `main.js` | Ensure `js/main.js` loads; or rely on `prefers-reduced-motion` / `.is-visible` CSS. Do not remove reveal hooks without updating CSS. |
 | `npm run test:e2e` fails on browser download | Playwright browsers not installed | Run `npx playwright install` (CI uses `chromium` + `webkit` with OS deps). |
 | axe color-contrast failures on reveals | Elements measured mid-fade (`opacity: 0`) | Accessibility e2e already emulates `prefers-reduced-motion: reduce`, which CSS uses to show `[data-reveal]` immediately — keep that pattern if you add more animated content. |
-| Mobile menu never opens after markup edit | Missing `.nav-toggle` / `.primary-nav` / `id="primary-nav"` pairing | Restore the contract in the table above; covered by integration + e2e tests. |
-| Header/footer drift between pages | Intentional duplication (no templating) | Edit **both** `index.html` and `contact.html`; comments mark the shared blocks. |
+| Mobile menu never opens after markup edit | Missing `.nav-toggle` / `.primary-nav` / `id="primary-nav"` / `aria-controls` pairing | Restore the contract in the table above; covered by contract + integration + e2e tests. |
+| Header/footer drift between pages | Intentional duplication (no templating) | Edit **both** `index.html` and `contact.html`; comments mark the shared blocks. Invariants fail if brand, phone, mailto, or nav labels diverge. |
 | CI green locally but fails in GitHub Actions | Different Node / missing Playwright OS deps | Match CI: Node 22, `npm ci`, and `npx playwright install --with-deps chromium webkit`. Download the `playwright-report` artifact from the failed run. |
