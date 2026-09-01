@@ -1503,6 +1503,60 @@ describe("primary nav keyboard focus affordance", () => {
   });
 });
 
+describe("button keyboard focus posture", () => {
+  test("`.btn` does not remove the native focus outline without a compensatory ring", () => {
+    // Form fields intentionally set outline:none + box-shadow. Copying that
+    // pattern onto `.btn` without a ring (or adding a global button outline:none)
+    // silently fails WCAG focus visibility on quote CTAs and the submit control.
+    const btnBlock = stylesCss.match(/\.btn\s*\{[^}]*\}/);
+    expect(btnBlock).toBeTruthy();
+    expect(btnBlock[0]).not.toMatch(/outline\s*:\s*none/);
+
+    expect(stylesCss).not.toMatch(/\.btn:focus(?:-visible)?\s*[^{]*\{[^}]*outline\s*:\s*none/s);
+    expect(stylesCss).not.toMatch(
+      /(?:^|\n)\s*button:focus(?:-visible)?\s*[^{]*\{[^}]*outline\s*:\s*none/s
+    );
+  });
+});
+
+describe("dark CTA band button contrast contract", () => {
+  test("cta-band keeps btn-outline-light for the secondary call CTA", () => {
+    // On the dark cta-band, a plain btn-outline inherits ink-colored text and
+    // becomes invisible. HTML and CSS must stay paired on the light outline variant.
+    expect(indexHtml).toMatch(
+      /class="cta-band"[\s\S]*?class="[^"]*\bbtn-outline-light\b[^"]*"[^>]*href="tel:/s
+    );
+    expect(stylesCss).toMatch(/\.btn-outline-light\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(/\.btn-outline-light\s*\{[^}]*border-color:/s);
+  });
+});
+
+describe("sitemap schema identity", () => {
+  test("sitemap.xml keeps the 0.9 urlset namespace", () => {
+    // Dropping or swapping the xmlns breaks some crawlers even when <loc> rows
+    // still look valid to string-based unit checks.
+    expect(sitemapXml).toMatch(
+      /<urlset\b[^>]*\bxmlns="http:\/\/www\.sitemaps\.org\/schemas\/sitemap\/0\.9"/
+    );
+  });
+});
+
+describe("Netlify form name ↔ form-name value pairing", () => {
+  test("form name attribute equals the hidden form-name value", () => {
+    // Hardcoding both sides to "contact" still passes if they diverge to the
+    // same wrong token; extract and compare so Netlify dashboard routing stays linked.
+    const formName = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[^>]*\bname="([^"]+)"/i
+    )?.[1];
+    const hiddenValue = contactHtml.match(
+      /<input\b[^>]*\bname="form-name"[^>]*\bvalue="([^"]+)"|<input\b[^>]*\bvalue="([^"]+)"[^>]*\bname="form-name"/i
+    );
+    expect(formName).toBeTruthy();
+    expect(hiddenValue).toBeTruthy();
+    expect(formName).toBe(hiddenValue[1] || hiddenValue[2]);
+  });
+});
+
 describe("nav toggle aria-controls ↔ primary-nav id pairing", () => {
   test("aria-controls value matches the primary-nav id on both pages", () => {
     // Hardcoding both sides to "primary-nav" still passes if they diverge to
