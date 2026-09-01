@@ -65,6 +65,42 @@ describe("mobile navigation toggle", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
   });
 
+  test("clicking nav-cta quote and phone links also close an open mobile menu", () => {
+    // Production wires every <a> under .primary-nav. Narrowing to .nav-links a
+    // would leave the Free Quote CTA and tel: link keeping the overlay open on
+    // mobile after navigation — a common "cleanup" that unit nav-link tests miss.
+    loadMainWithFixture(`
+      <header>
+        <button class="nav-toggle" aria-expanded="false"></button>
+        <nav class="primary-nav">
+          <ul class="nav-links">
+            <li><a href="#services">Services</a></li>
+          </ul>
+          <div class="nav-cta">
+            <a class="nav-phone" href="tel:+12394402416">239-440-2416</a>
+            <a class="btn btn-primary" href="contact.html">Get a Free Quote</a>
+          </div>
+        </nav>
+      </header>
+    `);
+    const toggle = document.querySelector(".nav-toggle");
+    const nav = document.querySelector(".primary-nav");
+    const quote = document.querySelector('.nav-cta a[href="contact.html"]');
+    const phone = document.querySelector(".nav-cta a.nav-phone");
+
+    toggle.dispatchEvent(new window.Event("click", { bubbles: true }));
+    expect(nav.classList.contains("is-open")).toBe(true);
+    quote.dispatchEvent(new window.Event("click", { bubbles: true }));
+    expect(nav.classList.contains("is-open")).toBe(false);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+    toggle.dispatchEvent(new window.Event("click", { bubbles: true }));
+    expect(nav.classList.contains("is-open")).toBe(true);
+    phone.dispatchEvent(new window.Event("click", { bubbles: true }));
+    expect(nav.classList.contains("is-open")).toBe(false);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
   test("does not throw when the toggle or primary nav is missing", () => {
     expect(() => loadMainWithFixture("<header></header>")).not.toThrow();
     expect(() =>
@@ -676,6 +712,36 @@ describe("contact form handling", () => {
     }).not.toThrow();
 
     expect(redirectSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("sanitizes CRLF in data-recipient through the form submit path", () => {
+    // Text <input> values cannot retain raw CR/LF in browsers/jsdom, but the
+    // recipient comes from getAttribute — a poisoned data-recipient must still
+    // be sanitized before navigation.redirect builds the mailto URI.
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="Jane Doe" />
+        <textarea name="message">Hello</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .setAttribute("data-recipient", "info@example.com\r\nBcc:victim@example.com");
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    const [calledUrl] = redirectSpy.mock.calls[0];
+    expect(calledUrl).not.toMatch(/[\r\n]/);
+    expect(calledUrl.startsWith("mailto:info@example.com Bcc:victim@example.com?")).toBe(
+      true
+    );
   });
 
   test("ignores Netlify honeypot and form-name fields when building the mailto URL", () => {

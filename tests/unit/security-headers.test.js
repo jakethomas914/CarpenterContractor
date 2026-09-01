@@ -99,6 +99,23 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(vercel["Permissions-Policy"]).toBe(netlify["Permissions-Policy"]);
   });
 
+  test("locks Referrer-Policy to strict-origin-when-cross-origin on both hosts", () => {
+    // Parity alone can pass if both hosts drift to unsafe-url or no-referrer
+    // (breaking analytics/cross-origin attribution or over-sharing full URLs).
+    expect(netlify["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
+    expect(vercel["Referrer-Policy"]).toBe("strict-origin-when-cross-origin");
+  });
+
+  test("locks CSP frame-ancestors to exact none (not a softer allowlist)", () => {
+    // A contains-check for frame-ancestors 'none' still passes if extra hosts
+    // are appended. Exact equality keeps clickjacking denial absolute.
+    const host = parseCspDirectives(netlify["Content-Security-Policy"]);
+    expect(host["frame-ancestors"]).toBe("'none'");
+    expect(parseCspDirectives(vercel["Content-Security-Policy"])["frame-ancestors"]).toBe(
+      "'none'"
+    );
+  });
+
   test("locks CSP default-src/object-src/base-uri/connect-src/img-src deny-self defaults", () => {
     // Parity alone can pass while both hosts grow more permissive. These
     // directives gate plugins, <base> hijacks, third-party XHR, and remote images.

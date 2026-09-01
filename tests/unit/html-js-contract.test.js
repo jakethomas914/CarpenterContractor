@@ -194,6 +194,16 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     expect(mainJs).toMatch(/rootMargin:\s*["']-45% 0px -50% 0px["']/);
   });
 
+  test("mobile nav closes on every primary-nav anchor (not only .nav-links)", () => {
+    // Quote CTA + tel: live under .nav-cta inside .primary-nav. Wiring only
+    // `.nav-links a` would leave the overlay open after those clicks on mobile.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const mobileNav = mainJs.match(/function initMobileNav\(\)\s*\{[\s\S]*?\n  \}\n/);
+    expect(mobileNav).toBeTruthy();
+    expect(mobileNav[0]).toMatch(/primaryNav\.querySelectorAll\(\s*["']a["']\s*\)/);
+    expect(mobileNav[0]).not.toMatch(/querySelectorAll\(\s*["']\.nav-links a["']/);
+  });
+
   test("active-nav sets aria-current to the token true (not page/location)", () => {
     // Integration tests assert the attribute appears; locking the source token
     // prevents a "cleanup" to aria-current="page" that would desync AT announcements
