@@ -181,6 +181,41 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     }
   });
 
+  test("init() keeps the documented entry-point call order", () => {
+    // Presence checks still pass if ContactForm is deferred after a throw in
+    // scroll-reveal setup, or if ActiveNav is dropped from the middle. Order
+    // locks the README wiring sequence so lead capture cannot be postponed.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const initBody = mainJs.match(/function init\(\)\s*\{([\s\S]*?)\n\s*\}/);
+    expect(initBody).toBeTruthy();
+    expect(initBody[1].replace(/\s+/g, " ").trim()).toBe(
+      [
+        "initMobileNav();",
+        "initFooterYear();",
+        "initScrollReveal();",
+        "initContactForm();",
+        "initActiveNavHighlight();",
+      ].join(" ")
+    );
+  });
+
+  test("contact submit path reads the documented FormData field names", () => {
+    // Renaming HTML name= attrs without updating these FormData.get keys drops
+    // lead fields from the mailto body while HTML5 validation still looks healthy.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const contactInit = mainJs.match(/function initContactForm\(\)\s*\{[\s\S]*?\n  \}\n/);
+    expect(contactInit).toBeTruthy();
+    for (const field of ["name", "email", "phone", "service", "message"]) {
+      expect(contactInit[0]).toMatch(
+        new RegExp(`formData\\.get\\(\\s*["']${field}["']\\s*\\)`)
+      );
+    }
+    expect(contactInit[0]).toMatch(/event\.preventDefault\s*\(\s*\)/);
+    expect(contactInit[0]).toContain(
+      "Opening your email app to send this message…"
+    );
+  });
+
   test("active-nav and scroll-reveal keep the README selector + observer contracts", () => {
     // README documents these exact selectors/options. Softening them (e.g. observing
     // all sections, or dropping rootMargin) silently changes highlighting and reveal timing.

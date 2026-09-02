@@ -1574,3 +1574,96 @@ describe("nav toggle aria-controls ↔ primary-nav id pairing", () => {
     }
   });
 });
+
+describe("primary CTA contrast + full-width submit", () => {
+  test("btn-primary keeps accent fill and white text for quote CTAs", () => {
+    // Existence of `.btn-primary` still passes if fill drifts to transparent or
+    // ink-on-ink — Free Quote / Send Message become invisible on light surfaces.
+    expect(stylesCss).toMatch(
+      /\.btn-primary\s*\{[^}]*background-color:\s*var\(--color-accent\)/s
+    );
+    expect(stylesCss).toMatch(/\.btn-primary\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.btn-primary:hover\s*\{[^}]*background-color:\s*var\(--color-accent-dark\)/s
+    );
+  });
+
+  test("btn-block stays width 100% for the lead-form submit control", () => {
+    // Submit uses btn-block on a narrow contact column. Losing width:100% leaves
+    // a short right-aligned button that visitors miss on mobile.
+    expect(stylesCss).toMatch(/\.btn-block\s*\{[^}]*width:\s*100%/s);
+  });
+});
+
+describe("sticky header readability", () => {
+  test("site-header keeps an opaque-enough background tied to --color-bg", () => {
+    // Sticky chrome without a background lets hero/content scroll underneath the
+    // nav and phone CTA, crushing contrast. RGB must stay derived from --color-bg.
+    const bgHex = stylesCss.match(/--color-bg:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(bgHex).toBeTruthy();
+    const r = parseInt(bgHex.slice(1, 3), 16);
+    const g = parseInt(bgHex.slice(3, 5), 16);
+    const b = parseInt(bgHex.slice(5, 7), 16);
+    const headerBlock = stylesCss.match(/\.site-header\s*\{[^}]*\}/);
+    expect(headerBlock).toBeTruthy();
+    expect(headerBlock[0]).toMatch(
+      new RegExp(`background-color:\\s*rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/`)
+    );
+    expect(headerBlock[0]).not.toMatch(/background(?:-color)?\s*:\s*transparent/);
+  });
+});
+
+describe("skip-link accessible name", () => {
+  test("both pages keep the Skip to main content link text", () => {
+    // Href-only checks still pass if the visible/AT name becomes "Skip" or is
+    // emptied — keyboard users lose the landmark cue axe e2e assumes.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(
+        /<a\b[^>]*\bclass="[^"]*\bskip-link\b[^"]*"[^>]*>\s*Skip to main content\s*<\/a>/i
+      );
+    }
+  });
+});
+
+describe("discovery file cardinality", () => {
+  test("sitemap.xml lists exactly the homepage and contact page", () => {
+    // Loc presence checks still pass when a staging URL or duplicate contact row
+    // is appended — crawlers then index placeholders outside the launch surface.
+    const locs = [...sitemapXml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/g)].map((m) =>
+      m[1].trim()
+    );
+    expect(locs).toEqual([
+      "https://www.example.com/",
+      "https://www.example.com/contact.html",
+    ]);
+  });
+
+  test("robots.txt declares exactly one Sitemap directive", () => {
+    // Multiple Sitemap lines (or a second host) split crawlers while the
+    // origin-parity check against the first match still appears green.
+    const sitemaps = [...robotsTxt.matchAll(/^\s*Sitemap:\s*(\S+)/gim)].map(
+      (m) => m[1]
+    );
+    expect(sitemaps).toEqual(["https://www.example.com/sitemap.xml"]);
+  });
+});
+
+describe("decorative chrome SVGs stay hidden from assistive tech", () => {
+  test("header brand and nav-toggle SVGs keep aria-hidden on both pages", () => {
+    // Dropping aria-hidden surfaces "image" / path noise beside the brand name
+    // and unlabeled toggle, which axe and real AT users both flag.
+    for (const html of [indexHtml, contactHtml]) {
+      const brandSvg = html.match(
+        /<a\b[^>]*\bclass="[^"]*\bbrand\b[^"]*"[^>]*>\s*<svg\b[^>]*>/i
+      )?.[0];
+      expect(brandSvg).toBeTruthy();
+      expect(brandSvg).toMatch(/\baria-hidden="true"/i);
+
+      const toggleSvg = html.match(
+        /<button\b[^>]*\bclass="[^"]*\bnav-toggle\b[^"]*"[^>]*>\s*<svg\b[^>]*>/i
+      )?.[0];
+      expect(toggleSvg).toBeTruthy();
+      expect(toggleSvg).toMatch(/\baria-hidden="true"/i);
+    }
+  });
+});

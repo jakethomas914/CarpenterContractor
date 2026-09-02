@@ -227,4 +227,35 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
       expect(directives["font-src"]).toContain("https://fonts.gstatic.com");
     }
   });
+
+  test("all CSP copies forbid unsafe-eval (XSS amplification)", () => {
+    // 'unsafe-inline' is required for homepage JSON-LD, but 'unsafe-eval' is not.
+    // A casual "match script-src to MDN examples" edit can reintroduce eval().
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      expect(csp).not.toMatch(/'unsafe-eval'/);
+      const directives = parseCspDirectives(csp);
+      expect(directives["script-src"] || "").not.toMatch(/'unsafe-eval'/);
+    }
+  });
+
+  test("embed/worker/media CSP directives stay absent or self/none only", () => {
+    // These directives are currently omitted so default-src 'self' applies.
+    // Introducing frame-src https: / worker-src * / media-src https: would
+    // silently reopen embedding and third-party media while four-way maps still
+    // look aligned on the shared keys we already lock.
+    const dangerous = /(?:^|\s)(?:https?:|\*|blob:|data:)(?:\s|$)/;
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      const directives = parseCspDirectives(csp);
+      for (const name of ["frame-src", "child-src", "worker-src", "media-src"]) {
+        const value = directives[name];
+        if (value === undefined) {
+          continue;
+        }
+        expect(value).not.toMatch(dangerous);
+        for (const token of value.split(/\s+/)) {
+          expect(["'self'", "'none'"]).toContain(token);
+        }
+      }
+    }
+  });
 });
