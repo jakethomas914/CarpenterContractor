@@ -1667,3 +1667,67 @@ describe("decorative chrome SVGs stay hidden from assistive tech", () => {
     }
   });
 });
+
+describe("mobile primary-nav overlay opacity contract", () => {
+  test("at max-width 920px, open primary-nav keeps an opaque --color-surface fill", () => {
+    // Opacity/visibility alone still leave nav labels unreadable when the overlay
+    // background is transparent or missing — page content shows through the menu.
+    expect(stylesCss).toMatch(/--color-surface:\s*#fff\b/);
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*920px\s*\)[\s\S]*?\.primary-nav\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    const mobileNavBlock = stylesCss.match(
+      /@media\s*\(\s*max-width:\s*920px\s*\)[\s\S]*?\.primary-nav\s*\{[^}]*\}/
+    );
+    expect(mobileNavBlock).toBeTruthy();
+    expect(mobileNavBlock[0]).not.toMatch(/background(?:-color)?\s*:\s*transparent/);
+  });
+});
+
+describe("dark-surface CTA contrast pairing", () => {
+  test("btn-light keeps white fill and ink text for CTAs on dark bands/cards", () => {
+    // On cta-band / area-map-card, white-on-white or transparent+white text makes
+    // the primary quote/call controls disappear while className checks still pass.
+    expect(stylesCss).toMatch(/\.btn-light\s*\{[^}]*background-color:\s*#fff/s);
+    expect(stylesCss).toMatch(/\.btn-light\s*\{[^}]*color:\s*var\(--color-ink\)/s);
+  });
+
+  test("cta-band primary quote CTA uses btn-light linking to contact.html", () => {
+    // Secondary outline-light is already locked. The primary must stay btn-light
+    // (not btn-outline / bare text) and keep the lead-capture contact destination.
+    expect(indexHtml).toMatch(
+      /class="cta-band"[\s\S]*?class="[^"]*\bbtn-light\b[^"]*"[^>]*href="contact\.html"/s
+    );
+    expect(stylesCss).toMatch(/\.cta-band\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.cta-band\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-wood-dark\)[^;]*var\(--color-ink\)/s
+    );
+  });
+
+  test("area-map-card call CTA keeps btn-light on the dark accent card", () => {
+    // Same light-button-on-dark-surface pairing as cta-band. Swapping to
+    // btn-outline (ink) or btn-primary without checking contrast hides the call.
+    expect(indexHtml).toMatch(
+      /class="area-map-card"[\s\S]*?class="[^"]*\bbtn-light\b[^"]*"[^>]*href="tel:/s
+    );
+    expect(stylesCss).toMatch(/\.area-map-card\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("hero primary quote CTA uses btn-primary on the light hero surface", () => {
+    // btn-light (#fff) on the cream hero collapses contrast. Hero must keep the
+    // accent-filled primary while dark bands keep btn-light.
+    expect(indexHtml).toMatch(
+      /class="hero-actions"[\s\S]*?class="[^"]*\bbtn-primary\b[^"]*"[^>]*href="contact\.html"/s
+    );
+  });
+});
+
+describe("lead-form status feedback contrast", () => {
+  test("form-status keeps accent-dark text on the tinted success panel", () => {
+    // display:block/.is-visible checks still pass if color drifts to #fff on the
+    // light sage panel — visitors never see the mailto confirmation copy.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*color:\s*var\(--color-accent-dark\)/s
+    );
+  });
+});
