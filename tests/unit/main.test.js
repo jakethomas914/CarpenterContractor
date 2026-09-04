@@ -146,6 +146,19 @@ describe("js/main.js pure helper functions", () => {
       expect(url.toLowerCase()).not.toContain("%0d%0a");
     });
 
+    test("sanitizes email field against CRLF header injection in the mailto body", () => {
+      // Name/phone/service/recipient are locked; email is equally header-shaped
+      // once it lands in the body. Skipping it lets CRLF rewrite Cc/Bcc lines.
+      const url = main.buildMailtoUrl("info@example.com", {
+        email: "ok@example.com\r\nBcc:victim@example.com",
+        message: "hi",
+      });
+
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toContain("Email: ok@example.com Bcc:victim@example.com");
+      expect(url.toLowerCase()).not.toContain("%0d%0a");
+    });
+
     test("preserves intentional newlines in the free-form message body", () => {
       // Message is only trimmed, not run through sanitizeForHeader, so
       // visitors can still write multi-line project details.
