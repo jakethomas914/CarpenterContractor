@@ -1780,3 +1780,48 @@ describe("dark-surface CTA hover + heading contrast", () => {
     );
   });
 });
+
+describe("dark-surface supporting copy + primary hover elevation", () => {
+  test("cta-band supporting paragraph keeps muted white (not ink or full white)", () => {
+    // Heading #fff locks still pass when band body copy drifts to --color-text /
+    // --color-ink (invisible on wood→ink) or collapses to pure #fff with no
+    // hierarchy. The 78% white alpha is the readable supporting-copy contract.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*78%\s*\)/s
+    );
+  });
+
+  test("area-map-card supporting paragraph keeps muted white after the shared #fff rule", () => {
+    // The combined h3,p { color:#fff } lock still passes if the more-specific
+    // `.area-map-card p` override is deleted or retargeted to ink — body copy on
+    // the accent card then either loses hierarchy or becomes unreadable.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+p\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*85%\s*\)/s
+    );
+  });
+
+  test("area-map-card keeps the accent→accent-dark gradient surface", () => {
+    // btn-light contrast on this card assumes a dark sage fill. Swapping the
+    // gradient to cream/bg tokens keeps className + #fff text contracts green
+    // while the call CTA and muted copy lose readable contrast.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-accent\)[^;]*var\(--color-accent-dark\)/s
+    );
+  });
+
+  test("btn-primary hover elevates with --shadow-md (fill darkening alone is not enough)", () => {
+    // Accent-dark fill is already locked. Dropping the shadow elevation still
+    // looks "flat"/inactive on cream surfaces while hover-fill tests stay green.
+    expect(stylesCss).toMatch(
+      /\.btn-primary:hover\s*\{[^}]*box-shadow:\s*var\(--shadow-md\)/s
+    );
+  });
+
+  test("btn-outline-light resting border stays translucent white on dark bands", () => {
+    // Presence of any border-color still passes if it drifts to ink/wood — the
+    // secondary Call CTA outline vanishes on the cta-band gradient.
+    expect(stylesCss).toMatch(
+      /\.btn-outline-light\s*\{[^}]*border-color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*50%\s*\)/s
+    );
+  });
+});
