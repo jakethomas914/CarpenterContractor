@@ -1825,3 +1825,94 @@ describe("dark-surface supporting copy + primary hover elevation", () => {
     );
   });
 });
+
+describe("light-surface secondary CTA + primary resting elevation", () => {
+  test("btn-primary resting state keeps --shadow-sm elevation", () => {
+    // Hover --shadow-md is already locked. Dropping the resting shadow flattens
+    // Free Quote / Send Message on cream surfaces while fill/hover tests stay green.
+    expect(stylesCss).toMatch(
+      /\.btn-primary\s*\{[^}]*box-shadow:\s*var\(--shadow-sm\)/s
+    );
+  });
+
+  test("btn-outline hover inverts to ink fill with white text", () => {
+    // Hero Call uses btn-outline on the cream surface. Hover that stays transparent
+    // + ink (or white-on-white) removes the pressed affordance while resting ink
+    // color locks still pass.
+    expect(stylesCss).toMatch(
+      /\.btn-outline:hover\s*\{[^}]*background-color:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.btn-outline:hover\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.btn-outline:hover\s*\{[^}]*border-color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("btn-outline resting state stays transparent with ink text", () => {
+    // Without the resting contract, a fill/hover-only invert can leave the hero
+    // Call solid-ink at rest (looking selected) or inherit white from a parent.
+    expect(stylesCss).toMatch(
+      /\.btn-outline\s*\{[^}]*background-color:\s*transparent/s
+    );
+    expect(stylesCss).toMatch(
+      /\.btn-outline\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("hero secondary Call CTA uses btn-outline (not outline-light) to tel", () => {
+    // outline-light (white text/border) on the cream hero collapses contrast.
+    // Dark bands already lock btn-outline-light; hero must keep the ink outline.
+    // Lookaheads run on the full class string so `btn-outline-light` alone cannot
+    // satisfy `\bbtn-outline\b` (hyphen is a word boundary in JS regex).
+    expect(indexHtml).toMatch(
+      /class="hero-actions"[\s\S]*?<a\b[^>]*\bclass="(?=[^"]*\bbtn-outline\b)(?![^"]*\bbtn-outline-light\b)[^"]*"[^>]*href="tel:/s
+    );
+  });
+});
+
+describe("footer muted white alpha + brand contrast", () => {
+  test("site-footer keeps ink background with muted white body copy", () => {
+    // Brand/heading #fff locks still pass when footer body drifts to --color-text
+    // (near-invisible on ink) or pure #fff (no hierarchy). 75% white is the
+    // readable default for Explore/Contact link rows.
+    expect(stylesCss).toMatch(
+      /\.site-footer\s*\{[^}]*background-color:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.site-footer\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*75%\s*\)/s
+    );
+  });
+
+  test("footer-bottom keeps more-muted white for legal/meta copy", () => {
+    // Inheriting the 75% body token (or drifting to ink) either loses the
+    // hierarchy under the grid or hides copyright/legal on the ink footer.
+    expect(stylesCss).toMatch(
+      /\.footer-bottom\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*50%\s*\)/s
+    );
+  });
+
+  test("footer-grid separator stays translucent white on ink", () => {
+    // A solid ink or cream border either vanishes or screams; the 12% white hairline
+    // is the only separator that stays visible without competing with columns.
+    expect(stylesCss).toMatch(
+      /\.footer-grid\s*\{[^}]*border-bottom:\s*1px\s+solid\s+rgb\(\s*255\s+255\s+255\s*\/\s*12%\s*\)/s
+    );
+  });
+
+  test("footer brand name and column headings stay explicitly white", () => {
+    // site-footer 75% inheritance alone still fails when a global .brand / h4 rule
+    // forces wood/ink — the wordmark and Explore/Contact titles go dark on ink.
+    expect(stylesCss).toMatch(
+      /\.footer-brand\s+\.brand\s*\{[^}]*color:\s*#fff/s
+    );
+    expect(stylesCss).toMatch(/\.footer-col\s+h4\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("footer brand-mark keeps wood-light accent on the ink footer", () => {
+    // Dropping wood-light (or matching it to #fff) removes the only warm accent in
+    // the footer chrome while brand-name #fff locks stay green.
+    expect(stylesCss).toMatch(
+      /\.footer-brand\s+\.brand-mark\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+});
