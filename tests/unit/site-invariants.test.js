@@ -1916,3 +1916,54 @@ describe("footer muted white alpha + brand contrast", () => {
     );
   });
 });
+
+describe("footer hover affordance + contact icon contrast", () => {
+  test("footer-col link hover brightens to white on the ink footer", () => {
+    // Explore/Contact rows inherit 75% white. Without an explicit #fff hover,
+    // muted body color alone makes links feel inert and harder to scan.
+    expect(stylesCss).toMatch(/\.footer-col a:hover\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("footer-bottom link hover brightens to white over 50% meta copy", () => {
+    // Legal/meta starts at 50% white. Hover that stays muted (or drifts to ink)
+    // hides Privacy/Terms-style anchors against the ink footer.
+    expect(stylesCss).toMatch(
+      /\.footer-bottom a:hover\s*\{[^}]*color:\s*#fff/s
+    );
+  });
+
+  test("footer-contact-item icons keep wood-light on the ink footer", () => {
+    // Matching icons to #fff or --color-text collapses the only warm glyph
+    // accent beside the brand-mark while phone/email/address rows stay readable.
+    expect(stylesCss).toMatch(
+      /\.footer-contact-item svg\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+
+  test("contact-info-list icons use wood (not wood-light) on light cards", () => {
+    // Reusing footer wood-light on cream contact cards fails WCAG next to muted
+    // labels; the more-specific list rule must keep --color-wood.
+    expect(stylesCss).toMatch(
+      /\.contact-info-list\s+\.footer-contact-item svg\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+});
+
+describe("skip-link contrast + header phone affordance", () => {
+  test("skip-link keeps ink fill and white text when focused into view", () => {
+    // Position locks (off-screen → top:12px) still pass if fill/text drift to
+    // cream-on-cream or ink-on-ink — keyboard users then cannot read the target.
+    expect(stylesCss).toMatch(
+      /\.skip-link\s*\{[^}]*background(?:-color)?:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.skip-link\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("nav-phone keeps wood-dark for the header call affordance", () => {
+    // Softening to muted text or wood-light drops the primary click-to-call
+    // signal in the sticky header while tel: href contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.nav-phone\s*\{[^}]*color:\s*var\(--color-wood-dark\)/s
+    );
+  });
+});
