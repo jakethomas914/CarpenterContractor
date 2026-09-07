@@ -1667,3 +1667,303 @@ describe("decorative chrome SVGs stay hidden from assistive tech", () => {
     }
   });
 });
+
+describe("mobile primary-nav overlay opacity contract", () => {
+  test("at max-width 920px, open primary-nav keeps an opaque --color-surface fill", () => {
+    // Opacity/visibility alone still leave nav labels unreadable when the overlay
+    // background is transparent or missing — page content shows through the menu.
+    expect(stylesCss).toMatch(/--color-surface:\s*#fff\b/);
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*920px\s*\)[\s\S]*?\.primary-nav\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    const mobileNavBlock = stylesCss.match(
+      /@media\s*\(\s*max-width:\s*920px\s*\)[\s\S]*?\.primary-nav\s*\{[^}]*\}/
+    );
+    expect(mobileNavBlock).toBeTruthy();
+    expect(mobileNavBlock[0]).not.toMatch(/background(?:-color)?\s*:\s*transparent/);
+  });
+});
+
+describe("dark-surface CTA contrast pairing", () => {
+  test("btn-light keeps white fill and ink text for CTAs on dark bands/cards", () => {
+    // On cta-band / area-map-card, white-on-white or transparent+white text makes
+    // the primary quote/call controls disappear while className checks still pass.
+    expect(stylesCss).toMatch(/\.btn-light\s*\{[^}]*background-color:\s*#fff/s);
+    expect(stylesCss).toMatch(/\.btn-light\s*\{[^}]*color:\s*var\(--color-ink\)/s);
+  });
+
+  test("cta-band primary quote CTA uses btn-light linking to contact.html", () => {
+    // Secondary outline-light is already locked. The primary must stay btn-light
+    // (not btn-outline / bare text) and keep the lead-capture contact destination.
+    expect(indexHtml).toMatch(
+      /class="cta-band"[\s\S]*?class="[^"]*\bbtn-light\b[^"]*"[^>]*href="contact\.html"/s
+    );
+    expect(stylesCss).toMatch(/\.cta-band\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.cta-band\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-wood-dark\)[^;]*var\(--color-ink\)/s
+    );
+  });
+
+  test("area-map-card call CTA keeps btn-light on the dark accent card", () => {
+    // Same light-button-on-dark-surface pairing as cta-band. Swapping to
+    // btn-outline (ink) or btn-primary without checking contrast hides the call.
+    expect(indexHtml).toMatch(
+      /class="area-map-card"[\s\S]*?class="[^"]*\bbtn-light\b[^"]*"[^>]*href="tel:/s
+    );
+    expect(stylesCss).toMatch(/\.area-map-card\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("hero primary quote CTA uses btn-primary on the light hero surface", () => {
+    // btn-light (#fff) on the cream hero collapses contrast. Hero must keep the
+    // accent-filled primary while dark bands keep btn-light.
+    expect(indexHtml).toMatch(
+      /class="hero-actions"[\s\S]*?class="[^"]*\bbtn-primary\b[^"]*"[^>]*href="contact\.html"/s
+    );
+  });
+});
+
+describe("lead-form status feedback contrast", () => {
+  test("form-status keeps accent-dark text on the tinted success panel", () => {
+    // display:block/.is-visible checks still pass if color drifts to #fff on the
+    // light sage panel — visitors never see the mailto confirmation copy.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*color:\s*var\(--color-accent-dark\)/s
+    );
+  });
+
+  test("form-status keeps a light accent-tinted panel background", () => {
+    // Text-color locks alone still pass if the panel fill becomes transparent or
+    // white-on-white — confirmation copy loses the sage cue and can vanish on
+    // light contact cards. RGB must stay derived from --color-accent at 12%.
+    const accentHex = stylesCss.match(/--color-accent:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(accentHex).toBeTruthy();
+    const r = parseInt(accentHex.slice(1, 3), 16);
+    const g = parseInt(accentHex.slice(3, 5), 16);
+    const b = parseInt(accentHex.slice(5, 7), 16);
+    const statusBlock = stylesCss.match(/\.form-status\s*\{[^}]*\}/);
+    expect(statusBlock).toBeTruthy();
+    expect(statusBlock[0]).toMatch(
+      new RegExp(
+        `background-color:\\s*rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*12%\\s*\\)`
+      )
+    );
+  });
+});
+
+describe("dark-surface CTA hover + heading contrast", () => {
+  test("btn-light hover shifts to --color-bg-alt instead of disappearing", () => {
+    // Default/hover fill both #fff (or transparent hover) removes the pressed
+    // affordance on dark bands while resting-state contrast tests stay green.
+    expect(stylesCss).toMatch(
+      /\.btn-light:hover\s*\{[^}]*background-color:\s*var\(--color-bg-alt\)/s
+    );
+  });
+
+  test("btn-outline-light hover keeps white fill and ink text", () => {
+    // Secondary Call CTA on cta-band relies on this invert. Hover that keeps
+    // transparent + white text (or ink-on-ink) hides the control mid-interaction.
+    expect(stylesCss).toMatch(
+      /\.btn-outline-light:hover\s*\{[^}]*background-color:\s*#fff/s
+    );
+    expect(stylesCss).toMatch(
+      /\.btn-outline-light:hover\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("cta-band and area-map-card headings stay explicitly white", () => {
+    // Band/card `color:#fff` inheritance alone still fails when a later global
+    // h2/h3 rule (or muted text token) overrides — Request a Quote / service-area
+    // titles go dark on dark gradients while button contracts stay green.
+    expect(stylesCss).toMatch(/\.cta-band\s+h2\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+h3\s*,\s*\.area-map-card\s+p\s*\{[^}]*color:\s*#fff/s
+    );
+  });
+});
+
+describe("dark-surface supporting copy + primary hover elevation", () => {
+  test("cta-band supporting paragraph keeps muted white (not ink or full white)", () => {
+    // Heading #fff locks still pass when band body copy drifts to --color-text /
+    // --color-ink (invisible on wood→ink) or collapses to pure #fff with no
+    // hierarchy. The 78% white alpha is the readable supporting-copy contract.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*78%\s*\)/s
+    );
+  });
+
+  test("area-map-card supporting paragraph keeps muted white after the shared #fff rule", () => {
+    // The combined h3,p { color:#fff } lock still passes if the more-specific
+    // `.area-map-card p` override is deleted or retargeted to ink — body copy on
+    // the accent card then either loses hierarchy or becomes unreadable.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+p\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*85%\s*\)/s
+    );
+  });
+
+  test("area-map-card keeps the accent→accent-dark gradient surface", () => {
+    // btn-light contrast on this card assumes a dark sage fill. Swapping the
+    // gradient to cream/bg tokens keeps className + #fff text contracts green
+    // while the call CTA and muted copy lose readable contrast.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-accent\)[^;]*var\(--color-accent-dark\)/s
+    );
+  });
+
+  test("btn-primary hover elevates with --shadow-md (fill darkening alone is not enough)", () => {
+    // Accent-dark fill is already locked. Dropping the shadow elevation still
+    // looks "flat"/inactive on cream surfaces while hover-fill tests stay green.
+    expect(stylesCss).toMatch(
+      /\.btn-primary:hover\s*\{[^}]*box-shadow:\s*var\(--shadow-md\)/s
+    );
+  });
+
+  test("btn-outline-light resting border stays translucent white on dark bands", () => {
+    // Presence of any border-color still passes if it drifts to ink/wood — the
+    // secondary Call CTA outline vanishes on the cta-band gradient.
+    expect(stylesCss).toMatch(
+      /\.btn-outline-light\s*\{[^}]*border-color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*50%\s*\)/s
+    );
+  });
+});
+
+describe("light-surface secondary CTA + primary resting elevation", () => {
+  test("btn-primary resting state keeps --shadow-sm elevation", () => {
+    // Hover --shadow-md is already locked. Dropping the resting shadow flattens
+    // Free Quote / Send Message on cream surfaces while fill/hover tests stay green.
+    expect(stylesCss).toMatch(
+      /\.btn-primary\s*\{[^}]*box-shadow:\s*var\(--shadow-sm\)/s
+    );
+  });
+
+  test("btn-outline hover inverts to ink fill with white text", () => {
+    // Hero Call uses btn-outline on the cream surface. Hover that stays transparent
+    // + ink (or white-on-white) removes the pressed affordance while resting ink
+    // color locks still pass.
+    expect(stylesCss).toMatch(
+      /\.btn-outline:hover\s*\{[^}]*background-color:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.btn-outline:hover\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.btn-outline:hover\s*\{[^}]*border-color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("btn-outline resting state stays transparent with ink text", () => {
+    // Without the resting contract, a fill/hover-only invert can leave the hero
+    // Call solid-ink at rest (looking selected) or inherit white from a parent.
+    expect(stylesCss).toMatch(
+      /\.btn-outline\s*\{[^}]*background-color:\s*transparent/s
+    );
+    expect(stylesCss).toMatch(
+      /\.btn-outline\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("hero secondary Call CTA uses btn-outline (not outline-light) to tel", () => {
+    // outline-light (white text/border) on the cream hero collapses contrast.
+    // Dark bands already lock btn-outline-light; hero must keep the ink outline.
+    // Lookaheads run on the full class string so `btn-outline-light` alone cannot
+    // satisfy `\bbtn-outline\b` (hyphen is a word boundary in JS regex).
+    expect(indexHtml).toMatch(
+      /class="hero-actions"[\s\S]*?<a\b[^>]*\bclass="(?=[^"]*\bbtn-outline\b)(?![^"]*\bbtn-outline-light\b)[^"]*"[^>]*href="tel:/s
+    );
+  });
+});
+
+describe("footer muted white alpha + brand contrast", () => {
+  test("site-footer keeps ink background with muted white body copy", () => {
+    // Brand/heading #fff locks still pass when footer body drifts to --color-text
+    // (near-invisible on ink) or pure #fff (no hierarchy). 75% white is the
+    // readable default for Explore/Contact link rows.
+    expect(stylesCss).toMatch(
+      /\.site-footer\s*\{[^}]*background-color:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.site-footer\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*75%\s*\)/s
+    );
+  });
+
+  test("footer-bottom keeps more-muted white for legal/meta copy", () => {
+    // Inheriting the 75% body token (or drifting to ink) either loses the
+    // hierarchy under the grid or hides copyright/legal on the ink footer.
+    expect(stylesCss).toMatch(
+      /\.footer-bottom\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*50%\s*\)/s
+    );
+  });
+
+  test("footer-grid separator stays translucent white on ink", () => {
+    // A solid ink or cream border either vanishes or screams; the 12% white hairline
+    // is the only separator that stays visible without competing with columns.
+    expect(stylesCss).toMatch(
+      /\.footer-grid\s*\{[^}]*border-bottom:\s*1px\s+solid\s+rgb\(\s*255\s+255\s+255\s*\/\s*12%\s*\)/s
+    );
+  });
+
+  test("footer brand name and column headings stay explicitly white", () => {
+    // site-footer 75% inheritance alone still fails when a global .brand / h4 rule
+    // forces wood/ink — the wordmark and Explore/Contact titles go dark on ink.
+    expect(stylesCss).toMatch(
+      /\.footer-brand\s+\.brand\s*\{[^}]*color:\s*#fff/s
+    );
+    expect(stylesCss).toMatch(/\.footer-col\s+h4\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("footer brand-mark keeps wood-light accent on the ink footer", () => {
+    // Dropping wood-light (or matching it to #fff) removes the only warm accent in
+    // the footer chrome while brand-name #fff locks stay green.
+    expect(stylesCss).toMatch(
+      /\.footer-brand\s+\.brand-mark\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+});
+
+describe("footer hover affordance + contact icon contrast", () => {
+  test("footer-col link hover brightens to white on the ink footer", () => {
+    // Explore/Contact rows inherit 75% white. Without an explicit #fff hover,
+    // muted body color alone makes links feel inert and harder to scan.
+    expect(stylesCss).toMatch(/\.footer-col a:hover\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("footer-bottom link hover brightens to white over 50% meta copy", () => {
+    // Legal/meta starts at 50% white. Hover that stays muted (or drifts to ink)
+    // hides Privacy/Terms-style anchors against the ink footer.
+    expect(stylesCss).toMatch(
+      /\.footer-bottom a:hover\s*\{[^}]*color:\s*#fff/s
+    );
+  });
+
+  test("footer-contact-item icons keep wood-light on the ink footer", () => {
+    // Matching icons to #fff or --color-text collapses the only warm glyph
+    // accent beside the brand-mark while phone/email/address rows stay readable.
+    expect(stylesCss).toMatch(
+      /\.footer-contact-item svg\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+
+  test("contact-info-list icons use wood (not wood-light) on light cards", () => {
+    // Reusing footer wood-light on cream contact cards fails WCAG next to muted
+    // labels; the more-specific list rule must keep --color-wood.
+    expect(stylesCss).toMatch(
+      /\.contact-info-list\s+\.footer-contact-item svg\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+});
+
+describe("skip-link contrast + header phone affordance", () => {
+  test("skip-link keeps ink fill and white text when focused into view", () => {
+    // Position locks (off-screen → top:12px) still pass if fill/text drift to
+    // cream-on-cream or ink-on-ink — keyboard users then cannot read the target.
+    expect(stylesCss).toMatch(
+      /\.skip-link\s*\{[^}]*background(?:-color)?:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.skip-link\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("nav-phone keeps wood-dark for the header call affordance", () => {
+    // Softening to muted text or wood-light drops the primary click-to-call
+    // signal in the sticky header while tel: href contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.nav-phone\s*\{[^}]*color:\s*var\(--color-wood-dark\)/s
+    );
+  });
+});
