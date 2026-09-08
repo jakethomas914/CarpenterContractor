@@ -1967,3 +1967,62 @@ describe("skip-link contrast + header phone affordance", () => {
     );
   });
 });
+
+describe("header brand chrome contrast on cream surface", () => {
+  test("header brand wordmark stays ink on the sticky cream header", () => {
+    // Footer overrides `.brand` to #fff. Without an explicit ink rule on the
+    // shared header `.brand`, a global footer-first cascade (or a mistaken
+    // shared override) can bleach the sticky wordmark against --color-bg.
+    expect(stylesCss).toMatch(/\.brand\s*\{[^}]*color:\s*var\(--color-ink\)/s);
+  });
+
+  test("header brand-mark keeps wood (not wood-light) on the cream header", () => {
+    // Footer intentionally uses wood-light on ink. Reusing that lighter token
+    // on the cream sticky header fails the axe contrast gate while footer
+    // wood-light and nav-phone wood-dark locks stay green.
+    expect(stylesCss).toMatch(
+      /\.brand-mark\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+    expect(stylesCss).not.toMatch(
+      /(?:^|\n)\.brand-mark\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+
+  test("placeholder-tag keeps wood for WCAG contrast on the cream header", () => {
+    // CSS comments document wood (not wood-light) for >= 4.5:1 against the
+    // header background. Softening the tagline while brand-mark locks pass
+    // still fails axe on both pages.
+    expect(stylesCss).toMatch(
+      /\.brand-text\s+\.placeholder-tag\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+});
+
+describe("button press affordance + hero trust chrome", () => {
+  test("`.btn:active` keeps a translateY press transform", () => {
+    // Hover/focus color + shadow contracts can all pass while press feedback
+    // disappears — quote/submit CTAs then feel inert on touch/mouse down.
+    expect(stylesCss).toMatch(
+      /\.btn:active\s*\{[^}]*transform:\s*translateY\(\s*1px\s*\)/s
+    );
+  });
+
+  test("hero-fact strong values keep wood-dark for trust stats", () => {
+    // Softening hero metrics to muted text (or wood-light) collapses the
+    // primary numeric hierarchy next to muted labels while CTA contrast
+    // locks remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+strong\s*\{[^}]*color:\s*var\(--color-wood-dark\)/s
+    );
+  });
+
+  test("nav-links hover keeps wood color paired with focus-visible", () => {
+    // focus-visible alone can stay green if hover is dropped from the shared
+    // rule — pointer users lose the only current-link cue while aria-current
+    // remains attribute-only.
+    expect(stylesCss).toMatch(/\.nav-links a:hover\s*[,{]/);
+    expect(stylesCss).toMatch(
+      /\.nav-links a:hover\s*[^{]*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+});
