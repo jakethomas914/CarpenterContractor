@@ -2026,3 +2026,119 @@ describe("button press affordance + hero trust chrome", () => {
     );
   });
 });
+
+describe("hero + service + about wood brand accents", () => {
+  test("hero h1 keeps a wood-accented span for the brand phrase", () => {
+    // Markup without the inner <span> (or CSS that drops wood) leaves the whole
+    // H1 as ink — the only warm brand signal in the first viewport disappears
+    // while CTA contrast locks stay green.
+    expect(indexHtml).toMatch(
+      /<section\b[^>]*\bclass="[^"]*\bhero\b[^"]*"[^>]*>[\s\S]*?<h1\b[^>]*>[\s\S]*?<span\b[^>]*>[\s\S]*?<\/span>[\s\S]*?<\/h1>/i
+    );
+    expect(stylesCss).toMatch(
+      /\.hero\s+h1\s+span\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+
+  test("service-icon keeps wood glyphs on a cream bg-alt chip", () => {
+    // Softening icons to muted text or matching them to surface white collapses
+    // the service-card brand mark while h3/p copy contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*background-color:\s*var\(--color-bg-alt\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+
+  test("about-portrait keeps wood for the placeholder craftsman mark", () => {
+    // Replacing wood with ink or muted text removes the only warm accent in the
+    // about media plane while caption/CTA contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+
+  test("about-portrait-caption keeps ink overlay and white text", () => {
+    // Caption without the dark scrim (or with ink text) fails against the cream
+    // portrait gradient — "Photo of Greg Felton" becomes unreadable.
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*background(?:-color)?:\s*rgb\(\s*30\s+26\s+23\s*\/\s*72%\s*\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*color:\s*#fff/s
+    );
+  });
+});
+
+describe("section eyebrow + hero-eyebrow accent hierarchy", () => {
+  test("section eyebrows keep accent-dark for scan hierarchy", () => {
+    // Softening `.eyebrow` to muted text flattens What We Do / About / Gallery
+    // section labels into body copy while heading size locks stay green.
+    expect(stylesCss).toMatch(
+      /\.eyebrow\s*\{[^}]*color:\s*var\(--color-accent-dark\)/s
+    );
+  });
+
+  test("hero-eyebrow keeps accent-dark text on an accent-tinted pill", () => {
+    // Matching form-status: text-only locks miss a white-on-cream pill, and a
+    // lost 12% tint makes the SWFL location chip blend into the hero surface.
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*color:\s*var\(--color-accent-dark\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*background-color:\s*rgb\(\s*79\s+109\s+82\s*\/\s*12%\s*\)/s
+    );
+  });
+});
+
+describe("mobile nav-toggle + header brand chrome sizing", () => {
+  test("nav-toggle keeps ink color so the hamburger stays visible on cream", () => {
+    // Transparent/missing color (or matching --color-bg) hides the only mobile
+    // open control while display:none→inline-flex breakpoint locks stay green.
+    expect(stylesCss).toMatch(
+      /\.nav-toggle\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("header brand keeps flex gap and display size for sticky chrome", () => {
+    // Collapsing gap or shrinking font-size below the wordmark lock makes the
+    // sticky header feel empty while ink/wood color contracts remain green.
+    expect(stylesCss).toMatch(/\.brand\s*\{[^}]*gap:\s*10px/s);
+    expect(stylesCss).toMatch(/\.brand\s*\{[^}]*font-size:\s*1\.3rem/s);
+  });
+});
+
+describe("hero visual + gallery placeholder brand tokens", () => {
+  test("hero-visual keeps the wood-to-wood-dark brand gradient", () => {
+    // Replacing the wood gradient with accent/ink (or a flat fill) removes the
+    // dominant brand plane beside the hero copy while CTA locks stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-wood\)[^;]*var\(--color-wood-dark\)/s
+    );
+  });
+
+  test("gallery-tile icons keep wood-light with ink titles on cream tiles", () => {
+    // Icons drifting to muted text or titles inheriting muted color erase the
+    // gallery placeholder hierarchy while dashed-border layout stays intact.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+svg\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+strong\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+});
+
+describe("lead form control surface contrast", () => {
+  test("form controls keep cream fill and readable text color", () => {
+    // White-on-white (surface fill + inherited light text) or border-only
+    // regressions hide typed lead data while focus-ring locks stay green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*background-color:\s*var\(--color-bg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*color:\s*var\(--color-text\)/s
+    );
+  });
+});
