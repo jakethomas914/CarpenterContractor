@@ -2142,3 +2142,57 @@ describe("lead form control surface contrast", () => {
     );
   });
 });
+
+describe("section + hero supporting copy muted hierarchy", () => {
+  test("section-heading supporting paragraphs stay muted", () => {
+    // Softening to inherited ink (or bleaching to surface white) collapses the
+    // only supporting sentence under each section H2 into body noise / invisible
+    // copy while eyebrow + heading size locks stay green.
+    expect(stylesCss).toMatch(
+      /\.section-heading\s+p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("hero-lede stays muted so the first-viewport CTA hierarchy holds", () => {
+    // Matching hero H1 ink weight (or dropping color entirely) makes the lede
+    // compete with the brand headline while wood span + CTA contrast locks pass.
+    expect(stylesCss).toMatch(
+      /\.hero-lede\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("hero-fact labels stay muted beside wood-dark values", () => {
+    // Value locks on `strong` can pass while label spans inherit wood-dark or
+    // ink — trust stats then lose the number/label hierarchy in the hero.
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("testimonial sample-badge + lead form label weight", () => {
+  test("sample-badge keeps ink fill and white text for SAMPLE chips", () => {
+    // Transparent/muted badges (or ink-on-ink text) hide the only disclosure that
+    // testimonials are samples while star/markup e2e presence checks stay green.
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*background(?:-color)?:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.sample-badge\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("form-field labels keep semibold weight for lead-field scan", () => {
+    // Dropping to normal weight flattens label→control hierarchy on the contact
+    // form while id/name pairing and control fill locks remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+label\s*\{[^}]*font-weight:\s*600/s
+    );
+  });
+
+  test("contact-hours heading stays muted for availability hierarchy", () => {
+    // Matching hours-row ink weight (or bleaching the h4) erases the only
+    // Availability label above day/hours pairs while hours-row content locks pass.
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s+h4\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
