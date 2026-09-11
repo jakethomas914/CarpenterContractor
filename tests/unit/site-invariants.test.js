@@ -2196,3 +2196,48 @@ describe("testimonial sample-badge + lead form label weight", () => {
     );
   });
 });
+
+describe("testimonial stars + body/form muted copy hierarchy", () => {
+  test("testimonial-stars keep gold so rating glyphs stay visible on cream", () => {
+    // Inheriting muted text or ink flattens the only rating signal beside SAMPLE
+    // badges while sample-badge ink/#fff and markup presence locks stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-stars\s*\{[^}]*color:\s*#d9a441/s
+    );
+  });
+
+  test("service-card body copy stays muted under wood icon chips", () => {
+    // Matching service-card h3 ink (or bleaching to surface) collapses the only
+    // service description under each card title while icon wood locks pass.
+    expect(stylesCss).toMatch(
+      /\.service-card\s+p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("about-copy paragraphs stay muted beside the portrait plane", () => {
+    // Softening to inherited ink (or white) makes the founder bio compete with
+    // the signature/name lock while about-portrait wood + caption scrim pass.
+    expect(stylesCss).toMatch(
+      /\.about-copy\s+p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("contact-form-card intro paragraph stays muted under the form H3", () => {
+    // Matching the card h3 ink weight (or dropping color) erases hierarchy above
+    // lead fields while form-field label weight + control fill locks stay green.
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*>\s*p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("form-note stays muted with a bold phone-link for the call fallback", () => {
+    // Bleaching the note (or normal-weight phone-link) hides the only tel: CTA
+    // under the submit button while form-status tint/contrast locks remain green.
+    expect(stylesCss).toMatch(
+      /\.form-note\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-note\s+\.phone-link\s*\{[^}]*font-weight:\s*700/s
+    );
+  });
+});
