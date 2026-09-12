@@ -2241,3 +2241,60 @@ describe("testimonial stars + body/form muted copy hierarchy", () => {
     );
   });
 });
+
+describe("testimonial quote + author hierarchy", () => {
+  test("testimonial-card quotes stay italic in readable body text color", () => {
+    // Dropping italic (or inheriting muted/ink from neighboring rules) flattens
+    // quote voice into card chrome while gold stars + sample-badge locks pass.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s+p\s*\{[^}]*font-style:\s*italic/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s+p\s*\{[^}]*color:\s*var\(--color-text\)/s
+    );
+  });
+
+  test("testimonial-author keeps bold name weight with muted role span", () => {
+    // Normal-weight authors (or role spans matching name weight/color) erase the
+    // only attribution hierarchy under each quote while SAMPLE disclosure locks
+    // stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s*\{[^}]*font-weight:\s*700/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s+span\s*\{[^}]*font-weight:\s*400/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("about signature identity contrast", () => {
+  test("about-signature strong keeps ink for the founder name", () => {
+    // Softening the name to muted text (or bleaching to surface) hides the only
+    // identity lock under the bio while about-copy muted + portrait wood pass.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s+strong\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("about-signature role span stays muted beside the ink name", () => {
+    // Matching the strong ink weight/color collapses name→title hierarchy while
+    // about-copy paragraph muted locks remain green.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("lead form focus ring sage tint", () => {
+  test("form control focus ring keeps the accent sage at 15% opacity", () => {
+    // box-shadow presence + accent border alone still pass if the ring drifts to
+    // ink/wood or 100% opaque sage — keyboard users then get a harsh or wrong-
+    // brand cue on every lead field while outline:none remains intentional.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea):focus[\s\S]*?box-shadow:\s*0\s+0\s+0\s+3px\s+rgb\(\s*79\s+109\s+82\s*\/\s*15%\s*\)/s
+    );
+  });
+});
