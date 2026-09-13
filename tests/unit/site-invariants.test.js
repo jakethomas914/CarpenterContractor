@@ -2298,3 +2298,107 @@ describe("lead form focus ring sage tint", () => {
     );
   });
 });
+
+describe("accent token ↔ hard-coded sage RGB parity", () => {
+  function accentRgbChannels() {
+    const accentHex = stylesCss.match(/--color-accent:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(accentHex).toBe("#4f6d52");
+    return {
+      r: parseInt(accentHex.slice(1, 3), 16),
+      g: parseInt(accentHex.slice(3, 5), 16),
+      b: parseInt(accentHex.slice(5, 7), 16),
+    };
+  }
+
+  test("--color-accent decodes to the sage RGB used across tinted surfaces", () => {
+    // Hero atmosphere, eyebrow/form-status pills, and the lead focus ring all
+    // hard-code rgb(R G B / α) instead of var(--color-accent). Token-only or
+    // literal-only locks still pass when one side drifts — brand sage then
+    // splits between CSS variables and the surfaces visitors actually see.
+    const { r, g, b } = accentRgbChannels();
+    expect([r, g, b]).toEqual([79, 109, 82]);
+
+    const sage12 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*12%\\s*\\)`
+    );
+    const sage15 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*15%\\s*\\)`
+    );
+
+    expect(stylesCss).toMatch(
+      new RegExp(
+        `\\.hero\\s*\\{[^}]*radial-gradient\\([^;]*${sage12.source}`
+      )
+    );
+    expect(stylesCss).toMatch(
+      new RegExp(`\\.hero-eyebrow\\s*\\{[^}]*background-color:\\s*${sage12.source}`)
+    );
+    const statusBlock = stylesCss.match(/\.form-status\s*\{[^}]*\}/);
+    expect(statusBlock).toBeTruthy();
+    expect(statusBlock[0]).toMatch(
+      new RegExp(`background-color:\\s*${sage12.source}`)
+    );
+    expect(stylesCss).toMatch(
+      new RegExp(
+        `\\.form-field\\s+(?:input|select|textarea):focus[\\s\\S]*?box-shadow:\\s*0\\s+0\\s+0\\s+3px\\s+${sage15.source}`
+      )
+    );
+  });
+});
+
+describe("about signature separator + flex layout", () => {
+  test("about-signature keeps a top border separator and flex gap", () => {
+    // Color locks on strong/span still pass if the signature collapses into the
+    // bio (no hairline, no flex gap) — founder name/title then read as another
+    // paragraph instead of a distinct identity block under the portrait copy.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s*\{[^}]*border-top:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(/\.about-signature\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.about-signature\s*\{[^}]*gap:\s*16px/s);
+  });
+});
+
+describe("testimonial author size hierarchy", () => {
+  test("testimonial-author keeps compact name size with smaller muted role", () => {
+    // Weight/color locks still pass if author type scales to body/quote size —
+    // SAMPLE attribution then competes with the italic quote while gold stars
+    // and sample-badge contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s*\{[^}]*font-size:\s*0\.92rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s+span\s*\{[^}]*font-size:\s*0\.84rem/s
+    );
+  });
+});
+
+describe("value-list trust signal tokens", () => {
+  test("value-list icons keep accent with muted supporting spans", () => {
+    // About-page trust bullets lose scan hierarchy if icons inherit muted text
+    // (or descriptions match title ink) while portrait/signature locks stay green.
+    expect(stylesCss).toMatch(
+      /\.value-list\s+svg\s*\{[^}]*color:\s*var\(--color-accent\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.value-list\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("contact hours-row layout tokens", () => {
+  test("hours-row keeps day/hours space-between with a dashed separator", () => {
+    // Availability content locks still pass if rows stack or lose the dashed
+    // hairline — day labels and hours then collide into a single unreadable
+    // line on the contact sidebar while contact-hours h4 muted stays green.
+    expect(stylesCss).toMatch(
+      /\.hours-row\s*\{[^}]*justify-content:\s*space-between/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hours-row\s*\{[^}]*border-bottom:\s*1px\s+dashed\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hours-row:last-child\s*\{[^}]*border-bottom:\s*none/s
+    );
+  });
+});
