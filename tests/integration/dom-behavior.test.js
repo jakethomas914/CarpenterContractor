@@ -136,6 +136,27 @@ describe("scroll reveal fallback", () => {
     window.IntersectionObserver = original;
   });
 
+  test("reveals every [data-reveal] when IntersectionObserver is unavailable", () => {
+    // The no-IO path must force-show the full set (contact cards, service tiles).
+    // Revealing only querySelector (first match) leaves sibling lead UI at opacity:0.
+    const original = window.IntersectionObserver;
+    delete window.IntersectionObserver;
+
+    loadMainWithFixture(`
+      <section data-reveal>One</section>
+      <section data-reveal>Two</section>
+      <section data-reveal>Three</section>
+    `);
+
+    const els = [...document.querySelectorAll("[data-reveal]")];
+    expect(els).toHaveLength(3);
+    for (const el of els) {
+      expect(el.classList.contains("is-visible")).toBe(true);
+    }
+
+    window.IntersectionObserver = original;
+  });
+
   test("does not eagerly reveal elements when IntersectionObserver is available", () => {
     let capturedCallback;
     const observe = jest.fn();
