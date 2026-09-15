@@ -765,6 +765,31 @@ describe("contact form handling", () => {
     );
   });
 
+  test("preserves multi-line message body through the form submit path", () => {
+    // Unit tests lock buildMailtoUrl's message trim-only behavior. The submit
+    // handler must not route message through sanitizeForHeader — collapsing
+    // visitor newlines loses project details in the owner's inbox.
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="Jane Doe" />
+        <textarea name="message">Line one
+Line two
+Line three</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    const decodedBody = decodeURIComponent(redirectSpy.mock.calls[0][0].split("body=")[1]);
+    expect(decodedBody).toContain("Line one\nLine two\nLine three");
+  });
+
   test("ignores Netlify honeypot and form-name fields when building the mailto URL", () => {
     const main = loadMainWithFixture(`
       <form data-contact-form data-recipient="info@example.com" data-netlify="true" netlify-honeypot="bot-field">
