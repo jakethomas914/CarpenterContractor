@@ -1611,6 +1611,23 @@ describe("sticky header readability", () => {
     );
     expect(headerBlock[0]).not.toMatch(/background(?:-color)?\s*:\s*transparent/);
   });
+
+  test("site-header keeps 92% cream opacity so sticky chrome stays readable", () => {
+    // Channel parity alone still passes if alpha drops (e.g. 40%) — hero/content
+    // then shows through the sticky nav and phone CTA while --color-bg locks stay green.
+    const bgHex = stylesCss.match(/--color-bg:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(bgHex).toBeTruthy();
+    const r = parseInt(bgHex.slice(1, 3), 16);
+    const g = parseInt(bgHex.slice(3, 5), 16);
+    const b = parseInt(bgHex.slice(5, 7), 16);
+    const headerBlock = stylesCss.match(/\.site-header\s*\{[^}]*\}/);
+    expect(headerBlock).toBeTruthy();
+    expect(headerBlock[0]).toMatch(
+      new RegExp(
+        `background-color:\\s*rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*92%\\s*\\)`
+      )
+    );
+  });
 });
 
 describe("skip-link accessible name", () => {
@@ -2401,6 +2418,14 @@ describe("contact hours-row layout tokens", () => {
       /\.hours-row:last-child\s*\{[^}]*border-bottom:\s*none/s
     );
   });
+
+  test("hours-row stays flex at compact body size so day/hours stay on one line", () => {
+    // justify-content alone is a no-op without display:flex, and oversized type
+    // wraps day labels into the hours column — availability then looks broken
+    // while dashed-separator + content-pair locks stay green.
+    expect(stylesCss).toMatch(/\.hours-row\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.hours-row\s*\{[^}]*font-size:\s*0\.92rem/s);
+  });
 });
 
 describe("wood token ↔ hard-coded RGB parity", () => {
@@ -2446,6 +2471,15 @@ describe("value-list strong title hierarchy", () => {
       /\.value-list\s+strong\s*\{[^}]*font-size:\s*1rem/s
     );
   });
+
+  test("value-list strong keeps a small margin under the title before muted copy", () => {
+    // Block + 1rem locks still pass if margin-bottom is dropped — title and
+    // description then collide into one dense paragraph while icon/span color
+    // contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.value-list\s+strong\s*\{[^}]*margin-bottom:\s*2px/s
+    );
+  });
 });
 
 describe("about-signature strong typography", () => {
@@ -2466,6 +2500,55 @@ describe("about-signature strong typography", () => {
     // size — name→title hierarchy collapses while ink/muted color locks stay green.
     expect(stylesCss).toMatch(
       /\.about-signature\s+span\s*\{[^}]*font-size:\s*0\.88rem/s
+    );
+  });
+});
+
+describe("ink token ↔ hard-coded RGB parity", () => {
+  function inkRgbChannels() {
+    const inkHex = stylesCss.match(/--color-ink:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(inkHex).toBe("#1e1a17");
+    return {
+      r: parseInt(inkHex.slice(1, 3), 16),
+      g: parseInt(inkHex.slice(3, 5), 16),
+      b: parseInt(inkHex.slice(5, 7), 16),
+    };
+  }
+
+  test("--color-ink decodes to the RGB used by portrait overlay and elevation shadows", () => {
+    // Portrait caption + --shadow-* hard-code rgb(R G B / α) while brand/footer
+    // chrome uses var(--color-ink). Token-only or literal-only locks still pass
+    // when one side drifts — overlay/elevation then diverge from every other
+    // ink surface (footer, buttons, wordmark).
+    const { r, g, b } = inkRgbChannels();
+    expect([r, g, b]).toEqual([30, 26, 23]);
+
+    const ink72 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*72%\\s*\\)`
+    );
+    const ink8 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*8%\\s*\\)`
+    );
+    const ink10 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*10%\\s*\\)`
+    );
+    const ink16 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*16%\\s*\\)`
+    );
+
+    expect(stylesCss).toMatch(
+      new RegExp(
+        `\\.about-portrait-caption\\s*\\{[^}]*background(?:-color)?:\\s*${ink72.source}`
+      )
+    );
+    expect(stylesCss).toMatch(
+      new RegExp(`--shadow-sm:\\s*0\\s+1px\\s+3px\\s+${ink8.source}`)
+    );
+    expect(stylesCss).toMatch(
+      new RegExp(`--shadow-md:\\s*0\\s+8px\\s+24px\\s+${ink10.source}`)
+    );
+    expect(stylesCss).toMatch(
+      new RegExp(`--shadow-lg:\\s*0\\s+20px\\s+50px\\s+${ink16.source}`)
     );
   });
 });
