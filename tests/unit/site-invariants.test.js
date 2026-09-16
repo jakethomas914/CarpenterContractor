@@ -2552,3 +2552,47 @@ describe("ink token ↔ hard-coded RGB parity", () => {
     );
   });
 });
+
+describe("about-signature strong block layout", () => {
+  test("about-signature strong stays display:block so the role spans below the name", () => {
+    // Heading font/size + ink color locks still pass if strong stays inline —
+    // founder name and muted role then share one line and the signature reads
+    // as a single bio fragment while typography contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s+strong\s*\{[^}]*display:\s*block/s
+    );
+  });
+});
+
+describe("value-list row layout + supporting copy size", () => {
+  test("value-list li stays a flex row with icon→copy gap and top alignment", () => {
+    // Strong/span hierarchy locks still pass if list items lose display:flex
+    // (or the 14px gap / flex-start alignment) — icons then stack above titles
+    // or baseline-align into multi-line copy while color contracts stay green.
+    expect(stylesCss).toMatch(/\.value-list\s+li\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.value-list\s+li\s*\{[^}]*gap:\s*14px/s);
+    expect(stylesCss).toMatch(
+      /\.value-list\s+li\s*\{[^}]*align-items:\s*flex-start/s
+    );
+  });
+
+  test("value-list icons keep a fixed box and flex-shrink so glyphs do not collapse", () => {
+    // Flex-row locks still pass if svg width/height or flex-shrink:0 drops —
+    // long trust titles then crush the accent mark while color contracts stay
+    // green.
+    expect(stylesCss).toMatch(/\.value-list\s+svg\s*\{[^}]*width:\s*22px/s);
+    expect(stylesCss).toMatch(/\.value-list\s+svg\s*\{[^}]*height:\s*22px/s);
+    expect(stylesCss).toMatch(
+      /\.value-list\s+svg\s*\{[^}]*flex-shrink:\s*0/s
+    );
+  });
+
+  test("value-list supporting spans stay compact under strong titles", () => {
+    // Muted color + strong 1rem locks still pass if span font-size rises to
+    // match the title — trust bullets lose title→description hierarchy while
+    // block/margin contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.value-list\s+span\s*\{[^}]*font-size:\s*0\.93rem/s
+    );
+  });
+});
