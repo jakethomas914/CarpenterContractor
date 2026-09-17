@@ -2596,3 +2596,87 @@ describe("value-list row layout + supporting copy size", () => {
     );
   });
 });
+
+describe("about-signature block spacing", () => {
+  test("about-signature keeps top margin and padding so it separates from bio copy", () => {
+    // Border + flex/gap locks still pass if margin-top/padding-top collapse —
+    // founder identity then sits flush against the last about paragraph while
+    // strong/span typography contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s*\{[^}]*margin-top:\s*28px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-signature\s*\{[^}]*padding-top:\s*24px/s
+    );
+  });
+
+  test("about-signature vertically centers avatar and name/role columns", () => {
+    // display:flex + gap alone still pass if align-items drifts to stretch/start —
+    // portrait mark and signature text then misalign while separator contracts
+    // stay green.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s*\{[^}]*align-items:\s*center/s
+    );
+  });
+});
+
+describe("value-list grid spacing", () => {
+  test("value-list stays a grid with 16px row gap between trust bullets", () => {
+    // Per-li flex metrics still pass if the list loses display:grid or gap:16px —
+    // bullets then stack flush (or fall back to sparse default gaps) while icon
+    // box / strong hierarchy contracts remain green.
+    expect(stylesCss).toMatch(/\.value-list\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(/\.value-list\s*\{[^}]*gap:\s*16px/s);
+  });
+
+  test("value-list keeps top margin so trust bullets clear the about copy", () => {
+    // Grid gap alone still passes if margin-top drops — trust bullets collide
+    // with the last about paragraph while li flex contracts stay green.
+    expect(stylesCss).toMatch(/\.value-list\s*\{[^}]*margin-top:\s*28px/s);
+  });
+
+  test("value-list icons keep a small top offset to optically align with titles", () => {
+    // Fixed 22px box + flex-shrink locks still pass if margin-top:3px is dropped —
+    // accent glyphs then sit high relative to strong titles while color contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.value-list\s+svg\s*\{[^}]*margin-top:\s*3px/s
+    );
+  });
+});
+
+describe("scroll-reveal entry motion tokens", () => {
+  test("[data-reveal] starts hidden with the documented 18px entry translate", () => {
+    // .is-visible restore locks still pass if the resting state loses opacity:0
+    // or the entry offset drifts (e.g. 0 / 40px) — lead cards then either flash
+    // fully visible before IO or overshoot under sticky chrome while observer
+    // option contracts stay green.
+    expect(stylesCss).toMatch(
+      /\[data-reveal\]\s*\{[^}]*opacity:\s*0/s
+    );
+    expect(stylesCss).toMatch(
+      /\[data-reveal\]\s*\{[^}]*transform:\s*translateY\(18px\)/s
+    );
+  });
+
+  test("[data-reveal] keeps a 600ms opacity+transform transition for the reveal", () => {
+    // Exact translate/opacity locks still pass if transition is dropped or
+    // shortened to instant — scroll reveals then pop without motion (or animate
+    // forever if duration balloons) while prefers-reduced-motion:none contracts
+    // remain green for users who allow motion.
+    expect(stylesCss).toMatch(
+      /\[data-reveal\]\s*\{[^}]*transition:\s*opacity\s+600ms\s+ease\s*,\s*transform\s+600ms\s+ease/s
+    );
+  });
+});
+
+describe("contact hours-row vertical rhythm", () => {
+  test("hours-row keeps compact vertical padding around day/hours pairs", () => {
+    // Flex + dashed separator locks still pass if padding collapses to 0 —
+    // Availability rows then feel cramped and harder to scan while content-pair
+    // and font-size contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hours-row\s*\{[^}]*padding:\s*6px\s+0/s
+    );
+  });
+});
