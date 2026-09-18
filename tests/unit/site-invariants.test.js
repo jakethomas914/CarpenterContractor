@@ -306,7 +306,13 @@ describe("accessibility motion contract (CSS)", () => {
   test("prefers-reduced-motion force-shows [data-reveal] without waiting for JS", () => {
     // Accessibility e2e relies on this so axe measures final contrast.
     expect(stylesCss).toMatch(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
-    expect(stylesCss).toMatch(/\[data-reveal\]\s*\{[^}]*opacity:\s*1/s);
+    // Opacity:1 must live inside the reduce media query — a bare
+    // [data-reveal] { opacity:1 } outside reduce would defeat scroll-reveal
+    // for everyone, while scoping only transform:none still leaves reduce
+    // users staring at opacity:0 lead cards when JS is slow.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)[\s\S]*?\[data-reveal\]\s*\{[^}]*opacity:\s*1/s
+    );
     // Without transform:none, reduced-motion users still see a permanent
     // translateY offset even when opacity is forced to 1.
     expect(stylesCss).toMatch(
@@ -2677,6 +2683,120 @@ describe("contact hours-row vertical rhythm", () => {
     // and font-size contracts remain green.
     expect(stylesCss).toMatch(
       /\.hours-row\s*\{[^}]*padding:\s*6px\s+0/s
+    );
+  });
+});
+
+describe("contact lead-card surface + padding", () => {
+  test("contact-form-card keeps a white surface, border, and generous padding", () => {
+    // Intro muted-copy + field fill locks still pass if the card loses
+    // --color-surface / border / padding:40px — the quote form then blends into
+    // the cream page or crowds controls while form-field contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*\{[^}]*padding:\s*40px/s
+    );
+  });
+
+  test("contact-info-card keeps a white surface, border, and sidebar padding", () => {
+    // Phone/email wood icon + hours-row locks still pass if the info card loses
+    // surface/border/padding:36px — contact details then sit flush on cream
+    // (or crowd the Availability block) while content contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.contact-info-card\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-info-card\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-info-card\s*\{[^}]*padding:\s*36px/s
+    );
+  });
+
+  test("contact-hours keeps a top border separator above Availability rows", () => {
+    // hours-row dashed separators alone still pass if contact-hours loses its
+    // border-top — day/hours then run into the city list with no section break
+    // while muted h4 + row padding contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s*\{[^}]*border-top:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s*\{[^}]*padding-top:\s*22px/s
+    );
+  });
+});
+
+describe("about-portrait plane geometry", () => {
+  test("about-portrait keeps a tall 4/5 plane with overflow clipped for the caption", () => {
+    // Wood color + caption scrim locks still pass if aspect-ratio or
+    // overflow:hidden drops — the craftsman mark then sits in a squat box and
+    // the absolute caption can paint outside the portrait while color contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*5/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*overflow:\s*hidden/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*position:\s*relative/s
+    );
+  });
+
+  test("about-portrait centers the placeholder mark with flex", () => {
+    // aspect-ratio alone still passes if display:flex / centering drops — the
+    // wood SVG then pins to the top-left of the plane while caption overlay
+    // contracts stay green.
+    expect(stylesCss).toMatch(/\.about-portrait\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+
+  test("about-portrait-caption stays absolutely pinned to the portrait bottom", () => {
+    // Ink 72% scrim + white text locks still pass if position/inset drift —
+    // the "Photo of Greg Felton" strip then flows in document order under the
+    // plane instead of overlaying it while color contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*position:\s*absolute/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*bottom:\s*0/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*left:\s*0/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*right:\s*0/s
+    );
+  });
+});
+
+describe("lead form-row responsive columns", () => {
+  test("form-row keeps a two-column grid for name/phone on wide contact layouts", () => {
+    // Individual form-field fill/focus locks still pass if form-row loses
+    // display:grid or 1fr 1fr — name and phone then stack (or stretch unevenly)
+    // on desktop while label/control contracts stay green.
+    expect(stylesCss).toMatch(/\.form-row\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.form-row\s*\{[^}]*grid-template-columns:\s*1fr\s+1fr/s
+    );
+  });
+
+  test("form-row collapses to a single column at max-width 540px", () => {
+    // Two-column desktop locks still pass if the 540px stack media query is
+    // dropped — narrow phones then squeeze name+phone side-by-side and clip
+    // labels while resting field contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*540px\s*\)[\s\S]*?\.form-row\s*\{[^}]*grid-template-columns:\s*1fr/s
     );
   });
 });
