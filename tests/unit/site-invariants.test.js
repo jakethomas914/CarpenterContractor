@@ -2800,3 +2800,82 @@ describe("lead form-row responsive columns", () => {
     );
   });
 });
+
+describe("about-portrait craftsman mark scale", () => {
+  test("about-portrait svg keeps a 44% box so the mark stays secondary to the plane", () => {
+    // Portrait flex centering + wood color locks still pass if width/height
+    // drift to 100% (or shrink to icon size) — the placeholder craftsman mark
+    // then dominates or vanishes inside the 4/5 plane while caption overlay
+    // contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s+svg\s*\{[^}]*width:\s*44%/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s+svg\s*\{[^}]*height:\s*44%/s
+    );
+  });
+
+  test("about-portrait svg keeps soft opacity so the caption remains primary", () => {
+    // Size locks alone still pass if opacity rises to 1 (or drops near 0) —
+    // the mark then competes with the "Photo of Greg Felton" strip or
+    // disappears while wood color + caption scrim contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s+svg\s*\{[^}]*opacity:\s*0\.75/s
+    );
+  });
+});
+
+describe("contact-form-card heading + intro spacing", () => {
+  test("contact-form-card h3 keeps a 1.3rem title size above the lead form", () => {
+    // Card surface/padding + muted intro color locks still pass if the h3
+    // shrinks to body size (or balloons toward section H2) — "Request a Free
+    // Quote" then loses hierarchy over fields while form-row contracts stay
+    // green.
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s+h3\s*\{[^}]*font-size:\s*1\.3rem/s
+    );
+  });
+
+  test("contact-form-card intro keeps spacing below the title and before fields", () => {
+    // Muted intro color alone still passes if h3 margin-bottom or intro
+    // margin-bottom:28px drops — title/copy/fields then collide into one
+    // dense block while surface padding + form-row contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s+h3\s*\{[^}]*margin-bottom:\s*8px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*>\s*p\s*\{[^}]*margin-bottom:\s*28px/s
+    );
+  });
+});
+
+describe("lead message textarea geometry", () => {
+  test("message textarea keeps min-height 130px for multi-line project detail", () => {
+    // Shared form-field fill/focus + multi-line mailto body locks still pass if
+    // textarea min-height collapses — visitors then get a single-line-tall box
+    // for the project message while control color contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+textarea\s*\{[^}]*min-height:\s*130px/s
+    );
+  });
+
+  test("message textarea stays vertically resizable (not locked or horizontal-only)", () => {
+    // min-height alone still passes if resize becomes none or horizontal —
+    // long project descriptions then cannot grow the control while focus-ring
+    // and resting fill contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+textarea\s*\{[^}]*resize:\s*vertical/s
+    );
+  });
+});
+
+describe("hours-row trailing separator", () => {
+  test("hours-row:last-child drops the dashed bottom border under Sunday", () => {
+    // Per-row dashed border + padding locks still pass if :last-child keeps a
+    // bottom rule — Availability then ends with a dangling separator under
+    // "Sunday / Closed" while day/hours content contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.hours-row:last-child\s*\{[^}]*border-bottom:\s*none/s
+    );
+  });
+});
