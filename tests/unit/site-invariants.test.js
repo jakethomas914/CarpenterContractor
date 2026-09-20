@@ -2879,3 +2879,84 @@ describe("hours-row trailing separator", () => {
     );
   });
 });
+
+describe("about-portrait-caption type + inset padding", () => {
+  test("about-portrait-caption keeps compact type so the strip stays secondary", () => {
+    // Absolute pin + ink 72% scrim locks still pass if font-size balloons to
+    // body rem — "Photo of Greg Felton" then dominates the 4/5 plane while
+    // craftsman-mark opacity and overlay-position contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*font-size:\s*0\.82rem/s
+    );
+  });
+
+  test("about-portrait-caption keeps horizontal/vertical inset padding", () => {
+    // Color + absolute inset locks still pass if padding collapses — caption
+    // text then kisses the portrait edges (or overflows the clipped plane)
+    // while ink scrim and white-text contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*padding:\s*14px\s+18px/s
+    );
+  });
+
+  test("about-portrait-caption stays centered over the portrait plane", () => {
+    // Size/padding alone still pass if text-align drifts left — the photo
+    // label then sits off-center under a centered craftsman mark while
+    // overlay pin contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*text-align:\s*center/s
+    );
+  });
+});
+
+describe("lead form-field vertical rhythm", () => {
+  test("form-field keeps margin-bottom so stacked controls stay scannable", () => {
+    // Label weight + control fill/focus locks still pass if margin-bottom:20px
+    // drops — name/email/phone/service/message then collide into one dense
+    // stack while form-row columns and textarea min-height remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s*\{[^}]*margin-bottom:\s*20px/s
+    );
+  });
+
+  test("form-field labels keep readable size and gap above controls", () => {
+    // Semibold weight alone still passes if font-size or label margin-bottom
+    // collapses — labels then crowd (or dwarf) inputs while id/name pairing
+    // and control fill contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+label\s*\{[^}]*font-size:\s*0\.9rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-field\s+label\s*\{[^}]*margin-bottom:\s*8px/s
+    );
+  });
+});
+
+describe("lead form shared control geometry", () => {
+  test("shared form controls keep 13px 14px padding for tap-friendly typing", () => {
+    // Cream fill + text color locks still pass if padding shrinks — name/email/
+    // phone/service/message then feel cramped (especially on mobile) while
+    // focus-ring and textarea min-height contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*padding:\s*13px\s+14px/s
+    );
+  });
+
+  test("shared form controls keep a 1.5px border against the cream fill", () => {
+    // Background/color alone still pass if border thins to 1px or vanishes —
+    // resting fields then blend into --color-bg and only appear on focus while
+    // accent focus-ring contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*border:\s*1\.5px\s+solid\s+var\(--color-border\)/s
+    );
+  });
+
+  test("shared form controls stretch full width inside the form card", () => {
+    // Padding/border locks still pass if width:100% drops — select/textarea
+    // then shrink to content width beside labels while form-row grid and
+    // field spacing contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*width:\s*100%/s
+    );
+  });
+});
