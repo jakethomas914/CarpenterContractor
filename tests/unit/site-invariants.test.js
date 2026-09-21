@@ -303,14 +303,38 @@ describe("security + Netlify form posture", () => {
 });
 
 describe("accessibility motion contract (CSS)", () => {
-  test("prefers-reduced-motion force-shows [data-reveal] without waiting for JS", () => {
+  test("scroll-reveal hide styles are gated behind html.js-reveal (no-JS safe)", () => {
+    // Without this gate, a failed main.js load leaves contact form/info at
+    // opacity:0 forever — lead-capture breakage. CSS must not hide
+    // [data-reveal] until JS opts in.
+    expect(stylesCss).toMatch(/html\.js-reveal\s+\[data-reveal\]\s*\{[^}]*opacity:\s*0/s);
+    expect(stylesCss).not.toMatch(/(?:^|})\s*\[data-reveal\]\s*\{[^}]*opacity:\s*0/s);
+  });
+
+  test("scroll-reveal transition applies only on .is-visible (no post-paint fade-out)", () => {
+    // Transition on the default hidden rule fades already-painted content to
+    // opacity:0 when initScrollReveal adds js-reveal after first paint. Keep
+    // the motion on the visible state only so opt-in snaps hide, then animates in.
+    expect(stylesCss).toMatch(
+      /html\.js-reveal\s+\[data-reveal\]\.is-visible\s*\{[^}]*transition:\s*opacity/s
+    );
+    const defaultHideRule = stylesCss.match(
+      /html\.js-reveal\s+\[data-reveal\]\s*\{[^}]*\}/
+    );
+    expect(defaultHideRule).toBeTruthy();
+    expect(defaultHideRule[0]).not.toMatch(/transition:/);
+  });
+
+  test("prefers-reduced-motion force-shows [data-reveal] without waiting for IO", () => {
     // Accessibility e2e relies on this so axe measures final contrast.
     expect(stylesCss).toMatch(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
-    expect(stylesCss).toMatch(/\[data-reveal\]\s*\{[^}]*opacity:\s*1/s);
+    expect(stylesCss).toMatch(
+      /html\.js-reveal\s+\[data-reveal\]\s*\{[^}]*opacity:\s*1/s
+    );
     // Without transform:none, reduced-motion users still see a permanent
     // translateY offset even when opacity is forced to 1.
     expect(stylesCss).toMatch(
-      /@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)[\s\S]*?\[data-reveal\]\s*\{[^}]*transform:\s*none/s
+      /@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)[\s\S]*?html\.js-reveal\s+\[data-reveal\]\s*\{[^}]*transform:\s*none/s
     );
   });
 
@@ -318,7 +342,7 @@ describe("accessibility motion contract (CSS)", () => {
     // Opacity/transform restores alone still animate under reduce if transition
     // remains — axe e2e and WCAG reduced-motion posture expect transition:none.
     expect(stylesCss).toMatch(
-      /@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)[\s\S]*?\[data-reveal\]\s*\{[^}]*transition:\s*none/s
+      /@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)[\s\S]*?html\.js-reveal\s+\[data-reveal\]\s*\{[^}]*transition:\s*none/s
     );
   });
 
@@ -1433,18 +1457,18 @@ describe("scroll-reveal visible-state CSS contract", () => {
     // observed elements stay at the default opacity:0 forever — including the
     // contact quote form — while observer tests still pass.
     expect(stylesCss).toMatch(
-      /\[data-reveal\]\.is-visible\s*\{[^}]*opacity:\s*1/s
+      /html\.js-reveal\s+\[data-reveal\]\.is-visible\s*\{[^}]*opacity:\s*1/s
     );
   });
 
   test("[data-reveal].is-visible clears the entry translate so revealed content is not offset", () => {
-    // Default [data-reveal] uses translateY. Opacity-only .is-visible leaves
+    // Default gated [data-reveal] uses translateY. Opacity-only .is-visible leaves
     // lead cards visually shifted (and potentially clipped under sticky chrome).
     expect(stylesCss).toMatch(
-      /\[data-reveal\]\s*\{[^}]*transform:\s*translateY\(/s
+      /html\.js-reveal\s+\[data-reveal\]\s*\{[^}]*transform:\s*translateY\(/s
     );
     expect(stylesCss).toMatch(
-      /\[data-reveal\]\.is-visible\s*\{[^}]*transform:\s*translateY\(0\)/s
+      /html\.js-reveal\s+\[data-reveal\]\.is-visible\s*\{[^}]*transform:\s*translateY\(0\)/s
     );
   });
 });

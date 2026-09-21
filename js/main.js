@@ -117,6 +117,11 @@
       return;
     }
 
+    // Opt into hide-until-revealed CSS only when this script is actually
+    // running. If main.js never loads, [data-reveal] stays visible (see
+    // css/styles.css) so contact/lead UI cannot disappear permanently.
+    document.documentElement.classList.add("js-reveal");
+
     if (!("IntersectionObserver" in window)) {
       revealEls.forEach(function (el) {
         el.classList.add("is-visible");

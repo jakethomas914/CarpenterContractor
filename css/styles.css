@@ -1288,20 +1288,28 @@ section {
 
 /* -------------------------------------------------------------------------
    Scroll reveal
-   ------------------------------------------------------------------------- */
-[data-reveal] {
+   -------------------------------------------------------------------------
+   Hide-until-revealed styles apply ONLY after js/main.js opts in via the
+   `js-reveal` class on <html>. Without that gate, a failed/blocked script
+   load would leave contact info, the quote form, and service cards at
+   opacity:0 forever (lead-capture breakage).
+
+   Transition lives on `.is-visible` only — not on the hidden state — so
+   adding `js-reveal` after first paint snaps to opacity:0 instead of
+   fading visible content out before IntersectionObserver fades it back in. */
+html.js-reveal [data-reveal] {
   opacity: 0;
   transform: translateY(18px);
+}
+
+html.js-reveal [data-reveal].is-visible {
+  opacity: 1;
+  transform: translateY(0);
   transition: opacity 600ms ease, transform 600ms ease;
 }
 
-[data-reveal].is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal] {
+  html.js-reveal [data-reveal] {
     opacity: 1;
     transform: none;
     transition: none;
