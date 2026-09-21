@@ -2930,6 +2930,15 @@ describe("lead form-field vertical rhythm", () => {
       /\.form-field\s+label\s*\{[^}]*margin-bottom:\s*8px/s
     );
   });
+
+  test("form-field labels stay display:block so labels stack above controls", () => {
+    // Font-size + margin-bottom locks still pass if display:block drops —
+    // inline labels then sit beside (or wrap into) inputs while id/name
+    // pairing and shared control geometry contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+label\s*\{[^}]*display:\s*block/s
+    );
+  });
 });
 
 describe("lead form shared control geometry", () => {
@@ -2957,6 +2966,47 @@ describe("lead form shared control geometry", () => {
     // field spacing contracts remain green.
     expect(stylesCss).toMatch(
       /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*width:\s*100%/s
+    );
+  });
+
+  test("shared form controls keep radius-sm corners for brand-matched typing surfaces", () => {
+    // Padding/border/width locks still pass if border-radius drifts to 0 or a
+    // pill — lead fields then clash with .btn radius-sm while form-row and
+    // focus-ring contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*border-radius:\s*var\(--radius-sm\)/s
+    );
+  });
+
+  test("shared form controls inherit site typeface at 0.96rem for readable typing", () => {
+    // Geometry locks still pass if font-family falls back to UA defaults or
+    // font-size shrinks — name/email/phone/service/message then look alien
+    // beside Inter body copy while cream fill and focus-ring stay green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*font-family:\s*inherit/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*font-size:\s*0\.96rem/s
+    );
+  });
+});
+
+describe("lead form-note type + spacing", () => {
+  test("form-note keeps compact 0.82rem type under the submit CTA", () => {
+    // Muted color + bold phone-link locks still pass if font-size grows to
+    // body — the call-fallback note then competes with the submit button while
+    // form-status tint/contrast contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-note\s*\{[^}]*font-size:\s*0\.82rem/s
+    );
+  });
+
+  test("form-note keeps margin-top so it clears the submit button", () => {
+    // Color/weight locks still pass if margin-top:14px collapses — the phone
+    // fallback then crowds the primary CTA while form-status is-visible and
+    // shared control geometry contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.form-note\s*\{[^}]*margin-top:\s*14px/s
     );
   });
 });
