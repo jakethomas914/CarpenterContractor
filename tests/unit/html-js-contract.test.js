@@ -164,6 +164,11 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     expect(initBody[1]).toMatch(/initContactForm\s*\(\s*\)\s*;/);
   });
 
+  test("initScrollReveal opts into hide-until-revealed via html.js-reveal", () => {
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).toMatch(/classList\.add\(\s*["']js-reveal["']\s*\)/);
+  });
+
   test("init() still wires every DOM feature entry point", () => {
     // Dropping any of these from init() silently disables the feature while leaving
     // the function and HTML hooks intact — a common "safe cleanup" regression.
@@ -287,10 +292,10 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     expect(statusEl[0]).toMatch(/\brole="status"/);
   });
 
-  test("marks lead-capture cards with data-reveal (contact info + quote form)", () => {
-    // Both cards use scroll-reveal. CSS currently hides [data-reveal] until
-    // .is-visible — a blocked/missing main.js leaves the quote form invisible.
-    // Locking the hooks documents that dependency so reveal CSS changes stay deliberate.
+  test("marks lead-capture cards with data-reveal (hiding gated on js-reveal)", () => {
+    // Contact info + quote form use data-reveal. Hiding them is gated on
+    // html.js-reveal from initScrollReveal — if that gate regresses, a
+    // blocked script load makes the quote form permanently invisible.
     expect(contactHtml).toMatch(/contact-info-card"[^>]*data-reveal/);
     expect(contactHtml).toMatch(/contact-form-card"[^>]*data-reveal/);
   });
