@@ -3010,3 +3010,82 @@ describe("lead form-note type + spacing", () => {
     );
   });
 });
+
+describe("lead form-status type + spacing", () => {
+  test("form-status keeps margin-top so confirmation clears the call-fallback note", () => {
+    // Tint/contrast locks still pass if margin-top:16px collapses — the sage
+    // confirmation panel then crowds the form-note phone CTA while is-visible
+    // display and accent-dark text contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*margin-top:\s*16px/s
+    );
+  });
+
+  test("form-status keeps 14px 16px padding for readable confirmation copy", () => {
+    // Color/background locks still pass if padding shrinks — the mailto status
+    // line then looks cramped against the sage fill while font-weight and
+    // is-visible display contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*padding:\s*14px\s+16px/s
+    );
+  });
+
+  test("form-status keeps radius-sm corners matching lead controls", () => {
+    // Tint/contrast locks still pass if border-radius drifts to 0 or a pill —
+    // the confirmation panel then clashes with shared control radius-sm while
+    // form-note spacing and accent RGB parity contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*border-radius:\s*var\(--radius-sm\)/s
+    );
+  });
+
+  test("form-status keeps 0.9rem semibold type for the mailto confirmation", () => {
+    // Panel fill/text-color locks still pass if font-size shrinks or weight
+    // drops to 400 — confirmation copy then reads as muted body text and is
+    // easy to miss after submit while is-visible display stays green.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*font-size:\s*0\.9rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*font-weight:\s*600/s
+    );
+  });
+});
+
+describe("lead form-note phone-link tel parity", () => {
+  test("form-note keeps a phone-link tel: CTA inside the contact form", () => {
+    // Global tel digit parity still passes if the under-submit call fallback
+    // loses its link (or becomes a non-tel href) while nav/footer phones remain
+    // correct — visitors who prefer calling after a failed mailto then have no
+    // in-form path.
+    const formBlock = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[\s\S]*?<\/form>/
+    );
+    expect(formBlock).toBeTruthy();
+    const noteBlock = formBlock[0].match(
+      /<p\b[^>]*\bclass="[^"]*\bform-note\b[^"]*"[^>]*>[\s\S]*?<\/p>/
+    );
+    expect(noteBlock).toBeTruthy();
+    const phoneLink = noteBlock[0].match(
+      /<a\b[^>]*\bhref="(tel:[^"]+)"[^>]*\bclass="[^"]*\bphone-link\b[^"]*"[^>]*>([\s\S]*?)<\/a>/
+    );
+    expect(phoneLink).toBeTruthy();
+
+    const stripDigits = (value) => String(value).replace(/\D/g, "");
+    const noteTelDigits = stripDigits(phoneLink[1]);
+    expect(noteTelDigits.length).toBeGreaterThanOrEqual(10);
+
+    const pageTelDigits = stripDigits(
+      collectMatches(contactHtml, /href="(tel:[^"]+)"/g)[0]
+    );
+    expect(noteTelDigits).toBe(pageTelDigits);
+
+    const visibleDigits = stripDigits(
+      decodeBasicEntities(phoneLink[2].replace(/<[^>]+>/g, ""))
+    );
+    expect(visibleDigits.length).toBeGreaterThanOrEqual(10);
+    expect(
+      noteTelDigits === visibleDigits || noteTelDigits.endsWith(visibleDigits)
+    ).toBe(true);
+  });
+});
