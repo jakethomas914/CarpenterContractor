@@ -3089,3 +3089,69 @@ describe("lead form-note phone-link tel parity", () => {
     ).toBe(true);
   });
 });
+
+describe("lead form post-submit DOM order", () => {
+  test("submit CTA precedes form-note, which precedes form-status", () => {
+    // Geometry/tint/tel/is-visible locks still pass if markup reorders these
+    // three nodes — confirmation can appear above the Send Message button, or
+    // the call-fallback note can push above the primary CTA, while mailto +
+    // status text contracts remain green.
+    const formBlock = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[\s\S]*?<\/form>/
+    );
+    expect(formBlock).toBeTruthy();
+    const submitIdx = formBlock[0].search(
+      /<button\b[^>]*\btype="submit"[^>]*>/i
+    );
+    const noteIdx = formBlock[0].search(
+      /<p\b[^>]*\bclass="[^"]*\bform-note\b/
+    );
+    const statusIdx = formBlock[0].search(/\bdata-form-status\b/);
+    expect(submitIdx).toBeGreaterThanOrEqual(0);
+    expect(noteIdx).toBeGreaterThan(submitIdx);
+    expect(statusIdx).toBeGreaterThan(noteIdx);
+  });
+});
+
+describe("lead message placeholder guidance", () => {
+  test("project message textarea keeps location/timeline placeholder cues", () => {
+    // Required + min-height + resize locks still pass if the placeholder is
+    // dropped or rewritten without location/timeline prompts — lead quality
+    // then degrades silently while HTML5 validation and mailto body labels
+    // stay green.
+    const textarea = contactHtml.match(
+      /<textarea\b[^>]*\bid="message"[^>]*>/
+    );
+    expect(textarea).toBeTruthy();
+    const placeholder = textarea[0].match(/\bplaceholder="([^"]*)"/);
+    expect(placeholder).toBeTruthy();
+    const cue = placeholder[1].toLowerCase();
+    expect(cue).toMatch(/location/);
+    expect(cue).toMatch(/timeline/);
+  });
+});
+
+describe("contact lead-card corner radius", () => {
+  test("contact form and info cards keep radius-lg corners", () => {
+    // Surface/border/padding locks still pass if border-radius drops to 0 or
+    // radius-sm — the quote + sidebar cards then look flush/sharp against the
+    // cream page while field geometry and hours-row contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-info-card\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+  });
+});
+
+describe("sticky header backdrop readability", () => {
+  test("site-header keeps a saturated blur behind the translucent cream chrome", () => {
+    // Channel↔92% alpha locks still pass if backdrop-filter is removed — sticky
+    // nav then sits as a flat translucent cream over busy hero/section content
+    // and section titles can show through while opacity parity stays green.
+    expect(stylesCss).toMatch(
+      /\.site-header\s*\{[^}]*backdrop-filter:\s*saturate\(\s*160%\s*\)\s+blur\(\s*8px\s*\)/s
+    );
+  });
+});
