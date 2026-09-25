@@ -3155,3 +3155,95 @@ describe("sticky header backdrop readability", () => {
     );
   });
 });
+
+describe("contact-hours Availability heading hierarchy", () => {
+  test("contact-hours h4 stays compact uppercase with tracking above day/hours rows", () => {
+    // Muted color alone still passes if the h4 loses uppercase/letter-spacing and
+    // grows to body size — Availability then reads as another hours-row instead of
+    // the section label while day/hours content locks stay green.
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s+h4\s*\{[^}]*font-size:\s*0\.9rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s+h4\s*\{[^}]*text-transform:\s*uppercase/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s+h4\s*\{[^}]*letter-spacing:\s*0\.05em/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s+h4\s*\{[^}]*margin-bottom:\s*12px/s
+    );
+  });
+});
+
+describe("trust-strip contrast on first-viewport chrome", () => {
+  test("trust-strip keeps an ink surface with light trust-item copy", () => {
+    // Hero gradient locks still pass if trust-strip inherits cream page bg — soft
+    // cream trust-item text then vanishes under the hero while icon accent-light
+    // and markup presence remain green.
+    expect(stylesCss).toMatch(
+      /\.trust-strip\s*\{[^}]*background-color:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.trust-strip\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(/\.trust-item\s*\{[^}]*color:\s*#f2ece2/s);
+  });
+
+  test("trust-item icons keep accent-light on the dark trust strip", () => {
+    // Matching trust-item cream or ink icons flatten the only glyph cue beside
+    // each trust claim while strip ink/#fff locks stay green.
+    expect(stylesCss).toMatch(
+      /\.trust-item\s+svg\s*\{[^}]*color:\s*var\(--color-accent-light\)/s
+    );
+  });
+});
+
+describe("hero-visual quote card readability", () => {
+  test("hero-visual keeps explicit white text on the wood gradient", () => {
+    // Wood→wood-dark gradient locks still pass if color inherits cream-page ink —
+    // the hero quote and Greg Felton signature then go dark-on-dark while
+    // gradient contracts remain green.
+    expect(stylesCss).toMatch(/\.hero-visual\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("hero-visual-quote keeps heading type at elevated size for the brand quote", () => {
+    // Falling back to body Inter at 1rem flattens the only quote on the wood
+    // card while white color and gradient locks stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-quote\s*\{[^}]*font-family:\s*var\(--font-heading\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-quote\s*\{[^}]*font-size:\s*1\.35rem/s
+    );
+  });
+});
+
+describe("service-area chip surface", () => {
+  test("area-chip keeps a bordered white surface for town labels", () => {
+    // Losing the surface/border bleaches chips into the cream page — areaServed
+    // town labels then disappear while JSON-LD areaServed content locks pass.
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+  });
+
+  test("area-chip icons keep accent so town glyphs stay visible", () => {
+    // Matching muted text or bleaching icons removes the only pin cue beside
+    // each served town while chip surface and areaServed list locks stay green.
+    expect(stylesCss).toMatch(
+      /\.area-chip\s+svg\s*\{[^}]*color:\s*var\(--color-accent\)/s
+    );
+  });
+});
+
+describe("alternating section surface", () => {
+  test("section-alt keeps bg-alt so alternating bands stay distinct from cream page", () => {
+    // Matching --color-bg (or bleaching to surface) collapses the only band
+    // cue between About/Services while heading hierarchy locks stay green.
+    expect(stylesCss).toMatch(
+      /\.section-alt\s*\{[^}]*background-color:\s*var\(--color-bg-alt\)/s
+    );
+  });
+});
