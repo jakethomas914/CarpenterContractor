@@ -3247,3 +3247,78 @@ describe("alternating section surface", () => {
     );
   });
 });
+
+describe("service-card surface for catalog visibility", () => {
+  test("service-card keeps a bordered white surface for service offerings", () => {
+    // Icon wood/bg-alt and muted body locks still pass if the card loses its
+    // surface/border — six service offerings then bleach into the cream page
+    // while catalog↔form option parity stays green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-card\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+  });
+});
+
+describe("gallery-tile placeholder surface", () => {
+  test("gallery-tile keeps a dashed bordered surface and 4/3 plane", () => {
+    // Icon wood-light + ink title locks still pass if tiles lose surface/border
+    // or aspect-ratio — placeholder project categories then collapse into the
+    // cream band while gallery markup presence stays green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*border:\s*1\.5px\s+dashed\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3/s
+    );
+  });
+});
+
+describe("testimonial-card surface + SAMPLE badge anchor", () => {
+  test("testimonial-card keeps a bordered white surface for social proof", () => {
+    // Quote italic/text and gold stars locks still pass if the card bleaches
+    // into cream — sample reviews then disappear while sample-badge ink/#fff
+    // and author hierarchy contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+  });
+
+  test("testimonial-card stays position:relative so SAMPLE badges anchor to the card", () => {
+    // Ink/#fff sample-badge locks still pass if the card loses position:relative
+    // — absolute SAMPLE chips then float against a distant ancestor while
+    // quote/author contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s*\{[^}]*position:\s*relative/s
+    );
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*position:\s*absolute/s
+    );
+  });
+});
+
+describe("hero-visual signature + icon on wood card", () => {
+  test("hero-visual-icon stays white on the wood gradient", () => {
+    // Wood→wood-dark + quote white locks still pass if the craftsman icon
+    // inherits dark page ink — the only glyph on the hero quote card then
+    // vanishes while signature opacity and quote type contracts stay green.
+    expect(stylesCss).toMatch(/\.hero-visual-icon\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("hero-visual-signature dot stays white beside the owner attribution", () => {
+    // Quote heading + card white locks still pass if the signature dot bleaches
+    // to wood/transparent — Greg Felton attribution loses its only bullet cue
+    // while hero-visual color and quote size contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s+\.dot\s*\{[^}]*background-color:\s*#fff/s
+    );
+  });
+});
