@@ -3322,3 +3322,97 @@ describe("hero-visual signature + icon on wood card", () => {
     );
   });
 });
+
+describe("trust-item row layout on dark strip", () => {
+  test("trust-item stays a compact flex row with icon→claim gap and semibold weight", () => {
+    // Strip ink/#fff and accent-light icon color locks still pass if trust-item
+    // loses display:flex (or the 10px gap / 600 weight) — icons then stack above
+    // claims or read as body-weight copy while contrast contracts stay green.
+    expect(stylesCss).toMatch(/\.trust-item\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.trust-item\s*\{[^}]*align-items:\s*center/s);
+    expect(stylesCss).toMatch(/\.trust-item\s*\{[^}]*gap:\s*10px/s);
+    expect(stylesCss).toMatch(/\.trust-item\s*\{[^}]*font-weight:\s*600/s);
+  });
+
+  test("trust-item icons keep a fixed box and flex-shrink so glyphs do not crush", () => {
+    // Flex-row + accent-light locks still pass if svg width/height or
+    // flex-shrink:0 drops — long trust claims then crush the glyph while strip
+    // contrast contracts remain green.
+    expect(stylesCss).toMatch(/\.trust-item\s+svg\s*\{[^}]*width:\s*20px/s);
+    expect(stylesCss).toMatch(/\.trust-item\s+svg\s*\{[^}]*height:\s*20px/s);
+    expect(stylesCss).toMatch(
+      /\.trust-item\s+svg\s*\{[^}]*flex-shrink:\s*0/s
+    );
+  });
+});
+
+describe("services-grid responsive columns", () => {
+  test("services-grid keeps a three-column track for the service catalog on wide layouts", () => {
+    // Card surface/border locks still pass if the grid collapses to 1fr — six
+    // offerings then stack as a long single column on desktop while catalog↔form
+    // option parity stays green.
+    expect(stylesCss).toMatch(/\.services-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.services-grid\s*\{[^}]*grid-template-columns:\s*repeat\(\s*3\s*,\s*1fr\s*\)/s
+    );
+  });
+
+  test("services-grid collapses to two columns at max-width 940px then one at 640px", () => {
+    // Desktop 3-col locks still pass if the 940/640 media queries are dropped —
+    // tablets and phones then keep three squeezed columns and clip card titles
+    // while service-card surface contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*940px\s*\)\s*\{\s*\.services-grid\s*\{[^}]*grid-template-columns:\s*repeat\(\s*2\s*,\s*1fr\s*\)/s
+    );
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*640px\s*\)\s*\{\s*\.services-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("gallery-grid responsive columns", () => {
+  test("gallery-grid keeps a three-column track for project placeholders on wide layouts", () => {
+    // Tile surface/aspect locks still pass if the grid collapses to 1fr —
+    // placeholder categories then stack as a long single column on desktop while
+    // dashed-border and 4/3 contracts stay green.
+    expect(stylesCss).toMatch(/\.gallery-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.gallery-grid\s*\{[^}]*grid-template-columns:\s*repeat\(\s*3\s*,\s*1fr\s*\)/s
+    );
+  });
+
+  test("gallery-grid collapses to two columns at max-width 940px then one at 600px", () => {
+    // Desktop 3-col locks still pass if the 940/600 media queries are dropped —
+    // tablets and phones then keep three squeezed tiles and crush captions while
+    // gallery-tile surface contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*940px\s*\)\s*\{\s*\.gallery-grid\s*\{[^}]*grid-template-columns:\s*repeat\(\s*2\s*,\s*1fr\s*\)/s
+    );
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*600px\s*\)\s*\{\s*\.gallery-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("testimonials-grid responsive columns", () => {
+  test("testimonials-grid keeps a three-column track for sample reviews on wide layouts", () => {
+    // Card surface + SAMPLE badge locks still pass if the grid collapses to 1fr —
+    // three sample reviews then stack as a long single column on desktop while
+    // quote/author contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonials-grid\s*\{[^}]*display:\s*grid/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonials-grid\s*\{[^}]*grid-template-columns:\s*repeat\(\s*3\s*,\s*1fr\s*\)/s
+    );
+  });
+
+  test("testimonials-grid collapses to a single column at max-width 940px", () => {
+    // Desktop 3-col locks still pass if the 940px stack media query is dropped —
+    // tablets then squeeze three review cards side-by-side and clip quote copy
+    // while testimonial-card surface contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*940px\s*\)\s*\{\s*\.testimonials-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
