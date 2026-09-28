@@ -3416,3 +3416,146 @@ describe("testimonials-grid responsive columns", () => {
     );
   });
 });
+
+describe("trust-strip container wrap layout", () => {
+  test("trust-strip .container keeps centered flex wrap with row/column gaps", () => {
+    // trust-item flex-row locks still pass if the strip container loses
+    // flex-wrap / justify-content:center — narrow viewports then overflow or
+    // left-align the dark claims band while item contrast contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.trust-strip\s+\.container\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.trust-strip\s+\.container\s*\{[^}]*flex-wrap:\s*wrap/s
+    );
+    expect(stylesCss).toMatch(
+      /\.trust-strip\s+\.container\s*\{[^}]*justify-content:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.trust-strip\s+\.container\s*\{[^}]*gap:\s*18px\s+36px/s
+    );
+  });
+});
+
+describe("service-card hover lift", () => {
+  test("service-card:hover lifts with shadow-md and clears the resting border", () => {
+    // Card surface/border locks still pass if :hover loses translateY / shadow —
+    // catalog cards then feel inert (or keep a hard border on lift) while
+    // services-grid column contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.service-card:hover\s*\{[^}]*transform:\s*translateY\(\s*-4px\s*\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-card:hover\s*\{[^}]*box-shadow:\s*var\(--shadow-md\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-card:hover\s*\{[^}]*border-color:\s*transparent/s
+    );
+  });
+});
+
+describe("hero container responsive columns", () => {
+  test("hero .container keeps a two-track grid for copy beside the quote card", () => {
+    // Hero CTA pairing locks still pass if the container collapses to 1fr on
+    // desktop — copy and wood quote card stack prematurely while btn-primary /
+    // btn-outline contracts stay green.
+    expect(stylesCss).toMatch(/\.hero\s+\.container\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.hero\s+\.container\s*\{[^}]*grid-template-columns:\s*1\.1fr\s+0\.9fr/s
+    );
+  });
+
+  test("hero .container collapses to a single column at max-width 940px", () => {
+    // Desktop two-track locks still pass if the 940px media query is dropped —
+    // tablets squeeze copy beside the quote card and clip the lede while hero
+    // CTA class contracts remain green. Require the selector immediately after
+    // the media `{` so an earlier 940px block cannot falsely bind.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*940px\s*\)\s*\{\s*\.hero\s+\.container\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("about-grid responsive columns", () => {
+  test("about-grid keeps a two-track layout for portrait beside founder copy", () => {
+    // Portrait mark scale locks still pass if about-grid collapses to 1fr on
+    // desktop — portrait and value-list stack early while craftsman svg size
+    // contracts stay green.
+    expect(stylesCss).toMatch(/\.about-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.about-grid\s*\{[^}]*grid-template-columns:\s*0\.85fr\s+1\.15fr/s
+    );
+  });
+
+  test("about-grid collapses to a single column at max-width 940px", () => {
+    // Desktop two-track locks still pass if the 940px media query is dropped —
+    // tablets squeeze portrait beside copy and crush the value-list while
+    // about-portrait geometry contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*940px\s*\)\s*\{\s*\.about-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("contact-grid responsive columns", () => {
+  test("contact-grid keeps a two-track layout for info beside the lead form", () => {
+    // Lead form field/DOM-order locks still pass if contact-grid collapses to
+    // 1fr on desktop — Availability and the mailto form stack early while
+    // hours-row and form-status contracts stay green.
+    expect(stylesCss).toMatch(/\.contact-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.contact-grid\s*\{[^}]*grid-template-columns:\s*0\.9fr\s+1\.1fr/s
+    );
+  });
+
+  test("contact-grid collapses to a single column at max-width 900px", () => {
+    // Desktop two-track locks still pass if the 900px media query is dropped —
+    // tablets squeeze info + lead form side-by-side and clip submit/status
+    // while form DOM-order contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*900px\s*\)\s*\{\s*\.contact-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("footer-grid responsive columns", () => {
+  test("footer-grid keeps a three-track layout for brand + Explore + Contact", () => {
+    // Footer chrome/separator locks still pass if columns collapse to 1fr on
+    // desktop — Explore hashes and Contact tel/mailto stack as a long column
+    // while footer alpha contracts stay green.
+    expect(stylesCss).toMatch(/\.footer-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.footer-grid\s*\{[^}]*grid-template-columns:\s*1\.4fr\s+1fr\s+1fr/s
+    );
+  });
+
+  test("footer-grid collapses to a single column at max-width 780px", () => {
+    // Desktop three-track locks still pass if the 780px media query is dropped —
+    // phones keep three squeezed footer columns and clip Explore/Contact links
+    // while footer-bottom parity contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*780px\s*\)\s*\{\s*\.footer-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("area-grid responsive columns", () => {
+  test("area-grid keeps a two-track layout for towns beside the map card", () => {
+    // area-chip surface locks still pass if area-grid collapses to 1fr on
+    // desktop — town chips and the dark map CTA stack early while chip border
+    // contracts stay green.
+    expect(stylesCss).toMatch(/\.area-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.area-grid\s*\{[^}]*grid-template-columns:\s*1fr\s+1fr/s
+    );
+  });
+
+  test("area-grid collapses to a single column at max-width 820px", () => {
+    // Desktop two-track locks still pass if the 820px media query is dropped —
+    // tablets squeeze chips beside the map card and clip the Call CTA while
+    // area-map-card btn-light contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*820px\s*\)\s*\{\s*\.area-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
