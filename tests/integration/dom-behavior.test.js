@@ -136,6 +136,27 @@ describe("scroll reveal fallback", () => {
     window.IntersectionObserver = original;
   });
 
+  test("reveals every [data-reveal] when IntersectionObserver is unavailable", () => {
+    // The no-IO path must force-show the full set (contact cards, service tiles).
+    // Revealing only querySelector (first match) leaves sibling lead UI at opacity:0.
+    const original = window.IntersectionObserver;
+    delete window.IntersectionObserver;
+
+    loadMainWithFixture(`
+      <section data-reveal>One</section>
+      <section data-reveal>Two</section>
+      <section data-reveal>Three</section>
+    `);
+
+    const els = [...document.querySelectorAll("[data-reveal]")];
+    expect(els).toHaveLength(3);
+    for (const el of els) {
+      expect(el.classList.contains("is-visible")).toBe(true);
+    }
+
+    window.IntersectionObserver = original;
+  });
+
   test("does not eagerly reveal elements when IntersectionObserver is available", () => {
     let capturedCallback;
     const observe = jest.fn();
@@ -742,6 +763,31 @@ describe("contact form handling", () => {
     expect(calledUrl.startsWith("mailto:info@example.com Bcc:victim@example.com?")).toBe(
       true
     );
+  });
+
+  test("preserves multi-line message body through the form submit path", () => {
+    // Unit tests lock buildMailtoUrl's message trim-only behavior. The submit
+    // handler must not route message through sanitizeForHeader — collapsing
+    // visitor newlines loses project details in the owner's inbox.
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="Jane Doe" />
+        <textarea name="message">Line one
+Line two
+Line three</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    const decodedBody = decodeURIComponent(redirectSpy.mock.calls[0][0].split("body=")[1]);
+    expect(decodedBody).toContain("Line one\nLine two\nLine three");
   });
 
   test("ignores Netlify honeypot and form-name fields when building the mailto URL", () => {
