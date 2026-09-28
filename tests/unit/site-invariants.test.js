@@ -1667,3 +1667,634 @@ describe("decorative chrome SVGs stay hidden from assistive tech", () => {
     }
   });
 });
+
+describe("mobile primary-nav overlay opacity contract", () => {
+  test("at max-width 920px, open primary-nav keeps an opaque --color-surface fill", () => {
+    // Opacity/visibility alone still leave nav labels unreadable when the overlay
+    // background is transparent or missing — page content shows through the menu.
+    expect(stylesCss).toMatch(/--color-surface:\s*#fff\b/);
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*920px\s*\)[\s\S]*?\.primary-nav\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    const mobileNavBlock = stylesCss.match(
+      /@media\s*\(\s*max-width:\s*920px\s*\)[\s\S]*?\.primary-nav\s*\{[^}]*\}/
+    );
+    expect(mobileNavBlock).toBeTruthy();
+    expect(mobileNavBlock[0]).not.toMatch(/background(?:-color)?\s*:\s*transparent/);
+  });
+});
+
+describe("dark-surface CTA contrast pairing", () => {
+  test("btn-light keeps white fill and ink text for CTAs on dark bands/cards", () => {
+    // On cta-band / area-map-card, white-on-white or transparent+white text makes
+    // the primary quote/call controls disappear while className checks still pass.
+    expect(stylesCss).toMatch(/\.btn-light\s*\{[^}]*background-color:\s*#fff/s);
+    expect(stylesCss).toMatch(/\.btn-light\s*\{[^}]*color:\s*var\(--color-ink\)/s);
+  });
+
+  test("cta-band primary quote CTA uses btn-light linking to contact.html", () => {
+    // Secondary outline-light is already locked. The primary must stay btn-light
+    // (not btn-outline / bare text) and keep the lead-capture contact destination.
+    expect(indexHtml).toMatch(
+      /class="cta-band"[\s\S]*?class="[^"]*\bbtn-light\b[^"]*"[^>]*href="contact\.html"/s
+    );
+    expect(stylesCss).toMatch(/\.cta-band\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.cta-band\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-wood-dark\)[^;]*var\(--color-ink\)/s
+    );
+  });
+
+  test("area-map-card call CTA keeps btn-light on the dark accent card", () => {
+    // Same light-button-on-dark-surface pairing as cta-band. Swapping to
+    // btn-outline (ink) or btn-primary without checking contrast hides the call.
+    expect(indexHtml).toMatch(
+      /class="area-map-card"[\s\S]*?class="[^"]*\bbtn-light\b[^"]*"[^>]*href="tel:/s
+    );
+    expect(stylesCss).toMatch(/\.area-map-card\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("hero primary quote CTA uses btn-primary on the light hero surface", () => {
+    // btn-light (#fff) on the cream hero collapses contrast. Hero must keep the
+    // accent-filled primary while dark bands keep btn-light.
+    expect(indexHtml).toMatch(
+      /class="hero-actions"[\s\S]*?class="[^"]*\bbtn-primary\b[^"]*"[^>]*href="contact\.html"/s
+    );
+  });
+});
+
+describe("lead-form status feedback contrast", () => {
+  test("form-status keeps accent-dark text on the tinted success panel", () => {
+    // display:block/.is-visible checks still pass if color drifts to #fff on the
+    // light sage panel — visitors never see the mailto confirmation copy.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*color:\s*var\(--color-accent-dark\)/s
+    );
+  });
+
+  test("form-status keeps a light accent-tinted panel background", () => {
+    // Text-color locks alone still pass if the panel fill becomes transparent or
+    // white-on-white — confirmation copy loses the sage cue and can vanish on
+    // light contact cards. RGB must stay derived from --color-accent at 12%.
+    const accentHex = stylesCss.match(/--color-accent:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(accentHex).toBeTruthy();
+    const r = parseInt(accentHex.slice(1, 3), 16);
+    const g = parseInt(accentHex.slice(3, 5), 16);
+    const b = parseInt(accentHex.slice(5, 7), 16);
+    const statusBlock = stylesCss.match(/\.form-status\s*\{[^}]*\}/);
+    expect(statusBlock).toBeTruthy();
+    expect(statusBlock[0]).toMatch(
+      new RegExp(
+        `background-color:\\s*rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*12%\\s*\\)`
+      )
+    );
+  });
+});
+
+describe("dark-surface CTA hover + heading contrast", () => {
+  test("btn-light hover shifts to --color-bg-alt instead of disappearing", () => {
+    // Default/hover fill both #fff (or transparent hover) removes the pressed
+    // affordance on dark bands while resting-state contrast tests stay green.
+    expect(stylesCss).toMatch(
+      /\.btn-light:hover\s*\{[^}]*background-color:\s*var\(--color-bg-alt\)/s
+    );
+  });
+
+  test("btn-outline-light hover keeps white fill and ink text", () => {
+    // Secondary Call CTA on cta-band relies on this invert. Hover that keeps
+    // transparent + white text (or ink-on-ink) hides the control mid-interaction.
+    expect(stylesCss).toMatch(
+      /\.btn-outline-light:hover\s*\{[^}]*background-color:\s*#fff/s
+    );
+    expect(stylesCss).toMatch(
+      /\.btn-outline-light:hover\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("cta-band and area-map-card headings stay explicitly white", () => {
+    // Band/card `color:#fff` inheritance alone still fails when a later global
+    // h2/h3 rule (or muted text token) overrides — Request a Quote / service-area
+    // titles go dark on dark gradients while button contracts stay green.
+    expect(stylesCss).toMatch(/\.cta-band\s+h2\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+h3\s*,\s*\.area-map-card\s+p\s*\{[^}]*color:\s*#fff/s
+    );
+  });
+});
+
+describe("dark-surface supporting copy + primary hover elevation", () => {
+  test("cta-band supporting paragraph keeps muted white (not ink or full white)", () => {
+    // Heading #fff locks still pass when band body copy drifts to --color-text /
+    // --color-ink (invisible on wood→ink) or collapses to pure #fff with no
+    // hierarchy. The 78% white alpha is the readable supporting-copy contract.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*78%\s*\)/s
+    );
+  });
+
+  test("area-map-card supporting paragraph keeps muted white after the shared #fff rule", () => {
+    // The combined h3,p { color:#fff } lock still passes if the more-specific
+    // `.area-map-card p` override is deleted or retargeted to ink — body copy on
+    // the accent card then either loses hierarchy or becomes unreadable.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+p\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*85%\s*\)/s
+    );
+  });
+
+  test("area-map-card keeps the accent→accent-dark gradient surface", () => {
+    // btn-light contrast on this card assumes a dark sage fill. Swapping the
+    // gradient to cream/bg tokens keeps className + #fff text contracts green
+    // while the call CTA and muted copy lose readable contrast.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-accent\)[^;]*var\(--color-accent-dark\)/s
+    );
+  });
+
+  test("btn-primary hover elevates with --shadow-md (fill darkening alone is not enough)", () => {
+    // Accent-dark fill is already locked. Dropping the shadow elevation still
+    // looks "flat"/inactive on cream surfaces while hover-fill tests stay green.
+    expect(stylesCss).toMatch(
+      /\.btn-primary:hover\s*\{[^}]*box-shadow:\s*var\(--shadow-md\)/s
+    );
+  });
+
+  test("btn-outline-light resting border stays translucent white on dark bands", () => {
+    // Presence of any border-color still passes if it drifts to ink/wood — the
+    // secondary Call CTA outline vanishes on the cta-band gradient.
+    expect(stylesCss).toMatch(
+      /\.btn-outline-light\s*\{[^}]*border-color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*50%\s*\)/s
+    );
+  });
+});
+
+describe("light-surface secondary CTA + primary resting elevation", () => {
+  test("btn-primary resting state keeps --shadow-sm elevation", () => {
+    // Hover --shadow-md is already locked. Dropping the resting shadow flattens
+    // Free Quote / Send Message on cream surfaces while fill/hover tests stay green.
+    expect(stylesCss).toMatch(
+      /\.btn-primary\s*\{[^}]*box-shadow:\s*var\(--shadow-sm\)/s
+    );
+  });
+
+  test("btn-outline hover inverts to ink fill with white text", () => {
+    // Hero Call uses btn-outline on the cream surface. Hover that stays transparent
+    // + ink (or white-on-white) removes the pressed affordance while resting ink
+    // color locks still pass.
+    expect(stylesCss).toMatch(
+      /\.btn-outline:hover\s*\{[^}]*background-color:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.btn-outline:hover\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.btn-outline:hover\s*\{[^}]*border-color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("btn-outline resting state stays transparent with ink text", () => {
+    // Without the resting contract, a fill/hover-only invert can leave the hero
+    // Call solid-ink at rest (looking selected) or inherit white from a parent.
+    expect(stylesCss).toMatch(
+      /\.btn-outline\s*\{[^}]*background-color:\s*transparent/s
+    );
+    expect(stylesCss).toMatch(
+      /\.btn-outline\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("hero secondary Call CTA uses btn-outline (not outline-light) to tel", () => {
+    // outline-light (white text/border) on the cream hero collapses contrast.
+    // Dark bands already lock btn-outline-light; hero must keep the ink outline.
+    // Lookaheads run on the full class string so `btn-outline-light` alone cannot
+    // satisfy `\bbtn-outline\b` (hyphen is a word boundary in JS regex).
+    expect(indexHtml).toMatch(
+      /class="hero-actions"[\s\S]*?<a\b[^>]*\bclass="(?=[^"]*\bbtn-outline\b)(?![^"]*\bbtn-outline-light\b)[^"]*"[^>]*href="tel:/s
+    );
+  });
+});
+
+describe("footer muted white alpha + brand contrast", () => {
+  test("site-footer keeps ink background with muted white body copy", () => {
+    // Brand/heading #fff locks still pass when footer body drifts to --color-text
+    // (near-invisible on ink) or pure #fff (no hierarchy). 75% white is the
+    // readable default for Explore/Contact link rows.
+    expect(stylesCss).toMatch(
+      /\.site-footer\s*\{[^}]*background-color:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.site-footer\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*75%\s*\)/s
+    );
+  });
+
+  test("footer-bottom keeps more-muted white for legal/meta copy", () => {
+    // Inheriting the 75% body token (or drifting to ink) either loses the
+    // hierarchy under the grid or hides copyright/legal on the ink footer.
+    expect(stylesCss).toMatch(
+      /\.footer-bottom\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*50%\s*\)/s
+    );
+  });
+
+  test("footer-grid separator stays translucent white on ink", () => {
+    // A solid ink or cream border either vanishes or screams; the 12% white hairline
+    // is the only separator that stays visible without competing with columns.
+    expect(stylesCss).toMatch(
+      /\.footer-grid\s*\{[^}]*border-bottom:\s*1px\s+solid\s+rgb\(\s*255\s+255\s+255\s*\/\s*12%\s*\)/s
+    );
+  });
+
+  test("footer brand name and column headings stay explicitly white", () => {
+    // site-footer 75% inheritance alone still fails when a global .brand / h4 rule
+    // forces wood/ink — the wordmark and Explore/Contact titles go dark on ink.
+    expect(stylesCss).toMatch(
+      /\.footer-brand\s+\.brand\s*\{[^}]*color:\s*#fff/s
+    );
+    expect(stylesCss).toMatch(/\.footer-col\s+h4\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("footer brand-mark keeps wood-light accent on the ink footer", () => {
+    // Dropping wood-light (or matching it to #fff) removes the only warm accent in
+    // the footer chrome while brand-name #fff locks stay green.
+    expect(stylesCss).toMatch(
+      /\.footer-brand\s+\.brand-mark\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+});
+
+describe("footer hover affordance + contact icon contrast", () => {
+  test("footer-col link hover brightens to white on the ink footer", () => {
+    // Explore/Contact rows inherit 75% white. Without an explicit #fff hover,
+    // muted body color alone makes links feel inert and harder to scan.
+    expect(stylesCss).toMatch(/\.footer-col a:hover\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("footer-bottom link hover brightens to white over 50% meta copy", () => {
+    // Legal/meta starts at 50% white. Hover that stays muted (or drifts to ink)
+    // hides Privacy/Terms-style anchors against the ink footer.
+    expect(stylesCss).toMatch(
+      /\.footer-bottom a:hover\s*\{[^}]*color:\s*#fff/s
+    );
+  });
+
+  test("footer-contact-item icons keep wood-light on the ink footer", () => {
+    // Matching icons to #fff or --color-text collapses the only warm glyph
+    // accent beside the brand-mark while phone/email/address rows stay readable.
+    expect(stylesCss).toMatch(
+      /\.footer-contact-item svg\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+
+  test("contact-info-list icons use wood (not wood-light) on light cards", () => {
+    // Reusing footer wood-light on cream contact cards fails WCAG next to muted
+    // labels; the more-specific list rule must keep --color-wood.
+    expect(stylesCss).toMatch(
+      /\.contact-info-list\s+\.footer-contact-item svg\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+});
+
+describe("skip-link contrast + header phone affordance", () => {
+  test("skip-link keeps ink fill and white text when focused into view", () => {
+    // Position locks (off-screen → top:12px) still pass if fill/text drift to
+    // cream-on-cream or ink-on-ink — keyboard users then cannot read the target.
+    expect(stylesCss).toMatch(
+      /\.skip-link\s*\{[^}]*background(?:-color)?:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.skip-link\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("nav-phone keeps wood-dark for the header call affordance", () => {
+    // Softening to muted text or wood-light drops the primary click-to-call
+    // signal in the sticky header while tel: href contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.nav-phone\s*\{[^}]*color:\s*var\(--color-wood-dark\)/s
+    );
+  });
+});
+
+describe("header brand chrome contrast on cream surface", () => {
+  test("header brand wordmark stays ink on the sticky cream header", () => {
+    // Footer overrides `.brand` to #fff. Without an explicit ink rule on the
+    // shared header `.brand`, a global footer-first cascade (or a mistaken
+    // shared override) can bleach the sticky wordmark against --color-bg.
+    expect(stylesCss).toMatch(/\.brand\s*\{[^}]*color:\s*var\(--color-ink\)/s);
+  });
+
+  test("header brand-mark keeps wood (not wood-light) on the cream header", () => {
+    // Footer intentionally uses wood-light on ink. Reusing that lighter token
+    // on the cream sticky header fails the axe contrast gate while footer
+    // wood-light and nav-phone wood-dark locks stay green.
+    expect(stylesCss).toMatch(
+      /\.brand-mark\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+    expect(stylesCss).not.toMatch(
+      /(?:^|\n)\.brand-mark\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+
+  test("placeholder-tag keeps wood for WCAG contrast on the cream header", () => {
+    // CSS comments document wood (not wood-light) for >= 4.5:1 against the
+    // header background. Softening the tagline while brand-mark locks pass
+    // still fails axe on both pages.
+    expect(stylesCss).toMatch(
+      /\.brand-text\s+\.placeholder-tag\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+});
+
+describe("button press affordance + hero trust chrome", () => {
+  test("`.btn:active` keeps a translateY press transform", () => {
+    // Hover/focus color + shadow contracts can all pass while press feedback
+    // disappears — quote/submit CTAs then feel inert on touch/mouse down.
+    expect(stylesCss).toMatch(
+      /\.btn:active\s*\{[^}]*transform:\s*translateY\(\s*1px\s*\)/s
+    );
+  });
+
+  test("hero-fact strong values keep wood-dark for trust stats", () => {
+    // Softening hero metrics to muted text (or wood-light) collapses the
+    // primary numeric hierarchy next to muted labels while CTA contrast
+    // locks remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+strong\s*\{[^}]*color:\s*var\(--color-wood-dark\)/s
+    );
+  });
+
+  test("nav-links hover keeps wood color paired with focus-visible", () => {
+    // focus-visible alone can stay green if hover is dropped from the shared
+    // rule — pointer users lose the only current-link cue while aria-current
+    // remains attribute-only.
+    expect(stylesCss).toMatch(/\.nav-links a:hover\s*[,{]/);
+    expect(stylesCss).toMatch(
+      /\.nav-links a:hover\s*[^{]*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+});
+
+describe("hero + service + about wood brand accents", () => {
+  test("hero h1 keeps a wood-accented span for the brand phrase", () => {
+    // Markup without the inner <span> (or CSS that drops wood) leaves the whole
+    // H1 as ink — the only warm brand signal in the first viewport disappears
+    // while CTA contrast locks stay green.
+    expect(indexHtml).toMatch(
+      /<section\b[^>]*\bclass="[^"]*\bhero\b[^"]*"[^>]*>[\s\S]*?<h1\b[^>]*>[\s\S]*?<span\b[^>]*>[\s\S]*?<\/span>[\s\S]*?<\/h1>/i
+    );
+    expect(stylesCss).toMatch(
+      /\.hero\s+h1\s+span\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+
+  test("service-icon keeps wood glyphs on a cream bg-alt chip", () => {
+    // Softening icons to muted text or matching them to surface white collapses
+    // the service-card brand mark while h3/p copy contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*background-color:\s*var\(--color-bg-alt\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+
+  test("about-portrait keeps wood for the placeholder craftsman mark", () => {
+    // Replacing wood with ink or muted text removes the only warm accent in the
+    // about media plane while caption/CTA contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+
+  test("about-portrait-caption keeps ink overlay and white text", () => {
+    // Caption without the dark scrim (or with ink text) fails against the cream
+    // portrait gradient — "Photo of Greg Felton" becomes unreadable.
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*background(?:-color)?:\s*rgb\(\s*30\s+26\s+23\s*\/\s*72%\s*\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*color:\s*#fff/s
+    );
+  });
+});
+
+describe("section eyebrow + hero-eyebrow accent hierarchy", () => {
+  test("section eyebrows keep accent-dark for scan hierarchy", () => {
+    // Softening `.eyebrow` to muted text flattens What We Do / About / Gallery
+    // section labels into body copy while heading size locks stay green.
+    expect(stylesCss).toMatch(
+      /\.eyebrow\s*\{[^}]*color:\s*var\(--color-accent-dark\)/s
+    );
+  });
+
+  test("hero-eyebrow keeps accent-dark text on an accent-tinted pill", () => {
+    // Matching form-status: text-only locks miss a white-on-cream pill, and a
+    // lost 12% tint makes the SWFL location chip blend into the hero surface.
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*color:\s*var\(--color-accent-dark\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*background-color:\s*rgb\(\s*79\s+109\s+82\s*\/\s*12%\s*\)/s
+    );
+  });
+});
+
+describe("mobile nav-toggle + header brand chrome sizing", () => {
+  test("nav-toggle keeps ink color so the hamburger stays visible on cream", () => {
+    // Transparent/missing color (or matching --color-bg) hides the only mobile
+    // open control while display:none→inline-flex breakpoint locks stay green.
+    expect(stylesCss).toMatch(
+      /\.nav-toggle\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("header brand keeps flex gap and display size for sticky chrome", () => {
+    // Collapsing gap or shrinking font-size below the wordmark lock makes the
+    // sticky header feel empty while ink/wood color contracts remain green.
+    expect(stylesCss).toMatch(/\.brand\s*\{[^}]*gap:\s*10px/s);
+    expect(stylesCss).toMatch(/\.brand\s*\{[^}]*font-size:\s*1\.3rem/s);
+  });
+});
+
+describe("hero visual + gallery placeholder brand tokens", () => {
+  test("hero-visual keeps the wood-to-wood-dark brand gradient", () => {
+    // Replacing the wood gradient with accent/ink (or a flat fill) removes the
+    // dominant brand plane beside the hero copy while CTA locks stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-wood\)[^;]*var\(--color-wood-dark\)/s
+    );
+  });
+
+  test("gallery-tile icons keep wood-light with ink titles on cream tiles", () => {
+    // Icons drifting to muted text or titles inheriting muted color erase the
+    // gallery placeholder hierarchy while dashed-border layout stays intact.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+svg\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+strong\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+});
+
+describe("lead form control surface contrast", () => {
+  test("form controls keep cream fill and readable text color", () => {
+    // White-on-white (surface fill + inherited light text) or border-only
+    // regressions hide typed lead data while focus-ring locks stay green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*background-color:\s*var\(--color-bg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*color:\s*var\(--color-text\)/s
+    );
+  });
+});
+
+describe("section + hero supporting copy muted hierarchy", () => {
+  test("section-heading supporting paragraphs stay muted", () => {
+    // Softening to inherited ink (or bleaching to surface white) collapses the
+    // only supporting sentence under each section H2 into body noise / invisible
+    // copy while eyebrow + heading size locks stay green.
+    expect(stylesCss).toMatch(
+      /\.section-heading\s+p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("hero-lede stays muted so the first-viewport CTA hierarchy holds", () => {
+    // Matching hero H1 ink weight (or dropping color entirely) makes the lede
+    // compete with the brand headline while wood span + CTA contrast locks pass.
+    expect(stylesCss).toMatch(
+      /\.hero-lede\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("hero-fact labels stay muted beside wood-dark values", () => {
+    // Value locks on `strong` can pass while label spans inherit wood-dark or
+    // ink — trust stats then lose the number/label hierarchy in the hero.
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("testimonial sample-badge + lead form label weight", () => {
+  test("sample-badge keeps ink fill and white text for SAMPLE chips", () => {
+    // Transparent/muted badges (or ink-on-ink text) hide the only disclosure that
+    // testimonials are samples while star/markup e2e presence checks stay green.
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*background(?:-color)?:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.sample-badge\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("form-field labels keep semibold weight for lead-field scan", () => {
+    // Dropping to normal weight flattens label→control hierarchy on the contact
+    // form while id/name pairing and control fill locks remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+label\s*\{[^}]*font-weight:\s*600/s
+    );
+  });
+
+  test("contact-hours heading stays muted for availability hierarchy", () => {
+    // Matching hours-row ink weight (or bleaching the h4) erases the only
+    // Availability label above day/hours pairs while hours-row content locks pass.
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s+h4\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("testimonial stars + body/form muted copy hierarchy", () => {
+  test("testimonial-stars keep gold so rating glyphs stay visible on cream", () => {
+    // Inheriting muted text or ink flattens the only rating signal beside SAMPLE
+    // badges while sample-badge ink/#fff and markup presence locks stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-stars\s*\{[^}]*color:\s*#d9a441/s
+    );
+  });
+
+  test("service-card body copy stays muted under wood icon chips", () => {
+    // Matching service-card h3 ink (or bleaching to surface) collapses the only
+    // service description under each card title while icon wood locks pass.
+    expect(stylesCss).toMatch(
+      /\.service-card\s+p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("about-copy paragraphs stay muted beside the portrait plane", () => {
+    // Softening to inherited ink (or white) makes the founder bio compete with
+    // the signature/name lock while about-portrait wood + caption scrim pass.
+    expect(stylesCss).toMatch(
+      /\.about-copy\s+p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("contact-form-card intro paragraph stays muted under the form H3", () => {
+    // Matching the card h3 ink weight (or dropping color) erases hierarchy above
+    // lead fields while form-field label weight + control fill locks stay green.
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*>\s*p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("form-note stays muted with a bold phone-link for the call fallback", () => {
+    // Bleaching the note (or normal-weight phone-link) hides the only tel: CTA
+    // under the submit button while form-status tint/contrast locks remain green.
+    expect(stylesCss).toMatch(
+      /\.form-note\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-note\s+\.phone-link\s*\{[^}]*font-weight:\s*700/s
+    );
+  });
+});
+
+describe("testimonial quote + author hierarchy", () => {
+  test("testimonial-card quotes stay italic in readable body text color", () => {
+    // Dropping italic (or inheriting muted/ink from neighboring rules) flattens
+    // quote voice into card chrome while gold stars + sample-badge locks pass.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s+p\s*\{[^}]*font-style:\s*italic/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s+p\s*\{[^}]*color:\s*var\(--color-text\)/s
+    );
+  });
+
+  test("testimonial-author keeps bold name weight with muted role span", () => {
+    // Normal-weight authors (or role spans matching name weight/color) erase the
+    // only attribution hierarchy under each quote while SAMPLE disclosure locks
+    // stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s*\{[^}]*font-weight:\s*700/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s+span\s*\{[^}]*font-weight:\s*400/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("about signature identity contrast", () => {
+  test("about-signature strong keeps ink for the founder name", () => {
+    // Softening the name to muted text (or bleaching to surface) hides the only
+    // identity lock under the bio while about-copy muted + portrait wood pass.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s+strong\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("about-signature role span stays muted beside the ink name", () => {
+    // Matching the strong ink weight/color collapses name→title hierarchy while
+    // about-copy paragraph muted locks remain green.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("lead form focus ring sage tint", () => {
+  test("form control focus ring keeps the accent sage at 15% opacity", () => {
+    // box-shadow presence + accent border alone still pass if the ring drifts to
+    // ink/wood or 100% opaque sage — keyboard users then get a harsh or wrong-
+    // brand cue on every lead field while outline:none remains intentional.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea):focus[\s\S]*?box-shadow:\s*0\s+0\s+0\s+3px\s+rgb\(\s*79\s+109\s+82\s*\/\s*15%\s*\)/s
+    );
+  });
+});
