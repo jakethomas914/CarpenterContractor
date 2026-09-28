@@ -176,22 +176,27 @@ features. Guarded by `tests/unit/html-js-contract.test.js` and
 |---|---|---|
 | `.nav-toggle` + `.primary-nav` (`id="primary-nav"`, `aria-controls="primary-nav"`) | `initMobileNav` | Toggles `.is-open` and `aria-expanded`; closes on **every** `<a>` under `.primary-nav` (section links **and** `.nav-cta` Free Quote / `tel:`). Toggle must be `type="button"` with `aria-expanded="false"` initially. Do not narrow the close selector to `.nav-links a` — that leaves the overlay open after CTA/phone taps on mobile. |
 | `[data-current-year]` | `initFooterYear` | Sets text to the current four-digit year |
-| `[data-reveal]` | `initScrollReveal` | Adds `.is-visible` on intersection (`threshold: 0.12`, `rootMargin: "0px 0px -60px 0px"`), then `unobserve`s. Falls back to immediate `.is-visible` if `IntersectionObserver` is missing. CSS also force-shows reveals under `prefers-reduced-motion: reduce` |
+| `[data-reveal]` | `initScrollReveal` | Adds `.is-visible` on intersection (`threshold: 0.12`, `rootMargin: "0px 0px -60px 0px"`), then `unobserve`s. Falls back to immediate `.is-visible` if `IntersectionObserver` is missing. CSS also force-shows reveals under `prefers-reduced-motion: reduce`. **Default CSS sets `[data-reveal] { opacity: 0 }`**, so these nodes stay invisible until JS runs (or reduced-motion CSS applies). |
 | `[data-contact-form]` + `data-recipient` | `initContactForm` | On submit: `preventDefault`, build mailto from named fields (`name`, `email`, `phone`, `service`, `message`), redirect via `navigation.redirect`, show inner `[data-form-status]` (`role="status"`) |
 | `main section[id]` + `.nav-links a[href^='#']` | `initActiveNavHighlight` | Sets `aria-current="true"` on the in-view section's nav link (homepage only; `rootMargin: "-45% 0px -50% 0px"`). Keeps observing (unlike scroll-reveal) so scrolling back still updates the current link |
+| `.skip-link` → `#main-content` | Keyboard a11y (CSS + markup) | Both pages keep a “Skip to main content” link targeting `id="main-content"` on `<main>`. Focus styles must bring it above the sticky header (`z-index`); do not retarget the skip href without updating the landmark id. |
 
-Nav href constraints (easy to break when copy-pasting chrome between pages):
+Nav / footer href constraints (easy to break when copy-pasting chrome between pages):
 
-- **Homepage** primary nav must use bare `#services`, `#about`, … hashes — `initActiveNavHighlight` only selects `a[href^='#']`. Prefixed `index.html#…` links silently disable highlighting.
-- **Contact** primary nav must use `index.html#…` targets — bare hashes on that page scroll nowhere useful.
+- **Homepage** primary nav **and** footer Explore section links must use bare `#services`, `#about`, … hashes — `initActiveNavHighlight` only selects `a[href^='#']`. Prefixed `index.html#…` links silently disable highlighting. Explore “Contact” stays `contact.html`.
+- **Contact** primary nav **and** footer Explore section links must use `index.html#…` targets — bare hashes on that page scroll nowhere useful. Explore “Contact” stays `contact.html`.
+- Header `.nav-cta` Free Quote and homepage “Get / Request a Free Quote” CTAs must point at `contact.html` (not a `mailto:` or external URL).
 
 Other constraints:
 
 - Both pages load a **synchronous** end-of-body `<script src="js/main.js">` (no `defer` / `async`) so `init()` runs after the hooks exist in the DOM.
 - `init()` call order is locked by contract tests: `initMobileNav` → `initFooterYear` → `initScrollReveal` → `initContactForm` → `initActiveNavHighlight`. Do not reorder in a way that drops or postpones lead capture.
-- Lead fields keep matching `id` / `name` / `label[for]` **and** the `FormData.get(…)` keys in `initContactForm` (`name`, `email`, `phone`, `service`, `message`); required fields use native HTML5 validation (no `novalidate`).
-- Homepage service-card titles must stay selectable in the contact `<select>` (plus “Not sure yet”) — locked by `site-invariants.test.js`.
-- Discovery files stay minimal: `sitemap.xml` lists **exactly** `/` and `/contact.html`; `robots.txt` has **exactly one** `Sitemap:` line. Extra staging URLs or duplicate Sitemap directives still look “present” to soft checks but confuse crawlers.
+- Lead fields keep matching `id` / `name` / `label[for]` **and** the `FormData.get(…)` keys in `initContactForm` (`name`, `email`, `phone`, `service`, `message`); required fields use native HTML5 validation (no `novalidate`). Keep autocomplete hints (`name` / `tel` / `email`); honeypot `bot-field` stays `autocomplete="off"` + `tabindex="-1"`.
+- Homepage service-card **`<h3>` titles** must stay selectable as contact `<option>` **labels** (plus “Not sure yet”). `buildMailtoUrl` reads the option **`value`**, which is usually identical to the label — except Decks, which intentionally uses value `Decks & Outdoor Structures` with label `Decks, Framing & Outdoor Structures`. Changing one side without the other corrupts lead triage without failing a label-only check.
+- Mailto subject/body strings are inbox contracts: subject is always `New project inquiry from <name|website visitor>`; body lines are `Name:` / `Email:` / `Phone:` / `Service interested in:` then a blank line then the message. Renaming these breaks owner-side filters even when FormData keys stay correct (`tests/unit/main.test.js`).
+- Scroll-reveal hooks currently wrap lead-capture UI on `contact.html` (`.contact-info-card` + `.contact-form-card`) plus homepage service cards / gallery / testimonials / etc. A blocked or missing `js/main.js` therefore leaves the quote form at `opacity: 0`. Treat reveal CSS changes as lead-gen changes; see Architecture + Troubleshooting.
+- Discovery files stay minimal: `sitemap.xml` lists **exactly** `/` and `/contact.html` (homepage `priority` `1.0`, contact `0.8`, both `changefreq` `monthly`); `robots.txt` has **exactly one** `Sitemap:` line. Extra staging URLs or duplicate Sitemap directives still look “present” to soft checks but confuse crawlers.
+- When editing shared chrome, keep **both** pages in sync for: brand home `href="index.html"`, `theme-color` (must match `--color-bg`), viewport meta, favicon link, Google Fonts stylesheet URL, and `fonts.gstatic.com` preconnect **with** `crossorigin` (font CORS). Homepage keeps Open Graph tags; contact intentionally omits them (meta description is the share fallback). Invariants lock these.
 
 `module.exports` (browser no-op via `typeof module` check) exposes pure helpers
 `sanitizeForHeader`, `buildMailtoUrl`, `getYear`, the `navigation` seam (tests
@@ -224,6 +229,16 @@ case they come up in a future review:
   conditionally does `module.exports = {...}` at the end — a no-op in the
   browser — so Jest can `require()` both the pure helpers and the `init*`
   entry points (integration tests call them against jsdom fixtures).
+- **Scroll-reveal assumes JS always loads.** `[data-reveal]` is hidden with
+  `opacity: 0` in CSS until `initScrollReveal()` adds `.is-visible` (or the
+  visitor has `prefers-reduced-motion: reduce`). That includes the contact
+  info card and quote form. This is a deliberate motion choice, not progressive
+  enhancement: a network/CSP/deploy failure that blocks `js/main.js` makes
+  lead-capture UI invisible. Do not add `data-reveal` to other critical
+  controls without accepting the same dependency; prefer removing the hook
+  from lead cards (and updating contract tests) if you need a no-JS fallback.
+  (Open PR #44 proposes an `html.js-reveal` gate — do not document that as
+  current behavior until it merges.)
 
 ## Development tooling (lint + tests)
 
@@ -264,10 +279,10 @@ visible phone numbers so they don't awkwardly line-wrap, and added a
 
 | Layer | Tool | Location | What it covers |
 |---|---|---|---|
-| Unit (pure) | Jest | `tests/unit/main.test.js` | Mailto URL construction, CR/LF header sanitization, year formatting — no DOM. |
-| Unit (contracts) | Jest | `tests/unit/html-js-contract.test.js` | Selector / `data-*` / `init()` order + FormData field names; homepage bare-hash vs contact `index.html#` nav rules; mobile-nav close on all `.primary-nav a`; form field id/name/label pairing. |
+| Unit (pure) | Jest | `tests/unit/main.test.js` | Mailto URL construction (subject prefix + body triage labels), CR/LF header sanitization, year formatting — no DOM. |
+| Unit (contracts) | Jest | `tests/unit/html-js-contract.test.js` | Selector / `data-*` / `init()` order + FormData field names; homepage bare-hash vs contact `index.html#` nav rules; mobile-nav close on all `.primary-nav a`; form field id/name/label pairing; lead cards marked `data-reveal`. |
 | Unit (security) | Jest | `tests/unit/security-headers.test.js` | `_headers` ↔ `vercel.json` parity; CSP four-way sync with HTML `<meta>` tags; exact `frame-ancestors 'none'`, no `'unsafe-eval'`, embed/worker/media posture (see Security). |
-| Unit (invariants) | Jest | `tests/unit/site-invariants.test.js` | Cross-file lead-capture identity (mailto/tel/JSON-LD), SEO discovery cardinality (`robots.txt` / `sitemap.xml` / canonicals), chrome/footer drift, CTA contrast, sticky header bg, service catalog ↔ form options, CI workflow gates. |
+| Unit (invariants) | Jest | `tests/unit/site-invariants.test.js` | Cross-file lead-capture identity (mailto/tel/JSON-LD), SEO discovery cardinality + sitemap priority/changefreq tokens, chrome/footer drift (incl. Explore href rules), quote CTA destinations, service catalog labels **and** option value↔label pairs, skip-link / `theme-color` ↔ `--color-bg`, font/favicon parity, CTA contrast, sticky header bg, CI workflow gates. |
 | Integration | Jest + jsdom | `tests/integration/dom-behavior.test.js` | DOM ↔ `js/main.js` wiring: mobile nav (including `.nav-cta` close), footer year, scroll-reveal (with/without `IntersectionObserver`), active-nav, contact form → mailto redirect + status, `data-recipient` CRLF sanitization. |
 | End-to-end / regression | Playwright (Chromium + Mobile Safari emulation) | `tests/e2e/homepage.spec.js`, `tests/e2e/contact.spec.js` | Real-browser rendering: titles, heading hierarchy, alt text, nav scrolling, mobile menu, internal 404 checks, CSP-violation checks, form fill + HTML5 validation + submit. |
 | Accessibility | Playwright + `@axe-core/playwright` | `tests/e2e/accessibility.spec.js` | Automated WCAG 2 A/AA scan of both pages (0 serious/critical violations). |
@@ -366,8 +381,14 @@ covers what's left:
 | Active nav highlight never moves on homepage | Nav links use `index.html#…` instead of bare `#…` | Restore bare hashes in the homepage `.nav-links` list (see contract above). |
 | Contact “Explore” / section links go nowhere | Contact nav uses bare `#…` hashes | Use `index.html#section` on `contact.html` only. |
 | New service on homepage missing from quote form | Catalog / `<option>` drift | Add a matching `<option>` (label must equal the service-card `<h3>`); `site-invariants` enforces this. |
-| Quote form invisible until scroll / permanently hidden | `[data-reveal]` on contact cards + missing/blocked `main.js` | Ensure `js/main.js` loads; or rely on `prefers-reduced-motion` / `.is-visible` CSS. Do not remove reveal hooks without updating CSS. |
+| Quote form / contact card permanently invisible (even after scroll) | `[data-reveal]` on `.contact-info-card` / `.contact-form-card` + missing/blocked `js/main.js` (CSP, 404 deploy, ad blocker) | Confirm the script loads over HTTP(S) with no console errors. Reduced-motion users still see content via CSS. To keep lead UI visible without JS, remove `data-reveal` from those cards **and** update `html-js-contract` / invariants — do not only tweak CSS opacity without changing both. |
+| Quote form invisible until scroll (JS healthy) | Reveal observer threshold / rootMargin + off-screen start | Expected: scroll until the card intersects; or temporarily add `.is-visible` while debugging. |
 | Mobile menu stays open after Free Quote / phone tap | Close handler narrowed to `.nav-links a` | Keep `primaryNav.querySelectorAll("a")` so `.nav-cta` anchors close the overlay too. |
+| Footer Explore links broken on contact (or active-nav dead on homepage) | Explore / primary-nav hash rules mixed across pages | Same rules as primary nav: bare `#…` on homepage, `index.html#…` on contact; Contact item stays `contact.html`. |
+| Mailto body shows wrong service name after renaming a card | `<option value>` drifted from label (or Decks abbreviation lost) | Keep label = homepage `<h3>`; keep the locked value↔label pairs (Decks value is shorter than its label). |
+| Inbox filters miss new inquiries | `buildMailtoUrl` subject/body prefixes reworded | Keep `New project inquiry from …` and the `Name:` / `Email:` / `Phone:` / `Service interested in:` body labels. |
+| Skip link does nothing / lands mid-header | Missing `id="main-content"` on `<main>`, or skip `href` retargeted | Restore `.skip-link` → `#main-content` on both pages; keep `:focus` styles above the sticky header. |
+| Browser autofill skips name/phone/email (or fills honeypot) | Missing autocomplete hints / honeypot autofillable | Keep `autocomplete="name|tel|email"` on lead fields; honeypot stays `autocomplete="off"` + `tabindex="-1"`. |
 | Dark CTA “Call” button invisible on homepage | Missing `btn-outline-light` on the dark `.cta-band` | Pair the tel CTA with `.btn-outline-light` (white text + light border); plain `.btn-outline` inherits ink and disappears. |
 | Sticky header text unreadable over hero | Transparent / wrong `.site-header` background | Keep header background derived from `--color-bg` (semi-opaque RGB). Invariants lock this. |
 | Crawlers indexing staging/extra URLs | Extra `<loc>` rows or multiple `Sitemap:` lines | Keep discovery cardinality: two sitemap locs + one robots Sitemap directive (see contract above). |
