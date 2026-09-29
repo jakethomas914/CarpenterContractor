@@ -3559,3 +3559,73 @@ describe("area-grid responsive columns", () => {
     );
   });
 });
+
+describe("hero-actions CTA row layout", () => {
+  test("hero-actions keeps flex wrap with a 16px gap so Quote + Call stay usable", () => {
+    // Hero CTA class pairing locks still pass if hero-actions loses flex-wrap /
+    // gap — narrow viewports then overflow or crowd the primary Quote beside
+    // Call while btn-primary / btn-outline contracts remain green.
+    expect(stylesCss).toMatch(/\.hero-actions\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.hero-actions\s*\{[^}]*flex-wrap:\s*wrap/s);
+    expect(stylesCss).toMatch(/\.hero-actions\s*\{[^}]*gap:\s*16px/s);
+  });
+});
+
+describe("hero-facts trust-stat grid", () => {
+  test("hero-facts keeps a three-column auto grid for first-viewport trust stats", () => {
+    // hero-fact color/type locks still pass if the grid collapses to 1fr on
+    // desktop — years/licensed/local stats then stack as a tall column under
+    // the CTAs while wood-dark strong contracts stay green.
+    expect(stylesCss).toMatch(/\.hero-facts\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.hero-facts\s*\{[^}]*grid-template-columns:\s*repeat\(\s*3\s*,\s*auto\s*\)/s
+    );
+  });
+
+  test("hero-facts collapses to a single column at max-width 480px", () => {
+    // Desktop 3-col locks still pass if the 480px media query is dropped —
+    // phones squeeze three trust stats side-by-side and clip labels while
+    // hero-fact color contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*480px\s*\)\s*\{\s*\.hero-facts\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+
+  test("hero-fact strong stays block heading type so values sit above labels", () => {
+    // Color locks still pass if strong becomes inline or drops heading size —
+    // trust stats then flatten beside muted spans while wood-dark contracts
+    // stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+strong\s*\{[^}]*display:\s*block/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+strong\s*\{[^}]*font-family:\s*var\(--font-heading\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+strong\s*\{[^}]*font-size:\s*1\.5rem/s
+    );
+  });
+});
+
+describe("area-chips town-list wrap layout", () => {
+  test("area-chips keeps flex wrap with a 12px gap so town pills reflow", () => {
+    // area-chip surface/border locks still pass if the chips container loses
+    // flex-wrap / gap — town pills then overflow the area column or crowd
+    // edge-to-edge while areaServed content and chip contrast stay green.
+    expect(stylesCss).toMatch(/\.area-chips\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.area-chips\s*\{[^}]*flex-wrap:\s*wrap/s);
+    expect(stylesCss).toMatch(/\.area-chips\s*\{[^}]*gap:\s*12px/s);
+  });
+
+  test("area-chip stays inline-flex with pill radius for town labels", () => {
+    // Surface/border locks still pass if chips become block rectangles —
+    // served towns then read as stacked cards instead of compact pills while
+    // area-chips wrap and icon accent contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*display:\s*inline-flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*border-radius:\s*999px/s
+    );
+  });
+});
