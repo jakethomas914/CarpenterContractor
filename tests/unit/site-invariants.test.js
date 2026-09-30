@@ -3628,4 +3628,49 @@ describe("area-chips town-list wrap layout", () => {
       /\.area-chip\s*\{[^}]*border-radius:\s*999px/s
     );
   });
+
+  test("area-chip keeps icon/label gap, pill padding, and semibold weight", () => {
+    // inline-flex + radius locks still pass if gap/padding/weight are dropped —
+    // pin glyphs then collide with town names or pills flatten to hairline
+    // chips while areaServed content and surface/border contracts stay green.
+    expect(stylesCss).toMatch(/\.area-chip\s*\{[^}]*gap:\s*8px/s);
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*padding:\s*10px\s+16px/s
+    );
+    expect(stylesCss).toMatch(/\.area-chip\s*\{[^}]*font-weight:\s*600/s);
+  });
+});
+
+describe("hero-lede first-viewport measure", () => {
+  test("hero-lede keeps a 52ch measure and spacing above the CTA row", () => {
+    // Muted-color locks still pass if max-width / margin are dropped — the
+    // supporting sentence then stretches edge-to-edge and crowds Quote + Call
+    // while hero CTA pairing and wood-span heading contracts remain green.
+    expect(stylesCss).toMatch(/\.hero-lede\s*\{[^}]*max-width:\s*52ch/s);
+    expect(stylesCss).toMatch(
+      /\.hero-lede\s*\{[^}]*margin-bottom:\s*32px/s
+    );
+  });
+});
+
+describe("area-map-card lead CTA plane", () => {
+  test("area-map-card keeps padded flex column with min-height for the Call CTA", () => {
+    // Gradient + btn-light locks still pass if padding/min-height/flex column
+    // are dropped — the served-area Call CTA then collapses into a short
+    // gradient strip or stacks without vertical centering while accent
+    // surface and white-text contracts stay green.
+    expect(stylesCss).toMatch(/\.area-map-card\s*\{[^}]*padding:\s*40px/s);
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*min-height:\s*260px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*flex-direction:\s*column/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
 });
