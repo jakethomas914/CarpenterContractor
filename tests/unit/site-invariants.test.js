@@ -3569,6 +3569,15 @@ describe("hero-actions CTA row layout", () => {
     expect(stylesCss).toMatch(/\.hero-actions\s*\{[^}]*flex-wrap:\s*wrap/s);
     expect(stylesCss).toMatch(/\.hero-actions\s*\{[^}]*gap:\s*16px/s);
   });
+
+  test("hero-actions keeps bottom spacing above the trust-stat grid", () => {
+    // Flex wrap/gap locks still pass if margin-bottom is dropped — Quote + Call
+    // then sit flush against years/licensed/local stats and the first-viewport
+    // CTA hierarchy collapses while btn pairing contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-actions\s*\{[^}]*margin-bottom:\s*40px/s
+    );
+  });
 });
 
 describe("hero-facts trust-stat grid", () => {
@@ -3582,12 +3591,28 @@ describe("hero-facts trust-stat grid", () => {
     );
   });
 
+  test("hero-facts keeps a 28px desktop gap between trust stats", () => {
+    // Column-count locks still pass if gap is zeroed — years/licensed/local
+    // values then crowd edge-to-edge under the CTAs while wood-dark strong
+    // and 480px collapse contracts remain green.
+    expect(stylesCss).toMatch(/\.hero-facts\s*\{[^}]*gap:\s*28px/s);
+  });
+
   test("hero-facts collapses to a single column at max-width 480px", () => {
     // Desktop 3-col locks still pass if the 480px media query is dropped —
     // phones squeeze three trust stats side-by-side and clip labels while
     // hero-fact color contracts remain green.
     expect(stylesCss).toMatch(
       /@media\s*\(\s*max-width:\s*480px\s*\)\s*\{\s*\.hero-facts\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+
+  test("hero-facts keeps a tighter 16px gap when stacked at max-width 480px", () => {
+    // 1fr collapse locks still pass if the phone gap stays at desktop 28px or
+    // is dropped — stacked trust stats then either waste vertical room above
+    // the fold or crowd labels while column-count contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*480px\s*\)\s*\{\s*\.hero-facts\s*\{[^}]*gap:\s*16px/s
     );
   });
 
@@ -3603,6 +3628,18 @@ describe("hero-facts trust-stat grid", () => {
     );
     expect(stylesCss).toMatch(
       /\.hero-fact\s+strong\s*\{[^}]*font-size:\s*1\.5rem/s
+    );
+  });
+
+  test("hero-fact span stays compact muted so labels stay secondary to values", () => {
+    // Strong heading locks still pass if the label span matches strong size or
+    // ink weight — "Years Experience" then competes with the numeric value
+    // while wood-dark contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+span\s*\{[^}]*font-size:\s*0\.86rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
     );
   });
 });
@@ -3639,6 +3676,26 @@ describe("area-chips town-list wrap layout", () => {
     );
     expect(stylesCss).toMatch(/\.area-chip\s*\{[^}]*font-weight:\s*600/s);
   });
+
+  test("area-chip centers the pin glyph with compact pill type", () => {
+    // Gap/padding/weight locks still pass if align-items or font-size drift —
+    // pin glyphs then sit off the town-name baseline or pills grow to body
+    // size while areaServed content and surface contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*font-size:\s*0\.92rem/s
+    );
+  });
+
+  test("area-chip svg keeps a 16px pin so town glyphs stay secondary to labels", () => {
+    // Accent color locks still pass if the pin scales to 1em/100% — glyphs then
+    // dominate each pill or shrink unreadably while surface/border and
+    // areaServed content contracts remain green.
+    expect(stylesCss).toMatch(/\.area-chip\s+svg\s*\{[^}]*width:\s*16px/s);
+    expect(stylesCss).toMatch(/\.area-chip\s+svg\s*\{[^}]*height:\s*16px/s);
+  });
 });
 
 describe("hero-lede first-viewport measure", () => {
@@ -3649,6 +3706,15 @@ describe("hero-lede first-viewport measure", () => {
     expect(stylesCss).toMatch(/\.hero-lede\s*\{[^}]*max-width:\s*52ch/s);
     expect(stylesCss).toMatch(
       /\.hero-lede\s*\{[^}]*margin-bottom:\s*32px/s
+    );
+  });
+
+  test("hero-lede keeps elevated supporting type under the brand headline", () => {
+    // Measure/margin locks still pass if font-size falls to body 1rem — the
+    // first-viewport supporting sentence then loses hierarchy under the wood
+    // span while max-width and CTA pairing contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-lede\s*\{[^}]*font-size:\s*1\.15rem/s
     );
   });
 });
@@ -3671,6 +3737,38 @@ describe("area-map-card lead CTA plane", () => {
     );
     expect(stylesCss).toMatch(
       /\.area-map-card\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+
+  test("area-map-card keeps a 14px stack gap above the Call CTA", () => {
+    // Flex column / min-height locks still pass if gap is zeroed — map icon,
+    // heading, and supporting copy then collide before the Call button while
+    // btn-light and white-text contracts remain green.
+    expect(stylesCss).toMatch(/\.area-map-card\s*\{[^}]*gap:\s*14px/s);
+  });
+
+  test("area-map-card svg keeps a 40px mark so the map glyph stays secondary", () => {
+    // Gradient + white-text locks still pass if the svg scales to 100% / 1em —
+    // the map mark then dominates the Call CTA plane or shrinks unreadably
+    // while padding and btn-light contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+svg\s*\{[^}]*width:\s*40px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+svg\s*\{[^}]*height:\s*40px/s
+    );
+  });
+
+  test("area-map-card Call button stays content-width with top separation", () => {
+    // btn-light class pairing still passes if the card button stretches full
+    // width or loses margin-top — Call then either reads as a full-bleed bar
+    // or crowds the supporting paragraph while accent gradient contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+\.btn\s*\{[^}]*width:\s*fit-content/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+\.btn\s*\{[^}]*margin-top:\s*8px/s
     );
   });
 });
