@@ -3772,3 +3772,95 @@ describe("area-map-card lead CTA plane", () => {
     );
   });
 });
+
+describe("hero-visual brand plane geometry", () => {
+  test("hero-visual keeps padded flex column with min-height for the quote card", () => {
+    // Gradient + white-text locks still pass if padding/min-height/flex stack
+    // are dropped — the first-viewport wood quote card then collapses into a
+    // short strip or crowds icon/quote/signature while color and heading-type
+    // contracts remain green.
+    expect(stylesCss).toMatch(/\.hero-visual\s*\{[^}]*padding:\s*40px/s);
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*min-height:\s*340px/s
+    );
+    expect(stylesCss).toMatch(/\.hero-visual\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*flex-direction:\s*column/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*justify-content:\s*space-between/s
+    );
+  });
+
+  test("hero-visual keeps radius-lg corners and shadow-lg elevation", () => {
+    // Wood gradient + white copy locks still pass if radius/shadow are
+    // dropped — the brand quote plane then reads as a flat rectangle flush
+    // with the cream page while quote size and signature-dot contracts stay
+    // green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*box-shadow:\s*var\(--shadow-lg\)/s
+    );
+  });
+});
+
+describe("hero-visual quote + mark rhythm", () => {
+  test("hero-visual-quote keeps line-height and top margin under the craftsman icon", () => {
+    // Heading font/size locks still pass if line-height collapses or top
+    // margin is zeroed — the brand quote then crowds the icon or packs
+    // tightly while white color and 1.35rem size contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-quote\s*\{[^}]*line-height:\s*1\.4/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-quote\s*\{[^}]*margin:\s*24px\s+0\s+0/s
+    );
+  });
+
+  test("hero-visual-icon keeps a fixed 56px mark so the glyph stays secondary", () => {
+    // White icon color locks still pass if the svg scales to 100% / 1em —
+    // the craftsman mark then dominates the quote plane or shrinks unreadably
+    // while gradient and signature-dot contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-icon\s*\{[^}]*width:\s*56px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-icon\s*\{[^}]*height:\s*56px/s
+    );
+  });
+
+  test("hero-visual-signature stays a flex row with gap and top spacing", () => {
+    // White signature-dot locks still pass if flex/gap/margin-top are dropped
+    // — Greg Felton attribution then stacks under the quote or collides with
+    // it while icon color and quote type contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*gap:\s*12px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*margin-top:\s*28px/s
+    );
+  });
+});
+
+describe("area-map-card elevation + corner radius", () => {
+  test("area-map-card keeps radius-lg corners and shadow-md elevation", () => {
+    // Accent gradient + btn-light / padding locks still pass if radius/shadow
+    // are dropped — the served-area Call CTA plane then reads as a flat
+    // rectangle flush with the cream page while white-text and min-height
+    // contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*box-shadow:\s*var\(--shadow-md\)/s
+    );
+  });
+});
