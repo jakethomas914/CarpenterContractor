@@ -3864,3 +3864,68 @@ describe("area-map-card elevation + corner radius", () => {
     );
   });
 });
+
+describe("hero-visual grain overlay", () => {
+  test("hero-visual::before keeps a full-bleed grain stripe under the quote", () => {
+    // Wood gradient + radius-lg locks still pass if the ::before grain is
+    // dropped or loses inset/radius — the first-viewport brand plane then
+    // reads as a flat fill while quote type and signature-row contracts stay
+    // green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*content:\s*""/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*position:\s*absolute/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*inset:\s*0/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*repeating-linear-gradient/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*pointer-events:\s*none/s
+    );
+  });
+});
+
+describe("hero-visual icon + signature hierarchy", () => {
+  test("hero-visual-icon keeps soft opacity so the mark stays secondary to the quote", () => {
+    // Fixed 56px + white color locks still pass if opacity goes full — the
+    // craftsman glyph then competes with the brand quote while size and wood
+    // gradient contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-icon\s*\{[^}]*opacity:\s*0\.92/s
+    );
+  });
+
+  test("hero-visual-signature keeps compact type and soft opacity under the quote", () => {
+    // Flex/gap/margin-top locks still pass if font-size or opacity jump to
+    // body/full — Greg Felton attribution then rivals the quote hierarchy
+    // while white-dot color and row spacing contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*font-size:\s*0\.92rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*opacity:\s*0\.9/s
+    );
+  });
+
+  test("hero-visual-signature dot keeps an 8px circle beside the owner line", () => {
+    // White background-color locks still pass if width/height/radius drift —
+    // the attribution bullet then becomes a square dash or grows into a
+    // blob while flex row and signature opacity contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s+\.dot\s*\{[^}]*width:\s*8px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s+\.dot\s*\{[^}]*height:\s*8px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s+\.dot\s*\{[^}]*border-radius:\s*50%/s
+    );
+  });
+});
