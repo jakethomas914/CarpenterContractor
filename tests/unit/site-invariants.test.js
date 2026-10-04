@@ -3929,3 +3929,107 @@ describe("hero-visual icon + signature hierarchy", () => {
     );
   });
 });
+
+describe("hero-visual grain stripe geometry", () => {
+  test("hero-visual::before keeps the 115deg soft-white stripe stops", () => {
+    // Presence of repeating-linear-gradient alone still passes if angle, alpha,
+    // or 2px/14px stops drift — the wood quote card then gains harsh chalk
+    // bands or loses texture while inset/radius/pointer-events contracts stay
+    // green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*repeating-linear-gradient\(\s*115deg/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*rgb\(\s*255\s+255\s+255\s*\/\s*4\.5%\s*\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*transparent\s+2px\s*,\s*transparent\s+14px/s
+    );
+  });
+});
+
+describe("hero-visual quote stacking above grain", () => {
+  test("hero-visual-quote stays position:relative so type paints above ::before", () => {
+    // Quote size/type locks still pass if position:relative is dropped — the
+    // grain overlay then paints over the brand quote while ::before inset and
+    // pointer-events contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-quote\s*\{[^}]*position:\s*relative/s
+    );
+  });
+});
+
+describe("about-portrait surface tokens", () => {
+  test("about-portrait keeps radius-lg corners and a bordered plane", () => {
+    // Aspect-ratio / flex centering locks still pass if radius or border drop —
+    // the founder photo plane then reads as a sharp unframed block while wood
+    // mark and caption-scrim contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+  });
+
+  test("about-portrait keeps the cream-to-border placeholder gradient", () => {
+    // Wood color + caption overlay locks still pass if the plane fill flattens
+    // to page cream or solid border — the craftsman mark then loses its media
+    // card while geometry and opacity contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-bg-alt\)[^;]*var\(--color-border\)/s
+    );
+  });
+});
+
+describe("service-icon catalog chip metrics", () => {
+  test("service-icon keeps a fixed 52px chip so glyphs stay secondary to titles", () => {
+    // Wood/bg-alt color locks still pass if the chip grows to fill the card —
+    // service marks then dominate h3 titles while catalog↔option parity stays
+    // green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*width:\s*52px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*height:\s*52px/s
+    );
+  });
+
+  test("service-icon svg keeps a 28px glyph inside the cream chip", () => {
+    // Chip box locks still pass if the SVG stretches to 100% — glyphs then
+    // crush the padded chip edge while wood color and card surface contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s+svg\s*\{[^}]*width:\s*28px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-icon\s+svg\s*\{[^}]*height:\s*28px/s
+    );
+  });
+});
+
+describe("gallery-tile placeholder mark hierarchy", () => {
+  test("gallery-tile svg keeps a compact wood-light mark above titles", () => {
+    // Dashed surface + aspect-ratio locks still pass if the placeholder glyph
+    // bleaches to muted text or grows oversized — category tiles then lose the
+    // only warm cue while ink title contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+svg\s*\{[^}]*width:\s*34px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+svg\s*\{[^}]*height:\s*34px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+svg\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+
+  test("gallery-tile strong stays ink so project labels remain primary", () => {
+    // Surface/dashed border locks still pass if titles inherit muted tile text —
+    // placeholder categories then flatten beside captions while wood-light
+    // glyph contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+strong\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+});
