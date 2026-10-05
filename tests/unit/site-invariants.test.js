@@ -4033,3 +4033,96 @@ describe("gallery-tile placeholder mark hierarchy", () => {
     );
   });
 });
+
+describe("service-icon chip layout + spacing", () => {
+  test("service-icon centers glyphs with flex so marks stay inside the cream chip", () => {
+    // Fixed 52px + wood/bg-alt locks still pass if display:flex or centering drop —
+    // SVG glyphs then hug the chip corner while catalog size and color contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+
+  test("service-icon keeps radius-sm corners matching shared CTA controls", () => {
+    // Chip box + color locks still pass if radius softens to pill or goes square —
+    // service marks then clash with .btn / form radius-sm while wood/bg-alt
+    // contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*border-radius:\s*var\(--radius-sm\)/s
+    );
+  });
+
+  test("service-icon keeps 20px bottom margin so glyphs stay secondary to titles", () => {
+    // Size/centering locks still pass if margin-bottom collapses — wood chips
+    // then crowd h3 titles while 52px metrics and catalog↔option parity remain
+    // green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*margin-bottom:\s*20px/s
+    );
+  });
+});
+
+describe("gallery-tile stack layout + muted plane", () => {
+  test("gallery-tile stacks mark above label with a flex column and gap", () => {
+    // Aspect-ratio / dashed surface locks still pass if flex-direction or gap
+    // drift — icon + title then sit side-by-side or crush together while
+    // wood-light glyph and ink strong contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*flex-direction:\s*column/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*gap:\s*10px/s
+    );
+  });
+
+  test("gallery-tile keeps muted body color with radius-md corners", () => {
+    // Surface/border locks still pass if muted color or radius-md drop — caption
+    // spans inherit ink or tiles go sharp while dashed plane and ink title
+    // contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*border-radius:\s*var\(--radius-md\)/s
+    );
+  });
+});
+
+describe("shared btn resting geometry", () => {
+  test("btn keeps radius-sm corners matching form controls", () => {
+    // Color/shadow CTA locks still pass if radius softens to pill or goes square —
+    // quote/call buttons then clash with shared form radius-sm while
+    // btn-primary / btn-outline fill contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*border-radius:\s*var\(--radius-sm\)/s
+    );
+  });
+
+  test("btn keeps 14px/26px padding so CTAs keep a usable hit target", () => {
+    // Fill/hover locks still pass if padding collapses — Get a Free Quote and
+    // Call Now then shrink below a comfortable tap target while contrast and
+    // shadow contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*padding:\s*14px\s+26px/s
+    );
+  });
+
+  test("btn keeps white-space:nowrap so multi-word CTAs do not wrap mid-label", () => {
+    // Padding/radius locks still pass if nowrap is dropped — "Get a Free Quote"
+    // and "Call Now" then wrap awkwardly in hero/cta-band while fill and focus
+    // contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*white-space:\s*nowrap/s
+    );
+  });
+});
