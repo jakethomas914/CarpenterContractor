@@ -4126,3 +4126,83 @@ describe("shared btn resting geometry", () => {
     );
   });
 });
+
+describe("shared btn flex alignment + weight", () => {
+  test("btn centers label content with inline-flex so icon+text CTAs stay aligned", () => {
+    // Padding/radius/nowrap locks still pass if flex centering drops — quote and
+    // Call Now then left-align or stretch while fill, shadow, and focus contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*display:\s*inline-flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+
+  test("btn keeps an 8px gap so multi-part CTA labels stay spaced", () => {
+    // Inline-flex centering locks still pass if gap collapses — icon+text or
+    // multi-word CTAs then crush together while padding and nowrap contracts
+    // stay green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*gap:\s*8px/s
+    );
+  });
+
+  test("btn keeps font-weight 600 so CTAs read as primary actions", () => {
+    // Geometry locks still pass if weight drops to regular — Get a Free Quote
+    // and Call Now then blend into body copy while radius/padding/nowrap
+    // contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*font-weight:\s*600/s
+    );
+  });
+});
+
+describe("gallery-tile content centering + padding", () => {
+  test("gallery-tile centers mark and label on both axes", () => {
+    // Flex-column + gap locks still pass if align/justify drift — placeholder
+    // SVG and title then hug a corner while muted color and radius-md contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+
+  test("gallery-tile keeps centered text with 20px padding inside the plane", () => {
+    // Aspect-ratio / dashed surface locks still pass if text-align or padding
+    // drop — multi-line captions then left-align or kiss the dashed border while
+    // wood-light glyph and ink strong contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*text-align:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*padding:\s*20px/s
+    );
+  });
+});
+
+describe("service-card title hierarchy", () => {
+  test("service-card h3 keeps 1.15rem size above muted body copy", () => {
+    // service-card surface / muted-p locks still pass if h3 shrinks to body size —
+    // service titles then lose hierarchy under wood icon chips while border and
+    // hover-lift contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s+h3\s*\{[^}]*font-size:\s*1\.15rem/s
+    );
+  });
+
+  test("service-card h3 keeps 10px bottom margin above the description", () => {
+    // Title size locks still pass if margin collapses — h3 then sits flush on
+    // muted body copy while service-icon spacing and surface contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s+h3\s*\{[^}]*margin-bottom:\s*10px/s
+    );
+  });
+});
