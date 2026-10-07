@@ -4206,3 +4206,72 @@ describe("service-card title hierarchy", () => {
     );
   });
 });
+
+describe("shared btn type size, border, and pointer", () => {
+  test("btn keeps 0.98rem type so CTAs stay slightly under body size", () => {
+    // Flex/weight/padding locks still pass if font-size jumps to 1.15rem or
+    // shrinks to caption — Get a Free Quote and Call Now then dominate or
+    // recede beside hero lede while fill and focus contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*font-size:\s*0\.98rem/s
+    );
+  });
+
+  test("btn keeps a transparent 2px border so outline variants can swap color", () => {
+    // Radius/padding locks still pass if the resting border collapses — btn-outline
+    // then has no edge to recolor on hover while primary fill and nowrap
+    // contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*border:\s*2px\s+solid\s+transparent/s
+    );
+  });
+
+  test("btn keeps cursor:pointer so CTAs advertise clickability", () => {
+    // Geometry locks still pass if cursor defaults to text/auto — quote and
+    // Call Now then lose the only affordance cue while flex centering and
+    // weight contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*cursor:\s*pointer/s
+    );
+  });
+});
+
+describe("gallery-tile label type hierarchy", () => {
+  test("gallery-tile strong keeps 0.95rem so project titles stay primary", () => {
+    // Ink color locks still pass if strong inherits body or caption size —
+    // placeholder categories then flatten beside muted spans while wood-light
+    // glyph and centering contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+strong\s*\{[^}]*font-size:\s*0\.95rem/s
+    );
+  });
+
+  test("gallery-tile span keeps 0.8rem so captions stay secondary to titles", () => {
+    // Muted tile color locks still pass if span grows to strong size —
+    // supporting captions then compete with project labels while dashed plane
+    // and ink strong contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+span\s*\{[^}]*font-size:\s*0\.8rem/s
+    );
+  });
+});
+
+describe("service-card body type + spacing", () => {
+  test("service-card p keeps 0.96rem so descriptions stay under h3 titles", () => {
+    // Muted color + h3 size locks still pass if body copy grows to title size —
+    // service blurbs then compete with wood-chip headings while surface and
+    // hover-lift contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s+p\s*\{[^}]*font-size:\s*0\.96rem/s
+    );
+  });
+
+  test("service-card p clears bottom margin so cards do not stack extra space", () => {
+    // Title margin + muted color locks still pass if p keeps a default
+    // paragraph margin — catalog cards then grow uneven gaps under blurbs while
+    // service-icon and h3 spacing contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s+p\s*\{[^}]*margin-bottom:\s*0/s
+    );
+  });
+});
