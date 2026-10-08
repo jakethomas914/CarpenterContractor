@@ -4275,3 +4275,82 @@ describe("service-card body type + spacing", () => {
     );
   });
 });
+
+describe("service-card resting plane geometry", () => {
+  test("service-card keeps radius-md corners matching gallery/testimonial planes", () => {
+    // Surface/border locks still pass if radius softens to pill or goes square —
+    // six catalog cards then clash with gallery-tile / testimonial radius-md
+    // while hover-lift and muted-p contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s*\{[^}]*border-radius:\s*var\(--radius-md\)/s
+    );
+  });
+
+  test("service-card keeps 32px/28px padding so icon+title+blurb stay readable", () => {
+    // Surface/border/radius locks still pass if padding collapses — wood chips
+    // and service blurbs then kiss the card edge while catalog↔option parity
+    // and hover translateY contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s*\{[^}]*padding:\s*32px\s+28px/s
+    );
+  });
+});
+
+describe("testimonial-card resting plane geometry", () => {
+  test("testimonial-card keeps radius-md corners matching service/gallery planes", () => {
+    // Surface/border + SAMPLE badge locks still pass if radius drifts — review
+    // cards then clash with service-card / gallery-tile radius-md while quote
+    // italic and gold-star contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s*\{[^}]*border-radius:\s*var\(--radius-md\)/s
+    );
+  });
+
+  test("testimonial-card keeps 28px padding so quote and author clear the edges", () => {
+    // Surface/relative/badge locks still pass if padding collapses — italic
+    // quotes and author lines then kiss the border while SAMPLE chip anchor
+    // and muted author-span contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s*\{[^}]*padding:\s*28px/s
+    );
+  });
+});
+
+describe("cta-actions dark-band CTA row layout", () => {
+  test("cta-actions centers Quote + Call with flex wrap and a 16px gap", () => {
+    // cta-band btn-light / btn-outline-light pairing locks still pass if the
+    // actions row loses flex-wrap, gap, or centering — narrow viewports then
+    // overflow or left-align the only dark-band conversion CTAs while fill
+    // contrast contracts remain green.
+    expect(stylesCss).toMatch(/\.cta-actions\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.cta-actions\s*\{[^}]*flex-wrap:\s*wrap/s);
+    expect(stylesCss).toMatch(/\.cta-actions\s*\{[^}]*gap:\s*16px/s);
+    expect(stylesCss).toMatch(
+      /\.cta-actions\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+});
+
+describe("contact page-hero entry hierarchy", () => {
+  test("page-hero keeps a centered cream band for the contact entry", () => {
+    // Lead-form field/DOM-order locks still pass if page-hero loses bg-alt or
+    // text-align — Get in Touch then sits flush on cream without a distinct
+    // entry plane while contact-grid and form-card contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s*\{[^}]*background:\s*var\(--color-bg-alt\)/s
+    );
+    expect(stylesCss).toMatch(/\.page-hero\s*\{[^}]*text-align:\s*center/s);
+  });
+
+  test("page-hero supporting paragraph stays muted and measure-limited", () => {
+    // Centered bg-alt locks still pass if the lede bleaches to ink or loses
+    // max-width — contact intro then dominates the H1 or stretches edge-to-
+    // edge while form-card heading and hours-row contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+p\s*\{[^}]*max-width:\s*620px/s
+    );
+  });
+});
