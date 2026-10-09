@@ -4353,4 +4353,118 @@ describe("contact page-hero entry hierarchy", () => {
       /\.page-hero\s+p\s*\{[^}]*max-width:\s*620px/s
     );
   });
+
+  test("page-hero h1 keeps a responsive clamp so Get in Touch stays primary", () => {
+    // Centered bg-alt / muted-lede locks still pass if the H1 collapses to a
+    // fixed body size — contact entry then loses hierarchy above the form
+    // while form-card heading and hours-row contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+h1\s*\{[^}]*font-size:\s*clamp\(\s*2rem\s*,\s*4vw\s*,\s*2\.8rem\s*\)/s
+    );
+  });
+
+  test("page-hero keeps 72px/56px vertical padding for the contact entry band", () => {
+    // Centered cream-band locks still pass if padding collapses to section
+    // defaults — Get in Touch then sits tight against the sticky header while
+    // muted lede and form-card contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s*\{[^}]*padding:\s*72px\s+0\s+56px/s
+    );
+  });
+});
+
+describe("gallery placeholder-note warning chip", () => {
+  test("placeholder-note keeps warning fill, border, and ink for gallery honesty", () => {
+    // Gallery-tile stack / label locks still pass if the warning chip bleaches
+    // into cream page tones — visitors then miss that tiles are placeholders
+    // before launch while gallery-grid and tile geometry contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*background-color:\s*#fff4dd/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*border:\s*1px\s+solid\s+#ecd8a4/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*color:\s*#7a5b12/s
+    );
+  });
+
+  test("placeholder-note stays an inline-flex pill with compact padding", () => {
+    // Warning color locks still pass if the chip loses pill radius or flex
+    // alignment — the honesty banner then reads as a block paragraph while
+    // gallery-tile centering contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*display:\s*inline-flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*border-radius:\s*999px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*padding:\s*8px\s+14px/s
+    );
+  });
+
+  test("placeholder-note--centered centers above the gallery grid", () => {
+    // Chip color/pill locks still pass if centering drops — the warning then
+    // left-aligns under a centered section heading while gallery-grid gap
+    // contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note--centered\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note--centered\s*\{[^}]*margin-inline:\s*auto/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note--centered\s*\{[^}]*width:\s*fit-content/s
+    );
+  });
+});
+
+describe("cta-band conversion band spacing + hierarchy", () => {
+  test("cta-band keeps 80px vertical padding around Quote + Call", () => {
+    // btn-light / btn-outline-light and cta-actions flex locks still pass if
+    // the dark band padding collapses — Ready to Start then sits flush against
+    // service-area while CTA fill contrast contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s*\{[^}]*padding:\s*80px\s+0/s
+    );
+  });
+
+  test("cta-band h2 keeps a responsive clamp so the close stays primary", () => {
+    // White heading color locks still pass if the H2 collapses to body size —
+    // Ready to Start then loses hierarchy above the muted lede while
+    // cta-actions centering contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+h2\s*\{[^}]*font-size:\s*clamp\(\s*1\.6rem\s*,\s*3vw\s*,\s*2\.2rem\s*\)/s
+    );
+  });
+});
+
+describe("service-area area-intro hierarchy", () => {
+  test("area-intro stays muted above the city chip row", () => {
+    // area-chip pill / map-card locks still pass if the intro bleaches to ink —
+    // Proudly Serving then loses a secondary lede above chips while chip
+    // geometry and map-card elevation contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.area-intro\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-intro\s*\{[^}]*margin-bottom:\s*24px/s
+    );
+  });
+});
+
+describe("shared btn motion transition token", () => {
+  test("btn transitions transform/fill/color/border/shadow via --transition", () => {
+    // Resting geometry / :active translateY locks still pass if transition is
+    // dropped or hardcoded — hover/press motion then desyncs across Quote and
+    // Call CTAs while fill contrast and focus contracts stay green.
+    expect(stylesCss).toMatch(/--transition:\s*200ms\s+ease/);
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*transition:\s*transform\s+var\(--transition\)\s*,\s*background-color\s+var\(--transition\)\s*,\s*color\s+var\(--transition\)\s*,\s*border-color\s+var\(--transition\)\s*,\s*box-shadow\s+var\(--transition\)/s
+    );
+  });
 });
