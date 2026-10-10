@@ -4468,3 +4468,60 @@ describe("shared btn motion transition token", () => {
     );
   });
 });
+
+describe("gallery placeholder-note icon + grid spacing", () => {
+  test("placeholder-note svg keeps a fixed 16px box and flex-shrink", () => {
+    // Chip color/pill locks still pass if the warning icon loses width/height
+    // or flex-shrink:0 — long honesty copy then crushes the glyph while
+    // placeholder-note padding and gallery-tile contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s+svg\s*\{[^}]*width:\s*16px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s+svg\s*\{[^}]*height:\s*16px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s+svg\s*\{[^}]*flex-shrink:\s*0/s
+    );
+  });
+
+  test("centered placeholder-note keeps 28px gap before the gallery grid", () => {
+    // Centering + gallery-grid column locks still pass if the adjacent-sibling
+    // margin-top drops — the honesty chip then sits flush against tiles while
+    // grid track and tile geometry contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note--centered\s*\+\s*\.gallery-grid\s*\{[^}]*margin-top:\s*28px/s
+    );
+  });
+});
+
+describe("cta-band supporting copy measure", () => {
+  test("cta-band p keeps a limited measure and slightly larger body size", () => {
+    // Muted 78% white color locks still pass if max-width or 1.05rem drop —
+    // Ready to Start lede then spans full band width at body size while
+    // cta-band padding/h2 clamp and CTA fill contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*max-width:\s*560px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*font-size:\s*1\.05rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*margin-inline:\s*auto/s
+    );
+  });
+});
+
+describe("contact page-hero eyebrow centering", () => {
+  test("page-hero .eyebrow stays inline-flex centered above Get in Touch", () => {
+    // Section .eyebrow accent-dark color locks still pass if page-hero loses
+    // inline-flex/center — Let's Talk then left-aligns under a centered H1
+    // while page-hero padding/h1 clamp contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+\.eyebrow\s*\{[^}]*display:\s*inline-flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+\.eyebrow\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+});
