@@ -4525,3 +4525,51 @@ describe("contact page-hero eyebrow centering", () => {
     );
   });
 });
+
+describe("gallery placeholder-note type + spacing tokens", () => {
+  test("placeholder-note keeps compact type weight and icon/text gap", () => {
+    // Chip color/pill/padding locks still pass if type bleaches to body weight
+    // or the icon/text gap collapses — the honesty banner then reads as muted
+    // body copy while gallery-tile and svg size contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*gap:\s*8px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*font-size:\s*0\.85rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*font-weight:\s*600/s
+    );
+  });
+
+  test("placeholder-note keeps 20px clearance below the honesty chip", () => {
+    // Adjacent-sibling gallery margin-top locks still pass if the chip's own
+    // margin-bottom drops — warning copy then sits flush against tiles on
+    // non-centered layouts while gallery-grid track contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*margin-bottom:\s*20px/s
+    );
+  });
+});
+
+describe("cta-band supporting copy CTA clearance", () => {
+  test("cta-band p keeps 32px margin below the lede before Quote + Call", () => {
+    // Measure / 1.05rem / margin-inline locks still pass if margin-bottom
+    // collapses — Ready to Start copy then crowds the CTA row while
+    // cta-actions flex and btn-light contrast contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*margin-bottom:\s*32px/s
+    );
+  });
+});
+
+describe("contact page-hero supporting copy size", () => {
+  test("page-hero p keeps 1.05rem so the contact lede stays above body size", () => {
+    // Muted color / max-width locks still pass if font-size collapses to body
+    // — Get in Touch intro then loses hierarchy under the H1 while form-card
+    // heading and hours-row contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+p\s*\{[^}]*font-size:\s*1\.05rem/s
+    );
+  });
+});
