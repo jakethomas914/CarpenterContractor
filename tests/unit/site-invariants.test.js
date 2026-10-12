@@ -306,7 +306,13 @@ describe("accessibility motion contract (CSS)", () => {
   test("prefers-reduced-motion force-shows [data-reveal] without waiting for JS", () => {
     // Accessibility e2e relies on this so axe measures final contrast.
     expect(stylesCss).toMatch(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
-    expect(stylesCss).toMatch(/\[data-reveal\]\s*\{[^}]*opacity:\s*1/s);
+    // Opacity:1 must live inside the reduce media query — a bare
+    // [data-reveal] { opacity:1 } outside reduce would defeat scroll-reveal
+    // for everyone, while scoping only transform:none still leaves reduce
+    // users staring at opacity:0 lead cards when JS is slow.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)[\s\S]*?\[data-reveal\]\s*\{[^}]*opacity:\s*1/s
+    );
     // Without transform:none, reduced-motion users still see a permanent
     // translateY offset even when opacity is forced to 1.
     expect(stylesCss).toMatch(
@@ -1611,6 +1617,23 @@ describe("sticky header readability", () => {
     );
     expect(headerBlock[0]).not.toMatch(/background(?:-color)?\s*:\s*transparent/);
   });
+
+  test("site-header keeps 92% cream opacity so sticky chrome stays readable", () => {
+    // Channel parity alone still passes if alpha drops (e.g. 40%) — hero/content
+    // then shows through the sticky nav and phone CTA while --color-bg locks stay green.
+    const bgHex = stylesCss.match(/--color-bg:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(bgHex).toBeTruthy();
+    const r = parseInt(bgHex.slice(1, 3), 16);
+    const g = parseInt(bgHex.slice(3, 5), 16);
+    const b = parseInt(bgHex.slice(5, 7), 16);
+    const headerBlock = stylesCss.match(/\.site-header\s*\{[^}]*\}/);
+    expect(headerBlock).toBeTruthy();
+    expect(headerBlock[0]).toMatch(
+      new RegExp(
+        `background-color:\\s*rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*92%\\s*\\)`
+      )
+    );
+  });
 });
 
 describe("skip-link accessible name", () => {
@@ -1665,5 +1688,2932 @@ describe("decorative chrome SVGs stay hidden from assistive tech", () => {
       expect(toggleSvg).toBeTruthy();
       expect(toggleSvg).toMatch(/\baria-hidden="true"/i);
     }
+  });
+});
+
+describe("mobile primary-nav overlay opacity contract", () => {
+  test("at max-width 920px, open primary-nav keeps an opaque --color-surface fill", () => {
+    // Opacity/visibility alone still leave nav labels unreadable when the overlay
+    // background is transparent or missing — page content shows through the menu.
+    expect(stylesCss).toMatch(/--color-surface:\s*#fff\b/);
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*920px\s*\)[\s\S]*?\.primary-nav\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    const mobileNavBlock = stylesCss.match(
+      /@media\s*\(\s*max-width:\s*920px\s*\)[\s\S]*?\.primary-nav\s*\{[^}]*\}/
+    );
+    expect(mobileNavBlock).toBeTruthy();
+    expect(mobileNavBlock[0]).not.toMatch(/background(?:-color)?\s*:\s*transparent/);
+  });
+});
+
+describe("dark-surface CTA contrast pairing", () => {
+  test("btn-light keeps white fill and ink text for CTAs on dark bands/cards", () => {
+    // On cta-band / area-map-card, white-on-white or transparent+white text makes
+    // the primary quote/call controls disappear while className checks still pass.
+    expect(stylesCss).toMatch(/\.btn-light\s*\{[^}]*background-color:\s*#fff/s);
+    expect(stylesCss).toMatch(/\.btn-light\s*\{[^}]*color:\s*var\(--color-ink\)/s);
+  });
+
+  test("cta-band primary quote CTA uses btn-light linking to contact.html", () => {
+    // Secondary outline-light is already locked. The primary must stay btn-light
+    // (not btn-outline / bare text) and keep the lead-capture contact destination.
+    expect(indexHtml).toMatch(
+      /class="cta-band"[\s\S]*?class="[^"]*\bbtn-light\b[^"]*"[^>]*href="contact\.html"/s
+    );
+    expect(stylesCss).toMatch(/\.cta-band\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.cta-band\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-wood-dark\)[^;]*var\(--color-ink\)/s
+    );
+  });
+
+  test("area-map-card call CTA keeps btn-light on the dark accent card", () => {
+    // Same light-button-on-dark-surface pairing as cta-band. Swapping to
+    // btn-outline (ink) or btn-primary without checking contrast hides the call.
+    expect(indexHtml).toMatch(
+      /class="area-map-card"[\s\S]*?class="[^"]*\bbtn-light\b[^"]*"[^>]*href="tel:/s
+    );
+    expect(stylesCss).toMatch(/\.area-map-card\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("hero primary quote CTA uses btn-primary on the light hero surface", () => {
+    // btn-light (#fff) on the cream hero collapses contrast. Hero must keep the
+    // accent-filled primary while dark bands keep btn-light.
+    expect(indexHtml).toMatch(
+      /class="hero-actions"[\s\S]*?class="[^"]*\bbtn-primary\b[^"]*"[^>]*href="contact\.html"/s
+    );
+  });
+});
+
+describe("lead-form status feedback contrast", () => {
+  test("form-status keeps accent-dark text on the tinted success panel", () => {
+    // display:block/.is-visible checks still pass if color drifts to #fff on the
+    // light sage panel — visitors never see the mailto confirmation copy.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*color:\s*var\(--color-accent-dark\)/s
+    );
+  });
+
+  test("form-status keeps a light accent-tinted panel background", () => {
+    // Text-color locks alone still pass if the panel fill becomes transparent or
+    // white-on-white — confirmation copy loses the sage cue and can vanish on
+    // light contact cards. RGB must stay derived from --color-accent at 12%.
+    const accentHex = stylesCss.match(/--color-accent:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(accentHex).toBeTruthy();
+    const r = parseInt(accentHex.slice(1, 3), 16);
+    const g = parseInt(accentHex.slice(3, 5), 16);
+    const b = parseInt(accentHex.slice(5, 7), 16);
+    const statusBlock = stylesCss.match(/\.form-status\s*\{[^}]*\}/);
+    expect(statusBlock).toBeTruthy();
+    expect(statusBlock[0]).toMatch(
+      new RegExp(
+        `background-color:\\s*rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*12%\\s*\\)`
+      )
+    );
+  });
+});
+
+describe("dark-surface CTA hover + heading contrast", () => {
+  test("btn-light hover shifts to --color-bg-alt instead of disappearing", () => {
+    // Default/hover fill both #fff (or transparent hover) removes the pressed
+    // affordance on dark bands while resting-state contrast tests stay green.
+    expect(stylesCss).toMatch(
+      /\.btn-light:hover\s*\{[^}]*background-color:\s*var\(--color-bg-alt\)/s
+    );
+  });
+
+  test("btn-outline-light hover keeps white fill and ink text", () => {
+    // Secondary Call CTA on cta-band relies on this invert. Hover that keeps
+    // transparent + white text (or ink-on-ink) hides the control mid-interaction.
+    expect(stylesCss).toMatch(
+      /\.btn-outline-light:hover\s*\{[^}]*background-color:\s*#fff/s
+    );
+    expect(stylesCss).toMatch(
+      /\.btn-outline-light:hover\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("cta-band and area-map-card headings stay explicitly white", () => {
+    // Band/card `color:#fff` inheritance alone still fails when a later global
+    // h2/h3 rule (or muted text token) overrides — Request a Quote / service-area
+    // titles go dark on dark gradients while button contracts stay green.
+    expect(stylesCss).toMatch(/\.cta-band\s+h2\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+h3\s*,\s*\.area-map-card\s+p\s*\{[^}]*color:\s*#fff/s
+    );
+  });
+});
+
+describe("dark-surface supporting copy + primary hover elevation", () => {
+  test("cta-band supporting paragraph keeps muted white (not ink or full white)", () => {
+    // Heading #fff locks still pass when band body copy drifts to --color-text /
+    // --color-ink (invisible on wood→ink) or collapses to pure #fff with no
+    // hierarchy. The 78% white alpha is the readable supporting-copy contract.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*78%\s*\)/s
+    );
+  });
+
+  test("area-map-card supporting paragraph keeps muted white after the shared #fff rule", () => {
+    // The combined h3,p { color:#fff } lock still passes if the more-specific
+    // `.area-map-card p` override is deleted or retargeted to ink — body copy on
+    // the accent card then either loses hierarchy or becomes unreadable.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+p\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*85%\s*\)/s
+    );
+  });
+
+  test("area-map-card keeps the accent→accent-dark gradient surface", () => {
+    // btn-light contrast on this card assumes a dark sage fill. Swapping the
+    // gradient to cream/bg tokens keeps className + #fff text contracts green
+    // while the call CTA and muted copy lose readable contrast.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-accent\)[^;]*var\(--color-accent-dark\)/s
+    );
+  });
+
+  test("btn-primary hover elevates with --shadow-md (fill darkening alone is not enough)", () => {
+    // Accent-dark fill is already locked. Dropping the shadow elevation still
+    // looks "flat"/inactive on cream surfaces while hover-fill tests stay green.
+    expect(stylesCss).toMatch(
+      /\.btn-primary:hover\s*\{[^}]*box-shadow:\s*var\(--shadow-md\)/s
+    );
+  });
+
+  test("btn-outline-light resting border stays translucent white on dark bands", () => {
+    // Presence of any border-color still passes if it drifts to ink/wood — the
+    // secondary Call CTA outline vanishes on the cta-band gradient.
+    expect(stylesCss).toMatch(
+      /\.btn-outline-light\s*\{[^}]*border-color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*50%\s*\)/s
+    );
+  });
+});
+
+describe("light-surface secondary CTA + primary resting elevation", () => {
+  test("btn-primary resting state keeps --shadow-sm elevation", () => {
+    // Hover --shadow-md is already locked. Dropping the resting shadow flattens
+    // Free Quote / Send Message on cream surfaces while fill/hover tests stay green.
+    expect(stylesCss).toMatch(
+      /\.btn-primary\s*\{[^}]*box-shadow:\s*var\(--shadow-sm\)/s
+    );
+  });
+
+  test("btn-outline hover inverts to ink fill with white text", () => {
+    // Hero Call uses btn-outline on the cream surface. Hover that stays transparent
+    // + ink (or white-on-white) removes the pressed affordance while resting ink
+    // color locks still pass.
+    expect(stylesCss).toMatch(
+      /\.btn-outline:hover\s*\{[^}]*background-color:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.btn-outline:hover\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(
+      /\.btn-outline:hover\s*\{[^}]*border-color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("btn-outline resting state stays transparent with ink text", () => {
+    // Without the resting contract, a fill/hover-only invert can leave the hero
+    // Call solid-ink at rest (looking selected) or inherit white from a parent.
+    expect(stylesCss).toMatch(
+      /\.btn-outline\s*\{[^}]*background-color:\s*transparent/s
+    );
+    expect(stylesCss).toMatch(
+      /\.btn-outline\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("hero secondary Call CTA uses btn-outline (not outline-light) to tel", () => {
+    // outline-light (white text/border) on the cream hero collapses contrast.
+    // Dark bands already lock btn-outline-light; hero must keep the ink outline.
+    // Lookaheads run on the full class string so `btn-outline-light` alone cannot
+    // satisfy `\bbtn-outline\b` (hyphen is a word boundary in JS regex).
+    expect(indexHtml).toMatch(
+      /class="hero-actions"[\s\S]*?<a\b[^>]*\bclass="(?=[^"]*\bbtn-outline\b)(?![^"]*\bbtn-outline-light\b)[^"]*"[^>]*href="tel:/s
+    );
+  });
+});
+
+describe("footer muted white alpha + brand contrast", () => {
+  test("site-footer keeps ink background with muted white body copy", () => {
+    // Brand/heading #fff locks still pass when footer body drifts to --color-text
+    // (near-invisible on ink) or pure #fff (no hierarchy). 75% white is the
+    // readable default for Explore/Contact link rows.
+    expect(stylesCss).toMatch(
+      /\.site-footer\s*\{[^}]*background-color:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.site-footer\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*75%\s*\)/s
+    );
+  });
+
+  test("footer-bottom keeps more-muted white for legal/meta copy", () => {
+    // Inheriting the 75% body token (or drifting to ink) either loses the
+    // hierarchy under the grid or hides copyright/legal on the ink footer.
+    expect(stylesCss).toMatch(
+      /\.footer-bottom\s*\{[^}]*color:\s*rgb\(\s*255\s+255\s+255\s*\/\s*50%\s*\)/s
+    );
+  });
+
+  test("footer-grid separator stays translucent white on ink", () => {
+    // A solid ink or cream border either vanishes or screams; the 12% white hairline
+    // is the only separator that stays visible without competing with columns.
+    expect(stylesCss).toMatch(
+      /\.footer-grid\s*\{[^}]*border-bottom:\s*1px\s+solid\s+rgb\(\s*255\s+255\s+255\s*\/\s*12%\s*\)/s
+    );
+  });
+
+  test("footer brand name and column headings stay explicitly white", () => {
+    // site-footer 75% inheritance alone still fails when a global .brand / h4 rule
+    // forces wood/ink — the wordmark and Explore/Contact titles go dark on ink.
+    expect(stylesCss).toMatch(
+      /\.footer-brand\s+\.brand\s*\{[^}]*color:\s*#fff/s
+    );
+    expect(stylesCss).toMatch(/\.footer-col\s+h4\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("footer brand-mark keeps wood-light accent on the ink footer", () => {
+    // Dropping wood-light (or matching it to #fff) removes the only warm accent in
+    // the footer chrome while brand-name #fff locks stay green.
+    expect(stylesCss).toMatch(
+      /\.footer-brand\s+\.brand-mark\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+});
+
+describe("footer hover affordance + contact icon contrast", () => {
+  test("footer-col link hover brightens to white on the ink footer", () => {
+    // Explore/Contact rows inherit 75% white. Without an explicit #fff hover,
+    // muted body color alone makes links feel inert and harder to scan.
+    expect(stylesCss).toMatch(/\.footer-col a:hover\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("footer-bottom link hover brightens to white over 50% meta copy", () => {
+    // Legal/meta starts at 50% white. Hover that stays muted (or drifts to ink)
+    // hides Privacy/Terms-style anchors against the ink footer.
+    expect(stylesCss).toMatch(
+      /\.footer-bottom a:hover\s*\{[^}]*color:\s*#fff/s
+    );
+  });
+
+  test("footer-contact-item icons keep wood-light on the ink footer", () => {
+    // Matching icons to #fff or --color-text collapses the only warm glyph
+    // accent beside the brand-mark while phone/email/address rows stay readable.
+    expect(stylesCss).toMatch(
+      /\.footer-contact-item svg\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+
+  test("contact-info-list icons use wood (not wood-light) on light cards", () => {
+    // Reusing footer wood-light on cream contact cards fails WCAG next to muted
+    // labels; the more-specific list rule must keep --color-wood.
+    expect(stylesCss).toMatch(
+      /\.contact-info-list\s+\.footer-contact-item svg\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+});
+
+describe("skip-link contrast + header phone affordance", () => {
+  test("skip-link keeps ink fill and white text when focused into view", () => {
+    // Position locks (off-screen → top:12px) still pass if fill/text drift to
+    // cream-on-cream or ink-on-ink — keyboard users then cannot read the target.
+    expect(stylesCss).toMatch(
+      /\.skip-link\s*\{[^}]*background(?:-color)?:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.skip-link\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("nav-phone keeps wood-dark for the header call affordance", () => {
+    // Softening to muted text or wood-light drops the primary click-to-call
+    // signal in the sticky header while tel: href contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.nav-phone\s*\{[^}]*color:\s*var\(--color-wood-dark\)/s
+    );
+  });
+});
+
+describe("header brand chrome contrast on cream surface", () => {
+  test("header brand wordmark stays ink on the sticky cream header", () => {
+    // Footer overrides `.brand` to #fff. Without an explicit ink rule on the
+    // shared header `.brand`, a global footer-first cascade (or a mistaken
+    // shared override) can bleach the sticky wordmark against --color-bg.
+    expect(stylesCss).toMatch(/\.brand\s*\{[^}]*color:\s*var\(--color-ink\)/s);
+  });
+
+  test("header brand-mark keeps wood (not wood-light) on the cream header", () => {
+    // Footer intentionally uses wood-light on ink. Reusing that lighter token
+    // on the cream sticky header fails the axe contrast gate while footer
+    // wood-light and nav-phone wood-dark locks stay green.
+    expect(stylesCss).toMatch(
+      /\.brand-mark\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+    expect(stylesCss).not.toMatch(
+      /(?:^|\n)\.brand-mark\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+
+  test("placeholder-tag keeps wood for WCAG contrast on the cream header", () => {
+    // CSS comments document wood (not wood-light) for >= 4.5:1 against the
+    // header background. Softening the tagline while brand-mark locks pass
+    // still fails axe on both pages.
+    expect(stylesCss).toMatch(
+      /\.brand-text\s+\.placeholder-tag\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+});
+
+describe("button press affordance + hero trust chrome", () => {
+  test("`.btn:active` keeps a translateY press transform", () => {
+    // Hover/focus color + shadow contracts can all pass while press feedback
+    // disappears — quote/submit CTAs then feel inert on touch/mouse down.
+    expect(stylesCss).toMatch(
+      /\.btn:active\s*\{[^}]*transform:\s*translateY\(\s*1px\s*\)/s
+    );
+  });
+
+  test("hero-fact strong values keep wood-dark for trust stats", () => {
+    // Softening hero metrics to muted text (or wood-light) collapses the
+    // primary numeric hierarchy next to muted labels while CTA contrast
+    // locks remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+strong\s*\{[^}]*color:\s*var\(--color-wood-dark\)/s
+    );
+  });
+
+  test("nav-links hover keeps wood color paired with focus-visible", () => {
+    // focus-visible alone can stay green if hover is dropped from the shared
+    // rule — pointer users lose the only current-link cue while aria-current
+    // remains attribute-only.
+    expect(stylesCss).toMatch(/\.nav-links a:hover\s*[,{]/);
+    expect(stylesCss).toMatch(
+      /\.nav-links a:hover\s*[^{]*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+});
+
+describe("hero + service + about wood brand accents", () => {
+  test("hero h1 keeps a wood-accented span for the brand phrase", () => {
+    // Markup without the inner <span> (or CSS that drops wood) leaves the whole
+    // H1 as ink — the only warm brand signal in the first viewport disappears
+    // while CTA contrast locks stay green.
+    expect(indexHtml).toMatch(
+      /<section\b[^>]*\bclass="[^"]*\bhero\b[^"]*"[^>]*>[\s\S]*?<h1\b[^>]*>[\s\S]*?<span\b[^>]*>[\s\S]*?<\/span>[\s\S]*?<\/h1>/i
+    );
+    expect(stylesCss).toMatch(
+      /\.hero\s+h1\s+span\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+
+  test("service-icon keeps wood glyphs on a cream bg-alt chip", () => {
+    // Softening icons to muted text or matching them to surface white collapses
+    // the service-card brand mark while h3/p copy contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*background-color:\s*var\(--color-bg-alt\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+
+  test("about-portrait keeps wood for the placeholder craftsman mark", () => {
+    // Replacing wood with ink or muted text removes the only warm accent in the
+    // about media plane while caption/CTA contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*color:\s*var\(--color-wood\)/s
+    );
+  });
+
+  test("about-portrait-caption keeps ink overlay and white text", () => {
+    // Caption without the dark scrim (or with ink text) fails against the cream
+    // portrait gradient — "Photo of Greg Felton" becomes unreadable.
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*background(?:-color)?:\s*rgb\(\s*30\s+26\s+23\s*\/\s*72%\s*\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*color:\s*#fff/s
+    );
+  });
+});
+
+describe("section eyebrow + hero-eyebrow accent hierarchy", () => {
+  test("section eyebrows keep accent-dark for scan hierarchy", () => {
+    // Softening `.eyebrow` to muted text flattens What We Do / About / Gallery
+    // section labels into body copy while heading size locks stay green.
+    expect(stylesCss).toMatch(
+      /\.eyebrow\s*\{[^}]*color:\s*var\(--color-accent-dark\)/s
+    );
+  });
+
+  test("hero-eyebrow keeps accent-dark text on an accent-tinted pill", () => {
+    // Matching form-status: text-only locks miss a white-on-cream pill, and a
+    // lost 12% tint makes the SWFL location chip blend into the hero surface.
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*color:\s*var\(--color-accent-dark\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*background-color:\s*rgb\(\s*79\s+109\s+82\s*\/\s*12%\s*\)/s
+    );
+  });
+});
+
+describe("mobile nav-toggle + header brand chrome sizing", () => {
+  test("nav-toggle keeps ink color so the hamburger stays visible on cream", () => {
+    // Transparent/missing color (or matching --color-bg) hides the only mobile
+    // open control while display:none→inline-flex breakpoint locks stay green.
+    expect(stylesCss).toMatch(
+      /\.nav-toggle\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("header brand keeps flex gap and display size for sticky chrome", () => {
+    // Collapsing gap or shrinking font-size below the wordmark lock makes the
+    // sticky header feel empty while ink/wood color contracts remain green.
+    expect(stylesCss).toMatch(/\.brand\s*\{[^}]*gap:\s*10px/s);
+    expect(stylesCss).toMatch(/\.brand\s*\{[^}]*font-size:\s*1\.3rem/s);
+  });
+});
+
+describe("hero visual + gallery placeholder brand tokens", () => {
+  test("hero-visual keeps the wood-to-wood-dark brand gradient", () => {
+    // Replacing the wood gradient with accent/ink (or a flat fill) removes the
+    // dominant brand plane beside the hero copy while CTA locks stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-wood\)[^;]*var\(--color-wood-dark\)/s
+    );
+  });
+
+  test("gallery-tile icons keep wood-light with ink titles on cream tiles", () => {
+    // Icons drifting to muted text or titles inheriting muted color erase the
+    // gallery placeholder hierarchy while dashed-border layout stays intact.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+svg\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+strong\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+});
+
+describe("lead form control surface contrast", () => {
+  test("form controls keep cream fill and readable text color", () => {
+    // White-on-white (surface fill + inherited light text) or border-only
+    // regressions hide typed lead data while focus-ring locks stay green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*background-color:\s*var\(--color-bg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*color:\s*var\(--color-text\)/s
+    );
+  });
+});
+
+describe("section + hero supporting copy muted hierarchy", () => {
+  test("section-heading supporting paragraphs stay muted", () => {
+    // Softening to inherited ink (or bleaching to surface white) collapses the
+    // only supporting sentence under each section H2 into body noise / invisible
+    // copy while eyebrow + heading size locks stay green.
+    expect(stylesCss).toMatch(
+      /\.section-heading\s+p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("hero-lede stays muted so the first-viewport CTA hierarchy holds", () => {
+    // Matching hero H1 ink weight (or dropping color entirely) makes the lede
+    // compete with the brand headline while wood span + CTA contrast locks pass.
+    expect(stylesCss).toMatch(
+      /\.hero-lede\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("hero-fact labels stay muted beside wood-dark values", () => {
+    // Value locks on `strong` can pass while label spans inherit wood-dark or
+    // ink — trust stats then lose the number/label hierarchy in the hero.
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("testimonial sample-badge + lead form label weight", () => {
+  test("sample-badge keeps ink fill and white text for SAMPLE chips", () => {
+    // Transparent/muted badges (or ink-on-ink text) hide the only disclosure that
+    // testimonials are samples while star/markup e2e presence checks stay green.
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*background(?:-color)?:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.sample-badge\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("form-field labels keep semibold weight for lead-field scan", () => {
+    // Dropping to normal weight flattens label→control hierarchy on the contact
+    // form while id/name pairing and control fill locks remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+label\s*\{[^}]*font-weight:\s*600/s
+    );
+  });
+
+  test("contact-hours heading stays muted for availability hierarchy", () => {
+    // Matching hours-row ink weight (or bleaching the h4) erases the only
+    // Availability label above day/hours pairs while hours-row content locks pass.
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s+h4\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("testimonial stars + body/form muted copy hierarchy", () => {
+  test("testimonial-stars keep gold so rating glyphs stay visible on cream", () => {
+    // Inheriting muted text or ink flattens the only rating signal beside SAMPLE
+    // badges while sample-badge ink/#fff and markup presence locks stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-stars\s*\{[^}]*color:\s*#d9a441/s
+    );
+  });
+
+  test("service-card body copy stays muted under wood icon chips", () => {
+    // Matching service-card h3 ink (or bleaching to surface) collapses the only
+    // service description under each card title while icon wood locks pass.
+    expect(stylesCss).toMatch(
+      /\.service-card\s+p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("about-copy paragraphs stay muted beside the portrait plane", () => {
+    // Softening to inherited ink (or white) makes the founder bio compete with
+    // the signature/name lock while about-portrait wood + caption scrim pass.
+    expect(stylesCss).toMatch(
+      /\.about-copy\s+p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("contact-form-card intro paragraph stays muted under the form H3", () => {
+    // Matching the card h3 ink weight (or dropping color) erases hierarchy above
+    // lead fields while form-field label weight + control fill locks stay green.
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*>\s*p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+
+  test("form-note stays muted with a bold phone-link for the call fallback", () => {
+    // Bleaching the note (or normal-weight phone-link) hides the only tel: CTA
+    // under the submit button while form-status tint/contrast locks remain green.
+    expect(stylesCss).toMatch(
+      /\.form-note\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-note\s+\.phone-link\s*\{[^}]*font-weight:\s*700/s
+    );
+  });
+});
+
+describe("testimonial quote + author hierarchy", () => {
+  test("testimonial-card quotes stay italic in readable body text color", () => {
+    // Dropping italic (or inheriting muted/ink from neighboring rules) flattens
+    // quote voice into card chrome while gold stars + sample-badge locks pass.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s+p\s*\{[^}]*font-style:\s*italic/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s+p\s*\{[^}]*color:\s*var\(--color-text\)/s
+    );
+  });
+
+  test("testimonial-author keeps bold name weight with muted role span", () => {
+    // Normal-weight authors (or role spans matching name weight/color) erase the
+    // only attribution hierarchy under each quote while SAMPLE disclosure locks
+    // stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s*\{[^}]*font-weight:\s*700/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s+span\s*\{[^}]*font-weight:\s*400/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("about signature identity contrast", () => {
+  test("about-signature strong keeps ink for the founder name", () => {
+    // Softening the name to muted text (or bleaching to surface) hides the only
+    // identity lock under the bio while about-copy muted + portrait wood pass.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s+strong\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+
+  test("about-signature role span stays muted beside the ink name", () => {
+    // Matching the strong ink weight/color collapses name→title hierarchy while
+    // about-copy paragraph muted locks remain green.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("lead form focus ring sage tint", () => {
+  test("form control focus ring keeps the accent sage at 15% opacity", () => {
+    // box-shadow presence + accent border alone still pass if the ring drifts to
+    // ink/wood or 100% opaque sage — keyboard users then get a harsh or wrong-
+    // brand cue on every lead field while outline:none remains intentional.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea):focus[\s\S]*?box-shadow:\s*0\s+0\s+0\s+3px\s+rgb\(\s*79\s+109\s+82\s*\/\s*15%\s*\)/s
+    );
+  });
+});
+
+describe("accent token ↔ hard-coded sage RGB parity", () => {
+  function accentRgbChannels() {
+    const accentHex = stylesCss.match(/--color-accent:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(accentHex).toBe("#4f6d52");
+    return {
+      r: parseInt(accentHex.slice(1, 3), 16),
+      g: parseInt(accentHex.slice(3, 5), 16),
+      b: parseInt(accentHex.slice(5, 7), 16),
+    };
+  }
+
+  test("--color-accent decodes to the sage RGB used across tinted surfaces", () => {
+    // Hero atmosphere, eyebrow/form-status pills, and the lead focus ring all
+    // hard-code rgb(R G B / α) instead of var(--color-accent). Token-only or
+    // literal-only locks still pass when one side drifts — brand sage then
+    // splits between CSS variables and the surfaces visitors actually see.
+    const { r, g, b } = accentRgbChannels();
+    expect([r, g, b]).toEqual([79, 109, 82]);
+
+    const sage12 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*12%\\s*\\)`
+    );
+    const sage15 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*15%\\s*\\)`
+    );
+
+    expect(stylesCss).toMatch(
+      new RegExp(
+        `\\.hero\\s*\\{[^}]*radial-gradient\\([^;]*${sage12.source}`
+      )
+    );
+    expect(stylesCss).toMatch(
+      new RegExp(`\\.hero-eyebrow\\s*\\{[^}]*background-color:\\s*${sage12.source}`)
+    );
+    const statusBlock = stylesCss.match(/\.form-status\s*\{[^}]*\}/);
+    expect(statusBlock).toBeTruthy();
+    expect(statusBlock[0]).toMatch(
+      new RegExp(`background-color:\\s*${sage12.source}`)
+    );
+    expect(stylesCss).toMatch(
+      new RegExp(
+        `\\.form-field\\s+(?:input|select|textarea):focus[\\s\\S]*?box-shadow:\\s*0\\s+0\\s+0\\s+3px\\s+${sage15.source}`
+      )
+    );
+  });
+});
+
+describe("about signature separator + flex layout", () => {
+  test("about-signature keeps a top border separator and flex gap", () => {
+    // Color locks on strong/span still pass if the signature collapses into the
+    // bio (no hairline, no flex gap) — founder name/title then read as another
+    // paragraph instead of a distinct identity block under the portrait copy.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s*\{[^}]*border-top:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(/\.about-signature\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.about-signature\s*\{[^}]*gap:\s*16px/s);
+  });
+});
+
+describe("testimonial author size hierarchy", () => {
+  test("testimonial-author keeps compact name size with smaller muted role", () => {
+    // Weight/color locks still pass if author type scales to body/quote size —
+    // SAMPLE attribution then competes with the italic quote while gold stars
+    // and sample-badge contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s*\{[^}]*font-size:\s*0\.92rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s+span\s*\{[^}]*font-size:\s*0\.84rem/s
+    );
+  });
+});
+
+describe("value-list trust signal tokens", () => {
+  test("value-list icons keep accent with muted supporting spans", () => {
+    // About-page trust bullets lose scan hierarchy if icons inherit muted text
+    // (or descriptions match title ink) while portrait/signature locks stay green.
+    expect(stylesCss).toMatch(
+      /\.value-list\s+svg\s*\{[^}]*color:\s*var\(--color-accent\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.value-list\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("contact hours-row layout tokens", () => {
+  test("hours-row keeps day/hours space-between with a dashed separator", () => {
+    // Availability content locks still pass if rows stack or lose the dashed
+    // hairline — day labels and hours then collide into a single unreadable
+    // line on the contact sidebar while contact-hours h4 muted stays green.
+    expect(stylesCss).toMatch(
+      /\.hours-row\s*\{[^}]*justify-content:\s*space-between/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hours-row\s*\{[^}]*border-bottom:\s*1px\s+dashed\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hours-row:last-child\s*\{[^}]*border-bottom:\s*none/s
+    );
+  });
+
+  test("hours-row stays flex at compact body size so day/hours stay on one line", () => {
+    // justify-content alone is a no-op without display:flex, and oversized type
+    // wraps day labels into the hours column — availability then looks broken
+    // while dashed-separator + content-pair locks stay green.
+    expect(stylesCss).toMatch(/\.hours-row\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.hours-row\s*\{[^}]*font-size:\s*0\.92rem/s);
+  });
+});
+
+describe("wood token ↔ hard-coded RGB parity", () => {
+  function woodRgbChannels() {
+    const woodHex = stylesCss.match(/--color-wood:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(woodHex).toBe("#7a4a2b");
+    return {
+      r: parseInt(woodHex.slice(1, 3), 16),
+      g: parseInt(woodHex.slice(3, 5), 16),
+      b: parseInt(woodHex.slice(5, 7), 16),
+    };
+  }
+
+  test("--color-wood decodes to the hero radial wood RGB tint", () => {
+    // Hero atmosphere hard-codes rgb(R G B / 10%) while brand marks / nav /
+    // service icons use var(--color-wood). Token-only or literal-only locks
+    // still pass when one side drifts — visitors then see a split wood brand
+    // between the hero wash and every other wood accent on the page.
+    const { r, g, b } = woodRgbChannels();
+    expect([r, g, b]).toEqual([122, 74, 43]);
+
+    const wood10 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*10%\\s*\\)`
+    );
+
+    expect(stylesCss).toMatch(
+      new RegExp(
+        `\\.hero\\s*\\{[^}]*radial-gradient\\([^;]*${wood10.source}`
+      )
+    );
+  });
+});
+
+describe("value-list strong title hierarchy", () => {
+  test("value-list strong stays block-level at body size above muted spans", () => {
+    // Icon accent + muted span locks still pass if strong titles inline into
+    // the description (or shrink/grow past body) — trust bullets then lose the
+    // only scan hierarchy that separates title from supporting copy.
+    expect(stylesCss).toMatch(
+      /\.value-list\s+strong\s*\{[^}]*display:\s*block/s
+    );
+    expect(stylesCss).toMatch(
+      /\.value-list\s+strong\s*\{[^}]*font-size:\s*1rem/s
+    );
+  });
+
+  test("value-list strong keeps a small margin under the title before muted copy", () => {
+    // Block + 1rem locks still pass if margin-bottom is dropped — title and
+    // description then collide into one dense paragraph while icon/span color
+    // contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.value-list\s+strong\s*\{[^}]*margin-bottom:\s*2px/s
+    );
+  });
+});
+
+describe("about-signature strong typography", () => {
+  test("about-signature strong keeps heading font at an elevated size", () => {
+    // Ink color + separator locks still pass if the founder name drops to body
+    // font/size — signature identity then reads as another muted bio line while
+    // role-span muted contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s+strong\s*\{[^}]*font-family:\s*var\(--font-heading\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-signature\s+strong\s*\{[^}]*font-size:\s*1\.2rem/s
+    );
+  });
+
+  test("about-signature role span stays compact beside the elevated name", () => {
+    // Strong typography alone still passes if the role span scales up to name
+    // size — name→title hierarchy collapses while ink/muted color locks stay green.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s+span\s*\{[^}]*font-size:\s*0\.88rem/s
+    );
+  });
+});
+
+describe("ink token ↔ hard-coded RGB parity", () => {
+  function inkRgbChannels() {
+    const inkHex = stylesCss.match(/--color-ink:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(inkHex).toBe("#1e1a17");
+    return {
+      r: parseInt(inkHex.slice(1, 3), 16),
+      g: parseInt(inkHex.slice(3, 5), 16),
+      b: parseInt(inkHex.slice(5, 7), 16),
+    };
+  }
+
+  test("--color-ink decodes to the RGB used by portrait overlay and elevation shadows", () => {
+    // Portrait caption + --shadow-* hard-code rgb(R G B / α) while brand/footer
+    // chrome uses var(--color-ink). Token-only or literal-only locks still pass
+    // when one side drifts — overlay/elevation then diverge from every other
+    // ink surface (footer, buttons, wordmark).
+    const { r, g, b } = inkRgbChannels();
+    expect([r, g, b]).toEqual([30, 26, 23]);
+
+    const ink72 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*72%\\s*\\)`
+    );
+    const ink8 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*8%\\s*\\)`
+    );
+    const ink10 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*10%\\s*\\)`
+    );
+    const ink16 = new RegExp(
+      `rgb\\(\\s*${r}\\s+${g}\\s+${b}\\s*/\\s*16%\\s*\\)`
+    );
+
+    expect(stylesCss).toMatch(
+      new RegExp(
+        `\\.about-portrait-caption\\s*\\{[^}]*background(?:-color)?:\\s*${ink72.source}`
+      )
+    );
+    expect(stylesCss).toMatch(
+      new RegExp(`--shadow-sm:\\s*0\\s+1px\\s+3px\\s+${ink8.source}`)
+    );
+    expect(stylesCss).toMatch(
+      new RegExp(`--shadow-md:\\s*0\\s+8px\\s+24px\\s+${ink10.source}`)
+    );
+    expect(stylesCss).toMatch(
+      new RegExp(`--shadow-lg:\\s*0\\s+20px\\s+50px\\s+${ink16.source}`)
+    );
+  });
+});
+
+describe("about-signature strong block layout", () => {
+  test("about-signature strong stays display:block so the role spans below the name", () => {
+    // Heading font/size + ink color locks still pass if strong stays inline —
+    // founder name and muted role then share one line and the signature reads
+    // as a single bio fragment while typography contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s+strong\s*\{[^}]*display:\s*block/s
+    );
+  });
+});
+
+describe("value-list row layout + supporting copy size", () => {
+  test("value-list li stays a flex row with icon→copy gap and top alignment", () => {
+    // Strong/span hierarchy locks still pass if list items lose display:flex
+    // (or the 14px gap / flex-start alignment) — icons then stack above titles
+    // or baseline-align into multi-line copy while color contracts stay green.
+    expect(stylesCss).toMatch(/\.value-list\s+li\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.value-list\s+li\s*\{[^}]*gap:\s*14px/s);
+    expect(stylesCss).toMatch(
+      /\.value-list\s+li\s*\{[^}]*align-items:\s*flex-start/s
+    );
+  });
+
+  test("value-list icons keep a fixed box and flex-shrink so glyphs do not collapse", () => {
+    // Flex-row locks still pass if svg width/height or flex-shrink:0 drops —
+    // long trust titles then crush the accent mark while color contracts stay
+    // green.
+    expect(stylesCss).toMatch(/\.value-list\s+svg\s*\{[^}]*width:\s*22px/s);
+    expect(stylesCss).toMatch(/\.value-list\s+svg\s*\{[^}]*height:\s*22px/s);
+    expect(stylesCss).toMatch(
+      /\.value-list\s+svg\s*\{[^}]*flex-shrink:\s*0/s
+    );
+  });
+
+  test("value-list supporting spans stay compact under strong titles", () => {
+    // Muted color + strong 1rem locks still pass if span font-size rises to
+    // match the title — trust bullets lose title→description hierarchy while
+    // block/margin contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.value-list\s+span\s*\{[^}]*font-size:\s*0\.93rem/s
+    );
+  });
+});
+
+describe("about-signature block spacing", () => {
+  test("about-signature keeps top margin and padding so it separates from bio copy", () => {
+    // Border + flex/gap locks still pass if margin-top/padding-top collapse —
+    // founder identity then sits flush against the last about paragraph while
+    // strong/span typography contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s*\{[^}]*margin-top:\s*28px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-signature\s*\{[^}]*padding-top:\s*24px/s
+    );
+  });
+
+  test("about-signature vertically centers avatar and name/role columns", () => {
+    // display:flex + gap alone still pass if align-items drifts to stretch/start —
+    // portrait mark and signature text then misalign while separator contracts
+    // stay green.
+    expect(stylesCss).toMatch(
+      /\.about-signature\s*\{[^}]*align-items:\s*center/s
+    );
+  });
+});
+
+describe("value-list grid spacing", () => {
+  test("value-list stays a grid with 16px row gap between trust bullets", () => {
+    // Per-li flex metrics still pass if the list loses display:grid or gap:16px —
+    // bullets then stack flush (or fall back to sparse default gaps) while icon
+    // box / strong hierarchy contracts remain green.
+    expect(stylesCss).toMatch(/\.value-list\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(/\.value-list\s*\{[^}]*gap:\s*16px/s);
+  });
+
+  test("value-list keeps top margin so trust bullets clear the about copy", () => {
+    // Grid gap alone still passes if margin-top drops — trust bullets collide
+    // with the last about paragraph while li flex contracts stay green.
+    expect(stylesCss).toMatch(/\.value-list\s*\{[^}]*margin-top:\s*28px/s);
+  });
+
+  test("value-list icons keep a small top offset to optically align with titles", () => {
+    // Fixed 22px box + flex-shrink locks still pass if margin-top:3px is dropped —
+    // accent glyphs then sit high relative to strong titles while color contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.value-list\s+svg\s*\{[^}]*margin-top:\s*3px/s
+    );
+  });
+});
+
+describe("scroll-reveal entry motion tokens", () => {
+  test("[data-reveal] starts hidden with the documented 18px entry translate", () => {
+    // .is-visible restore locks still pass if the resting state loses opacity:0
+    // or the entry offset drifts (e.g. 0 / 40px) — lead cards then either flash
+    // fully visible before IO or overshoot under sticky chrome while observer
+    // option contracts stay green.
+    expect(stylesCss).toMatch(
+      /\[data-reveal\]\s*\{[^}]*opacity:\s*0/s
+    );
+    expect(stylesCss).toMatch(
+      /\[data-reveal\]\s*\{[^}]*transform:\s*translateY\(18px\)/s
+    );
+  });
+
+  test("[data-reveal] keeps a 600ms opacity+transform transition for the reveal", () => {
+    // Exact translate/opacity locks still pass if transition is dropped or
+    // shortened to instant — scroll reveals then pop without motion (or animate
+    // forever if duration balloons) while prefers-reduced-motion:none contracts
+    // remain green for users who allow motion.
+    expect(stylesCss).toMatch(
+      /\[data-reveal\]\s*\{[^}]*transition:\s*opacity\s+600ms\s+ease\s*,\s*transform\s+600ms\s+ease/s
+    );
+  });
+});
+
+describe("contact hours-row vertical rhythm", () => {
+  test("hours-row keeps compact vertical padding around day/hours pairs", () => {
+    // Flex + dashed separator locks still pass if padding collapses to 0 —
+    // Availability rows then feel cramped and harder to scan while content-pair
+    // and font-size contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hours-row\s*\{[^}]*padding:\s*6px\s+0/s
+    );
+  });
+});
+
+describe("contact lead-card surface + padding", () => {
+  test("contact-form-card keeps a white surface, border, and generous padding", () => {
+    // Intro muted-copy + field fill locks still pass if the card loses
+    // --color-surface / border / padding:40px — the quote form then blends into
+    // the cream page or crowds controls while form-field contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*\{[^}]*padding:\s*40px/s
+    );
+  });
+
+  test("contact-info-card keeps a white surface, border, and sidebar padding", () => {
+    // Phone/email wood icon + hours-row locks still pass if the info card loses
+    // surface/border/padding:36px — contact details then sit flush on cream
+    // (or crowd the Availability block) while content contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.contact-info-card\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-info-card\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-info-card\s*\{[^}]*padding:\s*36px/s
+    );
+  });
+
+  test("contact-hours keeps a top border separator above Availability rows", () => {
+    // hours-row dashed separators alone still pass if contact-hours loses its
+    // border-top — day/hours then run into the city list with no section break
+    // while muted h4 + row padding contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s*\{[^}]*border-top:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s*\{[^}]*padding-top:\s*22px/s
+    );
+  });
+});
+
+describe("about-portrait plane geometry", () => {
+  test("about-portrait keeps a tall 4/5 plane with overflow clipped for the caption", () => {
+    // Wood color + caption scrim locks still pass if aspect-ratio or
+    // overflow:hidden drops — the craftsman mark then sits in a squat box and
+    // the absolute caption can paint outside the portrait while color contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*5/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*overflow:\s*hidden/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*position:\s*relative/s
+    );
+  });
+
+  test("about-portrait centers the placeholder mark with flex", () => {
+    // aspect-ratio alone still passes if display:flex / centering drops — the
+    // wood SVG then pins to the top-left of the plane while caption overlay
+    // contracts stay green.
+    expect(stylesCss).toMatch(/\.about-portrait\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+
+  test("about-portrait-caption stays absolutely pinned to the portrait bottom", () => {
+    // Ink 72% scrim + white text locks still pass if position/inset drift —
+    // the "Photo of Greg Felton" strip then flows in document order under the
+    // plane instead of overlaying it while color contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*position:\s*absolute/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*bottom:\s*0/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*left:\s*0/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*right:\s*0/s
+    );
+  });
+});
+
+describe("lead form-row responsive columns", () => {
+  test("form-row keeps a two-column grid for name/phone on wide contact layouts", () => {
+    // Individual form-field fill/focus locks still pass if form-row loses
+    // display:grid or 1fr 1fr — name and phone then stack (or stretch unevenly)
+    // on desktop while label/control contracts stay green.
+    expect(stylesCss).toMatch(/\.form-row\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.form-row\s*\{[^}]*grid-template-columns:\s*1fr\s+1fr/s
+    );
+  });
+
+  test("form-row collapses to a single column at max-width 540px", () => {
+    // Two-column desktop locks still pass if the 540px stack media query is
+    // dropped — narrow phones then squeeze name+phone side-by-side and clip
+    // labels while resting field contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*540px\s*\)[\s\S]*?\.form-row\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("about-portrait craftsman mark scale", () => {
+  test("about-portrait svg keeps a 44% box so the mark stays secondary to the plane", () => {
+    // Portrait flex centering + wood color locks still pass if width/height
+    // drift to 100% (or shrink to icon size) — the placeholder craftsman mark
+    // then dominates or vanishes inside the 4/5 plane while caption overlay
+    // contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s+svg\s*\{[^}]*width:\s*44%/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s+svg\s*\{[^}]*height:\s*44%/s
+    );
+  });
+
+  test("about-portrait svg keeps soft opacity so the caption remains primary", () => {
+    // Size locks alone still pass if opacity rises to 1 (or drops near 0) —
+    // the mark then competes with the "Photo of Greg Felton" strip or
+    // disappears while wood color + caption scrim contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s+svg\s*\{[^}]*opacity:\s*0\.75/s
+    );
+  });
+});
+
+describe("contact-form-card heading + intro spacing", () => {
+  test("contact-form-card h3 keeps a 1.3rem title size above the lead form", () => {
+    // Card surface/padding + muted intro color locks still pass if the h3
+    // shrinks to body size (or balloons toward section H2) — "Request a Free
+    // Quote" then loses hierarchy over fields while form-row contracts stay
+    // green.
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s+h3\s*\{[^}]*font-size:\s*1\.3rem/s
+    );
+  });
+
+  test("contact-form-card intro keeps spacing below the title and before fields", () => {
+    // Muted intro color alone still passes if h3 margin-bottom or intro
+    // margin-bottom:28px drops — title/copy/fields then collide into one
+    // dense block while surface padding + form-row contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s+h3\s*\{[^}]*margin-bottom:\s*8px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*>\s*p\s*\{[^}]*margin-bottom:\s*28px/s
+    );
+  });
+});
+
+describe("lead message textarea geometry", () => {
+  test("message textarea keeps min-height 130px for multi-line project detail", () => {
+    // Shared form-field fill/focus + multi-line mailto body locks still pass if
+    // textarea min-height collapses — visitors then get a single-line-tall box
+    // for the project message while control color contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+textarea\s*\{[^}]*min-height:\s*130px/s
+    );
+  });
+
+  test("message textarea stays vertically resizable (not locked or horizontal-only)", () => {
+    // min-height alone still passes if resize becomes none or horizontal —
+    // long project descriptions then cannot grow the control while focus-ring
+    // and resting fill contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+textarea\s*\{[^}]*resize:\s*vertical/s
+    );
+  });
+});
+
+describe("hours-row trailing separator", () => {
+  test("hours-row:last-child drops the dashed bottom border under Sunday", () => {
+    // Per-row dashed border + padding locks still pass if :last-child keeps a
+    // bottom rule — Availability then ends with a dangling separator under
+    // "Sunday / Closed" while day/hours content contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.hours-row:last-child\s*\{[^}]*border-bottom:\s*none/s
+    );
+  });
+});
+
+describe("about-portrait-caption type + inset padding", () => {
+  test("about-portrait-caption keeps compact type so the strip stays secondary", () => {
+    // Absolute pin + ink 72% scrim locks still pass if font-size balloons to
+    // body rem — "Photo of Greg Felton" then dominates the 4/5 plane while
+    // craftsman-mark opacity and overlay-position contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*font-size:\s*0\.82rem/s
+    );
+  });
+
+  test("about-portrait-caption keeps horizontal/vertical inset padding", () => {
+    // Color + absolute inset locks still pass if padding collapses — caption
+    // text then kisses the portrait edges (or overflows the clipped plane)
+    // while ink scrim and white-text contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*padding:\s*14px\s+18px/s
+    );
+  });
+
+  test("about-portrait-caption stays centered over the portrait plane", () => {
+    // Size/padding alone still pass if text-align drifts left — the photo
+    // label then sits off-center under a centered craftsman mark while
+    // overlay pin contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait-caption\s*\{[^}]*text-align:\s*center/s
+    );
+  });
+});
+
+describe("lead form-field vertical rhythm", () => {
+  test("form-field keeps margin-bottom so stacked controls stay scannable", () => {
+    // Label weight + control fill/focus locks still pass if margin-bottom:20px
+    // drops — name/email/phone/service/message then collide into one dense
+    // stack while form-row columns and textarea min-height remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s*\{[^}]*margin-bottom:\s*20px/s
+    );
+  });
+
+  test("form-field labels keep readable size and gap above controls", () => {
+    // Semibold weight alone still passes if font-size or label margin-bottom
+    // collapses — labels then crowd (or dwarf) inputs while id/name pairing
+    // and control fill contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+label\s*\{[^}]*font-size:\s*0\.9rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-field\s+label\s*\{[^}]*margin-bottom:\s*8px/s
+    );
+  });
+
+  test("form-field labels stay display:block so labels stack above controls", () => {
+    // Font-size + margin-bottom locks still pass if display:block drops —
+    // inline labels then sit beside (or wrap into) inputs while id/name
+    // pairing and shared control geometry contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+label\s*\{[^}]*display:\s*block/s
+    );
+  });
+});
+
+describe("lead form shared control geometry", () => {
+  test("shared form controls keep 13px 14px padding for tap-friendly typing", () => {
+    // Cream fill + text color locks still pass if padding shrinks — name/email/
+    // phone/service/message then feel cramped (especially on mobile) while
+    // focus-ring and textarea min-height contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*padding:\s*13px\s+14px/s
+    );
+  });
+
+  test("shared form controls keep a 1.5px border against the cream fill", () => {
+    // Background/color alone still pass if border thins to 1px or vanishes —
+    // resting fields then blend into --color-bg and only appear on focus while
+    // accent focus-ring contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*border:\s*1\.5px\s+solid\s+var\(--color-border\)/s
+    );
+  });
+
+  test("shared form controls stretch full width inside the form card", () => {
+    // Padding/border locks still pass if width:100% drops — select/textarea
+    // then shrink to content width beside labels while form-row grid and
+    // field spacing contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*width:\s*100%/s
+    );
+  });
+
+  test("shared form controls keep radius-sm corners for brand-matched typing surfaces", () => {
+    // Padding/border/width locks still pass if border-radius drifts to 0 or a
+    // pill — lead fields then clash with .btn radius-sm while form-row and
+    // focus-ring contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*border-radius:\s*var\(--radius-sm\)/s
+    );
+  });
+
+  test("shared form controls inherit site typeface at 0.96rem for readable typing", () => {
+    // Geometry locks still pass if font-family falls back to UA defaults or
+    // font-size shrinks — name/email/phone/service/message then look alien
+    // beside Inter body copy while cream fill and focus-ring stay green.
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*font-family:\s*inherit/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-field\s+(?:input|select|textarea)\s*\{[^}]*font-size:\s*0\.96rem/s
+    );
+  });
+});
+
+describe("lead form-note type + spacing", () => {
+  test("form-note keeps compact 0.82rem type under the submit CTA", () => {
+    // Muted color + bold phone-link locks still pass if font-size grows to
+    // body — the call-fallback note then competes with the submit button while
+    // form-status tint/contrast contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-note\s*\{[^}]*font-size:\s*0\.82rem/s
+    );
+  });
+
+  test("form-note keeps margin-top so it clears the submit button", () => {
+    // Color/weight locks still pass if margin-top:14px collapses — the phone
+    // fallback then crowds the primary CTA while form-status is-visible and
+    // shared control geometry contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.form-note\s*\{[^}]*margin-top:\s*14px/s
+    );
+  });
+});
+
+describe("lead form-status type + spacing", () => {
+  test("form-status keeps margin-top so confirmation clears the call-fallback note", () => {
+    // Tint/contrast locks still pass if margin-top:16px collapses — the sage
+    // confirmation panel then crowds the form-note phone CTA while is-visible
+    // display and accent-dark text contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*margin-top:\s*16px/s
+    );
+  });
+
+  test("form-status keeps 14px 16px padding for readable confirmation copy", () => {
+    // Color/background locks still pass if padding shrinks — the mailto status
+    // line then looks cramped against the sage fill while font-weight and
+    // is-visible display contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*padding:\s*14px\s+16px/s
+    );
+  });
+
+  test("form-status keeps radius-sm corners matching lead controls", () => {
+    // Tint/contrast locks still pass if border-radius drifts to 0 or a pill —
+    // the confirmation panel then clashes with shared control radius-sm while
+    // form-note spacing and accent RGB parity contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*border-radius:\s*var\(--radius-sm\)/s
+    );
+  });
+
+  test("form-status keeps 0.9rem semibold type for the mailto confirmation", () => {
+    // Panel fill/text-color locks still pass if font-size shrinks or weight
+    // drops to 400 — confirmation copy then reads as muted body text and is
+    // easy to miss after submit while is-visible display stays green.
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*font-size:\s*0\.9rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.form-status\s*\{[^}]*font-weight:\s*600/s
+    );
+  });
+});
+
+describe("lead form-note phone-link tel parity", () => {
+  test("form-note keeps a phone-link tel: CTA inside the contact form", () => {
+    // Global tel digit parity still passes if the under-submit call fallback
+    // loses its link (or becomes a non-tel href) while nav/footer phones remain
+    // correct — visitors who prefer calling after a failed mailto then have no
+    // in-form path.
+    const formBlock = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[\s\S]*?<\/form>/
+    );
+    expect(formBlock).toBeTruthy();
+    const noteBlock = formBlock[0].match(
+      /<p\b[^>]*\bclass="[^"]*\bform-note\b[^"]*"[^>]*>[\s\S]*?<\/p>/
+    );
+    expect(noteBlock).toBeTruthy();
+    const phoneLink = noteBlock[0].match(
+      /<a\b[^>]*\bhref="(tel:[^"]+)"[^>]*\bclass="[^"]*\bphone-link\b[^"]*"[^>]*>([\s\S]*?)<\/a>/
+    );
+    expect(phoneLink).toBeTruthy();
+
+    const stripDigits = (value) => String(value).replace(/\D/g, "");
+    const noteTelDigits = stripDigits(phoneLink[1]);
+    expect(noteTelDigits.length).toBeGreaterThanOrEqual(10);
+
+    const pageTelDigits = stripDigits(
+      collectMatches(contactHtml, /href="(tel:[^"]+)"/g)[0]
+    );
+    expect(noteTelDigits).toBe(pageTelDigits);
+
+    const visibleDigits = stripDigits(
+      decodeBasicEntities(phoneLink[2].replace(/<[^>]+>/g, ""))
+    );
+    expect(visibleDigits.length).toBeGreaterThanOrEqual(10);
+    expect(
+      noteTelDigits === visibleDigits || noteTelDigits.endsWith(visibleDigits)
+    ).toBe(true);
+  });
+});
+
+describe("lead form post-submit DOM order", () => {
+  test("submit CTA precedes form-note, which precedes form-status", () => {
+    // Geometry/tint/tel/is-visible locks still pass if markup reorders these
+    // three nodes — confirmation can appear above the Send Message button, or
+    // the call-fallback note can push above the primary CTA, while mailto +
+    // status text contracts remain green.
+    const formBlock = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[\s\S]*?<\/form>/
+    );
+    expect(formBlock).toBeTruthy();
+    const submitIdx = formBlock[0].search(
+      /<button\b[^>]*\btype="submit"[^>]*>/i
+    );
+    const noteIdx = formBlock[0].search(
+      /<p\b[^>]*\bclass="[^"]*\bform-note\b/
+    );
+    const statusIdx = formBlock[0].search(/\bdata-form-status\b/);
+    expect(submitIdx).toBeGreaterThanOrEqual(0);
+    expect(noteIdx).toBeGreaterThan(submitIdx);
+    expect(statusIdx).toBeGreaterThan(noteIdx);
+  });
+});
+
+describe("lead message placeholder guidance", () => {
+  test("project message textarea keeps location/timeline placeholder cues", () => {
+    // Required + min-height + resize locks still pass if the placeholder is
+    // dropped or rewritten without location/timeline prompts — lead quality
+    // then degrades silently while HTML5 validation and mailto body labels
+    // stay green.
+    const textarea = contactHtml.match(
+      /<textarea\b[^>]*\bid="message"[^>]*>/
+    );
+    expect(textarea).toBeTruthy();
+    const placeholder = textarea[0].match(/\bplaceholder="([^"]*)"/);
+    expect(placeholder).toBeTruthy();
+    const cue = placeholder[1].toLowerCase();
+    expect(cue).toMatch(/location/);
+    expect(cue).toMatch(/timeline/);
+  });
+});
+
+describe("contact lead-card corner radius", () => {
+  test("contact form and info cards keep radius-lg corners", () => {
+    // Surface/border/padding locks still pass if border-radius drops to 0 or
+    // radius-sm — the quote + sidebar cards then look flush/sharp against the
+    // cream page while field geometry and hours-row contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.contact-form-card\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-info-card\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+  });
+});
+
+describe("sticky header backdrop readability", () => {
+  test("site-header keeps a saturated blur behind the translucent cream chrome", () => {
+    // Channel↔92% alpha locks still pass if backdrop-filter is removed — sticky
+    // nav then sits as a flat translucent cream over busy hero/section content
+    // and section titles can show through while opacity parity stays green.
+    expect(stylesCss).toMatch(
+      /\.site-header\s*\{[^}]*backdrop-filter:\s*saturate\(\s*160%\s*\)\s+blur\(\s*8px\s*\)/s
+    );
+  });
+});
+
+describe("contact-hours Availability heading hierarchy", () => {
+  test("contact-hours h4 stays compact uppercase with tracking above day/hours rows", () => {
+    // Muted color alone still passes if the h4 loses uppercase/letter-spacing and
+    // grows to body size — Availability then reads as another hours-row instead of
+    // the section label while day/hours content locks stay green.
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s+h4\s*\{[^}]*font-size:\s*0\.9rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s+h4\s*\{[^}]*text-transform:\s*uppercase/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s+h4\s*\{[^}]*letter-spacing:\s*0\.05em/s
+    );
+    expect(stylesCss).toMatch(
+      /\.contact-hours\s+h4\s*\{[^}]*margin-bottom:\s*12px/s
+    );
+  });
+});
+
+describe("trust-strip contrast on first-viewport chrome", () => {
+  test("trust-strip keeps an ink surface with light trust-item copy", () => {
+    // Hero gradient locks still pass if trust-strip inherits cream page bg — soft
+    // cream trust-item text then vanishes under the hero while icon accent-light
+    // and markup presence remain green.
+    expect(stylesCss).toMatch(
+      /\.trust-strip\s*\{[^}]*background-color:\s*var\(--color-ink\)/s
+    );
+    expect(stylesCss).toMatch(/\.trust-strip\s*\{[^}]*color:\s*#fff/s);
+    expect(stylesCss).toMatch(/\.trust-item\s*\{[^}]*color:\s*#f2ece2/s);
+  });
+
+  test("trust-item icons keep accent-light on the dark trust strip", () => {
+    // Matching trust-item cream or ink icons flatten the only glyph cue beside
+    // each trust claim while strip ink/#fff locks stay green.
+    expect(stylesCss).toMatch(
+      /\.trust-item\s+svg\s*\{[^}]*color:\s*var\(--color-accent-light\)/s
+    );
+  });
+});
+
+describe("hero-visual quote card readability", () => {
+  test("hero-visual keeps explicit white text on the wood gradient", () => {
+    // Wood→wood-dark gradient locks still pass if color inherits cream-page ink —
+    // the hero quote and Greg Felton signature then go dark-on-dark while
+    // gradient contracts remain green.
+    expect(stylesCss).toMatch(/\.hero-visual\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("hero-visual-quote keeps heading type at elevated size for the brand quote", () => {
+    // Falling back to body Inter at 1rem flattens the only quote on the wood
+    // card while white color and gradient locks stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-quote\s*\{[^}]*font-family:\s*var\(--font-heading\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-quote\s*\{[^}]*font-size:\s*1\.35rem/s
+    );
+  });
+});
+
+describe("service-area chip surface", () => {
+  test("area-chip keeps a bordered white surface for town labels", () => {
+    // Losing the surface/border bleaches chips into the cream page — areaServed
+    // town labels then disappear while JSON-LD areaServed content locks pass.
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+  });
+
+  test("area-chip icons keep accent so town glyphs stay visible", () => {
+    // Matching muted text or bleaching icons removes the only pin cue beside
+    // each served town while chip surface and areaServed list locks stay green.
+    expect(stylesCss).toMatch(
+      /\.area-chip\s+svg\s*\{[^}]*color:\s*var\(--color-accent\)/s
+    );
+  });
+});
+
+describe("alternating section surface", () => {
+  test("section-alt keeps bg-alt so alternating bands stay distinct from cream page", () => {
+    // Matching --color-bg (or bleaching to surface) collapses the only band
+    // cue between About/Services while heading hierarchy locks stay green.
+    expect(stylesCss).toMatch(
+      /\.section-alt\s*\{[^}]*background-color:\s*var\(--color-bg-alt\)/s
+    );
+  });
+});
+
+describe("service-card surface for catalog visibility", () => {
+  test("service-card keeps a bordered white surface for service offerings", () => {
+    // Icon wood/bg-alt and muted body locks still pass if the card loses its
+    // surface/border — six service offerings then bleach into the cream page
+    // while catalog↔form option parity stays green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-card\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+  });
+});
+
+describe("gallery-tile placeholder surface", () => {
+  test("gallery-tile keeps a dashed bordered surface and 4/3 plane", () => {
+    // Icon wood-light + ink title locks still pass if tiles lose surface/border
+    // or aspect-ratio — placeholder project categories then collapse into the
+    // cream band while gallery markup presence stays green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*border:\s*1\.5px\s+dashed\s+var\(--color-border\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*aspect-ratio:\s*4\s*\/\s*3/s
+    );
+  });
+});
+
+describe("testimonial-card surface + SAMPLE badge anchor", () => {
+  test("testimonial-card keeps a bordered white surface for social proof", () => {
+    // Quote italic/text and gold stars locks still pass if the card bleaches
+    // into cream — sample reviews then disappear while sample-badge ink/#fff
+    // and author hierarchy contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s*\{[^}]*background-color:\s*var\(--color-surface\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+  });
+
+  test("testimonial-card stays position:relative so SAMPLE badges anchor to the card", () => {
+    // Ink/#fff sample-badge locks still pass if the card loses position:relative
+    // — absolute SAMPLE chips then float against a distant ancestor while
+    // quote/author contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s*\{[^}]*position:\s*relative/s
+    );
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*position:\s*absolute/s
+    );
+  });
+});
+
+describe("hero-visual signature + icon on wood card", () => {
+  test("hero-visual-icon stays white on the wood gradient", () => {
+    // Wood→wood-dark + quote white locks still pass if the craftsman icon
+    // inherits dark page ink — the only glyph on the hero quote card then
+    // vanishes while signature opacity and quote type contracts stay green.
+    expect(stylesCss).toMatch(/\.hero-visual-icon\s*\{[^}]*color:\s*#fff/s);
+  });
+
+  test("hero-visual-signature dot stays white beside the owner attribution", () => {
+    // Quote heading + card white locks still pass if the signature dot bleaches
+    // to wood/transparent — Greg Felton attribution loses its only bullet cue
+    // while hero-visual color and quote size contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s+\.dot\s*\{[^}]*background-color:\s*#fff/s
+    );
+  });
+});
+
+describe("trust-item row layout on dark strip", () => {
+  test("trust-item stays a compact flex row with icon→claim gap and semibold weight", () => {
+    // Strip ink/#fff and accent-light icon color locks still pass if trust-item
+    // loses display:flex (or the 10px gap / 600 weight) — icons then stack above
+    // claims or read as body-weight copy while contrast contracts stay green.
+    expect(stylesCss).toMatch(/\.trust-item\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.trust-item\s*\{[^}]*align-items:\s*center/s);
+    expect(stylesCss).toMatch(/\.trust-item\s*\{[^}]*gap:\s*10px/s);
+    expect(stylesCss).toMatch(/\.trust-item\s*\{[^}]*font-weight:\s*600/s);
+  });
+
+  test("trust-item icons keep a fixed box and flex-shrink so glyphs do not crush", () => {
+    // Flex-row + accent-light locks still pass if svg width/height or
+    // flex-shrink:0 drops — long trust claims then crush the glyph while strip
+    // contrast contracts remain green.
+    expect(stylesCss).toMatch(/\.trust-item\s+svg\s*\{[^}]*width:\s*20px/s);
+    expect(stylesCss).toMatch(/\.trust-item\s+svg\s*\{[^}]*height:\s*20px/s);
+    expect(stylesCss).toMatch(
+      /\.trust-item\s+svg\s*\{[^}]*flex-shrink:\s*0/s
+    );
+  });
+});
+
+describe("services-grid responsive columns", () => {
+  test("services-grid keeps a three-column track for the service catalog on wide layouts", () => {
+    // Card surface/border locks still pass if the grid collapses to 1fr — six
+    // offerings then stack as a long single column on desktop while catalog↔form
+    // option parity stays green.
+    expect(stylesCss).toMatch(/\.services-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.services-grid\s*\{[^}]*grid-template-columns:\s*repeat\(\s*3\s*,\s*1fr\s*\)/s
+    );
+  });
+
+  test("services-grid collapses to two columns at max-width 940px then one at 640px", () => {
+    // Desktop 3-col locks still pass if the 940/640 media queries are dropped —
+    // tablets and phones then keep three squeezed columns and clip card titles
+    // while service-card surface contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*940px\s*\)\s*\{\s*\.services-grid\s*\{[^}]*grid-template-columns:\s*repeat\(\s*2\s*,\s*1fr\s*\)/s
+    );
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*640px\s*\)\s*\{\s*\.services-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("gallery-grid responsive columns", () => {
+  test("gallery-grid keeps a three-column track for project placeholders on wide layouts", () => {
+    // Tile surface/aspect locks still pass if the grid collapses to 1fr —
+    // placeholder categories then stack as a long single column on desktop while
+    // dashed-border and 4/3 contracts stay green.
+    expect(stylesCss).toMatch(/\.gallery-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.gallery-grid\s*\{[^}]*grid-template-columns:\s*repeat\(\s*3\s*,\s*1fr\s*\)/s
+    );
+  });
+
+  test("gallery-grid collapses to two columns at max-width 940px then one at 600px", () => {
+    // Desktop 3-col locks still pass if the 940/600 media queries are dropped —
+    // tablets and phones then keep three squeezed tiles and crush captions while
+    // gallery-tile surface contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*940px\s*\)\s*\{\s*\.gallery-grid\s*\{[^}]*grid-template-columns:\s*repeat\(\s*2\s*,\s*1fr\s*\)/s
+    );
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*600px\s*\)\s*\{\s*\.gallery-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("testimonials-grid responsive columns", () => {
+  test("testimonials-grid keeps a three-column track for sample reviews on wide layouts", () => {
+    // Card surface + SAMPLE badge locks still pass if the grid collapses to 1fr —
+    // three sample reviews then stack as a long single column on desktop while
+    // quote/author contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonials-grid\s*\{[^}]*display:\s*grid/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonials-grid\s*\{[^}]*grid-template-columns:\s*repeat\(\s*3\s*,\s*1fr\s*\)/s
+    );
+  });
+
+  test("testimonials-grid collapses to a single column at max-width 940px", () => {
+    // Desktop 3-col locks still pass if the 940px stack media query is dropped —
+    // tablets then squeeze three review cards side-by-side and clip quote copy
+    // while testimonial-card surface contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*940px\s*\)\s*\{\s*\.testimonials-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("trust-strip container wrap layout", () => {
+  test("trust-strip .container keeps centered flex wrap with row/column gaps", () => {
+    // trust-item flex-row locks still pass if the strip container loses
+    // flex-wrap / justify-content:center — narrow viewports then overflow or
+    // left-align the dark claims band while item contrast contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.trust-strip\s+\.container\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.trust-strip\s+\.container\s*\{[^}]*flex-wrap:\s*wrap/s
+    );
+    expect(stylesCss).toMatch(
+      /\.trust-strip\s+\.container\s*\{[^}]*justify-content:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.trust-strip\s+\.container\s*\{[^}]*gap:\s*18px\s+36px/s
+    );
+  });
+});
+
+describe("service-card hover lift", () => {
+  test("service-card:hover lifts with shadow-md and clears the resting border", () => {
+    // Card surface/border locks still pass if :hover loses translateY / shadow —
+    // catalog cards then feel inert (or keep a hard border on lift) while
+    // services-grid column contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.service-card:hover\s*\{[^}]*transform:\s*translateY\(\s*-4px\s*\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-card:hover\s*\{[^}]*box-shadow:\s*var\(--shadow-md\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-card:hover\s*\{[^}]*border-color:\s*transparent/s
+    );
+  });
+});
+
+describe("hero container responsive columns", () => {
+  test("hero .container keeps a two-track grid for copy beside the quote card", () => {
+    // Hero CTA pairing locks still pass if the container collapses to 1fr on
+    // desktop — copy and wood quote card stack prematurely while btn-primary /
+    // btn-outline contracts stay green.
+    expect(stylesCss).toMatch(/\.hero\s+\.container\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.hero\s+\.container\s*\{[^}]*grid-template-columns:\s*1\.1fr\s+0\.9fr/s
+    );
+  });
+
+  test("hero .container collapses to a single column at max-width 940px", () => {
+    // Desktop two-track locks still pass if the 940px media query is dropped —
+    // tablets squeeze copy beside the quote card and clip the lede while hero
+    // CTA class contracts remain green. Require the selector immediately after
+    // the media `{` so an earlier 940px block cannot falsely bind.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*940px\s*\)\s*\{\s*\.hero\s+\.container\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("about-grid responsive columns", () => {
+  test("about-grid keeps a two-track layout for portrait beside founder copy", () => {
+    // Portrait mark scale locks still pass if about-grid collapses to 1fr on
+    // desktop — portrait and value-list stack early while craftsman svg size
+    // contracts stay green.
+    expect(stylesCss).toMatch(/\.about-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.about-grid\s*\{[^}]*grid-template-columns:\s*0\.85fr\s+1\.15fr/s
+    );
+  });
+
+  test("about-grid collapses to a single column at max-width 940px", () => {
+    // Desktop two-track locks still pass if the 940px media query is dropped —
+    // tablets squeeze portrait beside copy and crush the value-list while
+    // about-portrait geometry contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*940px\s*\)\s*\{\s*\.about-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("contact-grid responsive columns", () => {
+  test("contact-grid keeps a two-track layout for info beside the lead form", () => {
+    // Lead form field/DOM-order locks still pass if contact-grid collapses to
+    // 1fr on desktop — Availability and the mailto form stack early while
+    // hours-row and form-status contracts stay green.
+    expect(stylesCss).toMatch(/\.contact-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.contact-grid\s*\{[^}]*grid-template-columns:\s*0\.9fr\s+1\.1fr/s
+    );
+  });
+
+  test("contact-grid collapses to a single column at max-width 900px", () => {
+    // Desktop two-track locks still pass if the 900px media query is dropped —
+    // tablets squeeze info + lead form side-by-side and clip submit/status
+    // while form DOM-order contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*900px\s*\)\s*\{\s*\.contact-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("footer-grid responsive columns", () => {
+  test("footer-grid keeps a three-track layout for brand + Explore + Contact", () => {
+    // Footer chrome/separator locks still pass if columns collapse to 1fr on
+    // desktop — Explore hashes and Contact tel/mailto stack as a long column
+    // while footer alpha contracts stay green.
+    expect(stylesCss).toMatch(/\.footer-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.footer-grid\s*\{[^}]*grid-template-columns:\s*1\.4fr\s+1fr\s+1fr/s
+    );
+  });
+
+  test("footer-grid collapses to a single column at max-width 780px", () => {
+    // Desktop three-track locks still pass if the 780px media query is dropped —
+    // phones keep three squeezed footer columns and clip Explore/Contact links
+    // while footer-bottom parity contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*780px\s*\)\s*\{\s*\.footer-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("area-grid responsive columns", () => {
+  test("area-grid keeps a two-track layout for towns beside the map card", () => {
+    // area-chip surface locks still pass if area-grid collapses to 1fr on
+    // desktop — town chips and the dark map CTA stack early while chip border
+    // contracts stay green.
+    expect(stylesCss).toMatch(/\.area-grid\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.area-grid\s*\{[^}]*grid-template-columns:\s*1fr\s+1fr/s
+    );
+  });
+
+  test("area-grid collapses to a single column at max-width 820px", () => {
+    // Desktop two-track locks still pass if the 820px media query is dropped —
+    // tablets squeeze chips beside the map card and clip the Call CTA while
+    // area-map-card btn-light contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*820px\s*\)\s*\{\s*\.area-grid\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+});
+
+describe("hero-actions CTA row layout", () => {
+  test("hero-actions keeps flex wrap with a 16px gap so Quote + Call stay usable", () => {
+    // Hero CTA class pairing locks still pass if hero-actions loses flex-wrap /
+    // gap — narrow viewports then overflow or crowd the primary Quote beside
+    // Call while btn-primary / btn-outline contracts remain green.
+    expect(stylesCss).toMatch(/\.hero-actions\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.hero-actions\s*\{[^}]*flex-wrap:\s*wrap/s);
+    expect(stylesCss).toMatch(/\.hero-actions\s*\{[^}]*gap:\s*16px/s);
+  });
+
+  test("hero-actions keeps bottom spacing above the trust-stat grid", () => {
+    // Flex wrap/gap locks still pass if margin-bottom is dropped — Quote + Call
+    // then sit flush against years/licensed/local stats and the first-viewport
+    // CTA hierarchy collapses while btn pairing contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-actions\s*\{[^}]*margin-bottom:\s*40px/s
+    );
+  });
+});
+
+describe("hero-facts trust-stat grid", () => {
+  test("hero-facts keeps a three-column auto grid for first-viewport trust stats", () => {
+    // hero-fact color/type locks still pass if the grid collapses to 1fr on
+    // desktop — years/licensed/local stats then stack as a tall column under
+    // the CTAs while wood-dark strong contracts stay green.
+    expect(stylesCss).toMatch(/\.hero-facts\s*\{[^}]*display:\s*grid/s);
+    expect(stylesCss).toMatch(
+      /\.hero-facts\s*\{[^}]*grid-template-columns:\s*repeat\(\s*3\s*,\s*auto\s*\)/s
+    );
+  });
+
+  test("hero-facts keeps a 28px desktop gap between trust stats", () => {
+    // Column-count locks still pass if gap is zeroed — years/licensed/local
+    // values then crowd edge-to-edge under the CTAs while wood-dark strong
+    // and 480px collapse contracts remain green.
+    expect(stylesCss).toMatch(/\.hero-facts\s*\{[^}]*gap:\s*28px/s);
+  });
+
+  test("hero-facts collapses to a single column at max-width 480px", () => {
+    // Desktop 3-col locks still pass if the 480px media query is dropped —
+    // phones squeeze three trust stats side-by-side and clip labels while
+    // hero-fact color contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*480px\s*\)\s*\{\s*\.hero-facts\s*\{[^}]*grid-template-columns:\s*1fr/s
+    );
+  });
+
+  test("hero-facts keeps a tighter 16px gap when stacked at max-width 480px", () => {
+    // 1fr collapse locks still pass if the phone gap stays at desktop 28px or
+    // is dropped — stacked trust stats then either waste vertical room above
+    // the fold or crowd labels while column-count contracts remain green.
+    expect(stylesCss).toMatch(
+      /@media\s*\(\s*max-width:\s*480px\s*\)\s*\{\s*\.hero-facts\s*\{[^}]*gap:\s*16px/s
+    );
+  });
+
+  test("hero-fact strong stays block heading type so values sit above labels", () => {
+    // Color locks still pass if strong becomes inline or drops heading size —
+    // trust stats then flatten beside muted spans while wood-dark contracts
+    // stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+strong\s*\{[^}]*display:\s*block/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+strong\s*\{[^}]*font-family:\s*var\(--font-heading\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+strong\s*\{[^}]*font-size:\s*1\.5rem/s
+    );
+  });
+
+  test("hero-fact span stays compact muted so labels stay secondary to values", () => {
+    // Strong heading locks still pass if the label span matches strong size or
+    // ink weight — "Years Experience" then competes with the numeric value
+    // while wood-dark contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+span\s*\{[^}]*font-size:\s*0\.86rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-fact\s+span\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+  });
+});
+
+describe("area-chips town-list wrap layout", () => {
+  test("area-chips keeps flex wrap with a 12px gap so town pills reflow", () => {
+    // area-chip surface/border locks still pass if the chips container loses
+    // flex-wrap / gap — town pills then overflow the area column or crowd
+    // edge-to-edge while areaServed content and chip contrast stay green.
+    expect(stylesCss).toMatch(/\.area-chips\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.area-chips\s*\{[^}]*flex-wrap:\s*wrap/s);
+    expect(stylesCss).toMatch(/\.area-chips\s*\{[^}]*gap:\s*12px/s);
+  });
+
+  test("area-chip stays inline-flex with pill radius for town labels", () => {
+    // Surface/border locks still pass if chips become block rectangles —
+    // served towns then read as stacked cards instead of compact pills while
+    // area-chips wrap and icon accent contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*display:\s*inline-flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*border-radius:\s*999px/s
+    );
+  });
+
+  test("area-chip keeps icon/label gap, pill padding, and semibold weight", () => {
+    // inline-flex + radius locks still pass if gap/padding/weight are dropped —
+    // pin glyphs then collide with town names or pills flatten to hairline
+    // chips while areaServed content and surface/border contracts stay green.
+    expect(stylesCss).toMatch(/\.area-chip\s*\{[^}]*gap:\s*8px/s);
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*padding:\s*10px\s+16px/s
+    );
+    expect(stylesCss).toMatch(/\.area-chip\s*\{[^}]*font-weight:\s*600/s);
+  });
+
+  test("area-chip centers the pin glyph with compact pill type", () => {
+    // Gap/padding/weight locks still pass if align-items or font-size drift —
+    // pin glyphs then sit off the town-name baseline or pills grow to body
+    // size while areaServed content and surface contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-chip\s*\{[^}]*font-size:\s*0\.92rem/s
+    );
+  });
+
+  test("area-chip svg keeps a 16px pin so town glyphs stay secondary to labels", () => {
+    // Accent color locks still pass if the pin scales to 1em/100% — glyphs then
+    // dominate each pill or shrink unreadably while surface/border and
+    // areaServed content contracts remain green.
+    expect(stylesCss).toMatch(/\.area-chip\s+svg\s*\{[^}]*width:\s*16px/s);
+    expect(stylesCss).toMatch(/\.area-chip\s+svg\s*\{[^}]*height:\s*16px/s);
+  });
+});
+
+describe("hero-lede first-viewport measure", () => {
+  test("hero-lede keeps a 52ch measure and spacing above the CTA row", () => {
+    // Muted-color locks still pass if max-width / margin are dropped — the
+    // supporting sentence then stretches edge-to-edge and crowds Quote + Call
+    // while hero CTA pairing and wood-span heading contracts remain green.
+    expect(stylesCss).toMatch(/\.hero-lede\s*\{[^}]*max-width:\s*52ch/s);
+    expect(stylesCss).toMatch(
+      /\.hero-lede\s*\{[^}]*margin-bottom:\s*32px/s
+    );
+  });
+
+  test("hero-lede keeps elevated supporting type under the brand headline", () => {
+    // Measure/margin locks still pass if font-size falls to body 1rem — the
+    // first-viewport supporting sentence then loses hierarchy under the wood
+    // span while max-width and CTA pairing contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-lede\s*\{[^}]*font-size:\s*1\.15rem/s
+    );
+  });
+});
+
+describe("area-map-card lead CTA plane", () => {
+  test("area-map-card keeps padded flex column with min-height for the Call CTA", () => {
+    // Gradient + btn-light locks still pass if padding/min-height/flex column
+    // are dropped — the served-area Call CTA then collapses into a short
+    // gradient strip or stacks without vertical centering while accent
+    // surface and white-text contracts stay green.
+    expect(stylesCss).toMatch(/\.area-map-card\s*\{[^}]*padding:\s*40px/s);
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*min-height:\s*260px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*flex-direction:\s*column/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+
+  test("area-map-card keeps a 14px stack gap above the Call CTA", () => {
+    // Flex column / min-height locks still pass if gap is zeroed — map icon,
+    // heading, and supporting copy then collide before the Call button while
+    // btn-light and white-text contracts remain green.
+    expect(stylesCss).toMatch(/\.area-map-card\s*\{[^}]*gap:\s*14px/s);
+  });
+
+  test("area-map-card svg keeps a 40px mark so the map glyph stays secondary", () => {
+    // Gradient + white-text locks still pass if the svg scales to 100% / 1em —
+    // the map mark then dominates the Call CTA plane or shrinks unreadably
+    // while padding and btn-light contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+svg\s*\{[^}]*width:\s*40px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+svg\s*\{[^}]*height:\s*40px/s
+    );
+  });
+
+  test("area-map-card Call button stays content-width with top separation", () => {
+    // btn-light class pairing still passes if the card button stretches full
+    // width or loses margin-top — Call then either reads as a full-bleed bar
+    // or crowds the supporting paragraph while accent gradient contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+\.btn\s*\{[^}]*width:\s*fit-content/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s+\.btn\s*\{[^}]*margin-top:\s*8px/s
+    );
+  });
+});
+
+describe("hero-visual brand plane geometry", () => {
+  test("hero-visual keeps padded flex column with min-height for the quote card", () => {
+    // Gradient + white-text locks still pass if padding/min-height/flex stack
+    // are dropped — the first-viewport wood quote card then collapses into a
+    // short strip or crowds icon/quote/signature while color and heading-type
+    // contracts remain green.
+    expect(stylesCss).toMatch(/\.hero-visual\s*\{[^}]*padding:\s*40px/s);
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*min-height:\s*340px/s
+    );
+    expect(stylesCss).toMatch(/\.hero-visual\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*flex-direction:\s*column/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*justify-content:\s*space-between/s
+    );
+  });
+
+  test("hero-visual keeps radius-lg corners and shadow-lg elevation", () => {
+    // Wood gradient + white copy locks still pass if radius/shadow are
+    // dropped — the brand quote plane then reads as a flat rectangle flush
+    // with the cream page while quote size and signature-dot contracts stay
+    // green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual\s*\{[^}]*box-shadow:\s*var\(--shadow-lg\)/s
+    );
+  });
+});
+
+describe("hero-visual quote + mark rhythm", () => {
+  test("hero-visual-quote keeps line-height and top margin under the craftsman icon", () => {
+    // Heading font/size locks still pass if line-height collapses or top
+    // margin is zeroed — the brand quote then crowds the icon or packs
+    // tightly while white color and 1.35rem size contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-quote\s*\{[^}]*line-height:\s*1\.4/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-quote\s*\{[^}]*margin:\s*24px\s+0\s+0/s
+    );
+  });
+
+  test("hero-visual-icon keeps a fixed 56px mark so the glyph stays secondary", () => {
+    // White icon color locks still pass if the svg scales to 100% / 1em —
+    // the craftsman mark then dominates the quote plane or shrinks unreadably
+    // while gradient and signature-dot contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-icon\s*\{[^}]*width:\s*56px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-icon\s*\{[^}]*height:\s*56px/s
+    );
+  });
+
+  test("hero-visual-signature stays a flex row with gap and top spacing", () => {
+    // White signature-dot locks still pass if flex/gap/margin-top are dropped
+    // — Greg Felton attribution then stacks under the quote or collides with
+    // it while icon color and quote type contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*gap:\s*12px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*margin-top:\s*28px/s
+    );
+  });
+});
+
+describe("area-map-card elevation + corner radius", () => {
+  test("area-map-card keeps radius-lg corners and shadow-md elevation", () => {
+    // Accent gradient + btn-light / padding locks still pass if radius/shadow
+    // are dropped — the served-area Call CTA plane then reads as a flat
+    // rectangle flush with the cream page while white-text and min-height
+    // contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-map-card\s*\{[^}]*box-shadow:\s*var\(--shadow-md\)/s
+    );
+  });
+});
+
+describe("hero-visual grain overlay", () => {
+  test("hero-visual::before keeps a full-bleed grain stripe under the quote", () => {
+    // Wood gradient + radius-lg locks still pass if the ::before grain is
+    // dropped or loses inset/radius — the first-viewport brand plane then
+    // reads as a flat fill while quote type and signature-row contracts stay
+    // green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*content:\s*""/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*position:\s*absolute/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*inset:\s*0/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*repeating-linear-gradient/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*pointer-events:\s*none/s
+    );
+  });
+});
+
+describe("hero-visual icon + signature hierarchy", () => {
+  test("hero-visual-icon keeps soft opacity so the mark stays secondary to the quote", () => {
+    // Fixed 56px + white color locks still pass if opacity goes full — the
+    // craftsman glyph then competes with the brand quote while size and wood
+    // gradient contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-icon\s*\{[^}]*opacity:\s*0\.92/s
+    );
+  });
+
+  test("hero-visual-signature keeps compact type and soft opacity under the quote", () => {
+    // Flex/gap/margin-top locks still pass if font-size or opacity jump to
+    // body/full — Greg Felton attribution then rivals the quote hierarchy
+    // while white-dot color and row spacing contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*font-size:\s*0\.92rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s*\{[^}]*opacity:\s*0\.9/s
+    );
+  });
+
+  test("hero-visual-signature dot keeps an 8px circle beside the owner line", () => {
+    // White background-color locks still pass if width/height/radius drift —
+    // the attribution bullet then becomes a square dash or grows into a
+    // blob while flex row and signature opacity contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s+\.dot\s*\{[^}]*width:\s*8px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s+\.dot\s*\{[^}]*height:\s*8px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual-signature\s+\.dot\s*\{[^}]*border-radius:\s*50%/s
+    );
+  });
+});
+
+describe("hero-visual grain stripe geometry", () => {
+  test("hero-visual::before keeps the 115deg soft-white stripe stops", () => {
+    // Presence of repeating-linear-gradient alone still passes if angle, alpha,
+    // or 2px/14px stops drift — the wood quote card then gains harsh chalk
+    // bands or loses texture while inset/radius/pointer-events contracts stay
+    // green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*repeating-linear-gradient\(\s*115deg/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*rgb\(\s*255\s+255\s+255\s*\/\s*4\.5%\s*\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-visual::before\s*\{[^}]*transparent\s+2px\s*,\s*transparent\s+14px/s
+    );
+  });
+});
+
+describe("hero-visual quote stacking above grain", () => {
+  test("hero-visual-quote stays position:relative so type paints above ::before", () => {
+    // Quote size/type locks still pass if position:relative is dropped — the
+    // grain overlay then paints over the brand quote while ::before inset and
+    // pointer-events contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-visual-quote\s*\{[^}]*position:\s*relative/s
+    );
+  });
+});
+
+describe("about-portrait surface tokens", () => {
+  test("about-portrait keeps radius-lg corners and a bordered plane", () => {
+    // Aspect-ratio / flex centering locks still pass if radius or border drop —
+    // the founder photo plane then reads as a sharp unframed block while wood
+    // mark and caption-scrim contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*border-radius:\s*var\(--radius-lg\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*border:\s*1px\s+solid\s+var\(--color-border\)/s
+    );
+  });
+
+  test("about-portrait keeps the cream-to-border placeholder gradient", () => {
+    // Wood color + caption overlay locks still pass if the plane fill flattens
+    // to page cream or solid border — the craftsman mark then loses its media
+    // card while geometry and opacity contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.about-portrait\s*\{[^}]*background:\s*linear-gradient\([^;]*var\(--color-bg-alt\)[^;]*var\(--color-border\)/s
+    );
+  });
+});
+
+describe("service-icon catalog chip metrics", () => {
+  test("service-icon keeps a fixed 52px chip so glyphs stay secondary to titles", () => {
+    // Wood/bg-alt color locks still pass if the chip grows to fill the card —
+    // service marks then dominate h3 titles while catalog↔option parity stays
+    // green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*width:\s*52px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*height:\s*52px/s
+    );
+  });
+
+  test("service-icon svg keeps a 28px glyph inside the cream chip", () => {
+    // Chip box locks still pass if the SVG stretches to 100% — glyphs then
+    // crush the padded chip edge while wood color and card surface contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s+svg\s*\{[^}]*width:\s*28px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-icon\s+svg\s*\{[^}]*height:\s*28px/s
+    );
+  });
+});
+
+describe("gallery-tile placeholder mark hierarchy", () => {
+  test("gallery-tile svg keeps a compact wood-light mark above titles", () => {
+    // Dashed surface + aspect-ratio locks still pass if the placeholder glyph
+    // bleaches to muted text or grows oversized — category tiles then lose the
+    // only warm cue while ink title contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+svg\s*\{[^}]*width:\s*34px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+svg\s*\{[^}]*height:\s*34px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+svg\s*\{[^}]*color:\s*var\(--color-wood-light\)/s
+    );
+  });
+
+  test("gallery-tile strong stays ink so project labels remain primary", () => {
+    // Surface/dashed border locks still pass if titles inherit muted tile text —
+    // placeholder categories then flatten beside captions while wood-light
+    // glyph contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+strong\s*\{[^}]*color:\s*var\(--color-ink\)/s
+    );
+  });
+});
+
+describe("service-icon chip layout + spacing", () => {
+  test("service-icon centers glyphs with flex so marks stay inside the cream chip", () => {
+    // Fixed 52px + wood/bg-alt locks still pass if display:flex or centering drop —
+    // SVG glyphs then hug the chip corner while catalog size and color contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+
+  test("service-icon keeps radius-sm corners matching shared CTA controls", () => {
+    // Chip box + color locks still pass if radius softens to pill or goes square —
+    // service marks then clash with .btn / form radius-sm while wood/bg-alt
+    // contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*border-radius:\s*var\(--radius-sm\)/s
+    );
+  });
+
+  test("service-icon keeps 20px bottom margin so glyphs stay secondary to titles", () => {
+    // Size/centering locks still pass if margin-bottom collapses — wood chips
+    // then crowd h3 titles while 52px metrics and catalog↔option parity remain
+    // green.
+    expect(stylesCss).toMatch(
+      /\.service-icon\s*\{[^}]*margin-bottom:\s*20px/s
+    );
+  });
+});
+
+describe("gallery-tile stack layout + muted plane", () => {
+  test("gallery-tile stacks mark above label with a flex column and gap", () => {
+    // Aspect-ratio / dashed surface locks still pass if flex-direction or gap
+    // drift — icon + title then sit side-by-side or crush together while
+    // wood-light glyph and ink strong contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*flex-direction:\s*column/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*gap:\s*10px/s
+    );
+  });
+
+  test("gallery-tile keeps muted body color with radius-md corners", () => {
+    // Surface/border locks still pass if muted color or radius-md drop — caption
+    // spans inherit ink or tiles go sharp while dashed plane and ink title
+    // contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*border-radius:\s*var\(--radius-md\)/s
+    );
+  });
+});
+
+describe("shared btn resting geometry", () => {
+  test("btn keeps radius-sm corners matching form controls", () => {
+    // Color/shadow CTA locks still pass if radius softens to pill or goes square —
+    // quote/call buttons then clash with shared form radius-sm while
+    // btn-primary / btn-outline fill contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*border-radius:\s*var\(--radius-sm\)/s
+    );
+  });
+
+  test("btn keeps 14px/26px padding so CTAs keep a usable hit target", () => {
+    // Fill/hover locks still pass if padding collapses — Get a Free Quote and
+    // Call Now then shrink below a comfortable tap target while contrast and
+    // shadow contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*padding:\s*14px\s+26px/s
+    );
+  });
+
+  test("btn keeps white-space:nowrap so multi-word CTAs do not wrap mid-label", () => {
+    // Padding/radius locks still pass if nowrap is dropped — "Get a Free Quote"
+    // and "Call Now" then wrap awkwardly in hero/cta-band while fill and focus
+    // contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*white-space:\s*nowrap/s
+    );
+  });
+});
+
+describe("shared btn flex alignment + weight", () => {
+  test("btn centers label content with inline-flex so icon+text CTAs stay aligned", () => {
+    // Padding/radius/nowrap locks still pass if flex centering drops — quote and
+    // Call Now then left-align or stretch while fill, shadow, and focus contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*display:\s*inline-flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+
+  test("btn keeps an 8px gap so multi-part CTA labels stay spaced", () => {
+    // Inline-flex centering locks still pass if gap collapses — icon+text or
+    // multi-word CTAs then crush together while padding and nowrap contracts
+    // stay green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*gap:\s*8px/s
+    );
+  });
+
+  test("btn keeps font-weight 600 so CTAs read as primary actions", () => {
+    // Geometry locks still pass if weight drops to regular — Get a Free Quote
+    // and Call Now then blend into body copy while radius/padding/nowrap
+    // contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*font-weight:\s*600/s
+    );
+  });
+});
+
+describe("gallery-tile content centering + padding", () => {
+  test("gallery-tile centers mark and label on both axes", () => {
+    // Flex-column + gap locks still pass if align/justify drift — placeholder
+    // SVG and title then hug a corner while muted color and radius-md contracts
+    // remain green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+
+  test("gallery-tile keeps centered text with 20px padding inside the plane", () => {
+    // Aspect-ratio / dashed surface locks still pass if text-align or padding
+    // drop — multi-line captions then left-align or kiss the dashed border while
+    // wood-light glyph and ink strong contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*text-align:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s*\{[^}]*padding:\s*20px/s
+    );
+  });
+});
+
+describe("service-card title hierarchy", () => {
+  test("service-card h3 keeps 1.15rem size above muted body copy", () => {
+    // service-card surface / muted-p locks still pass if h3 shrinks to body size —
+    // service titles then lose hierarchy under wood icon chips while border and
+    // hover-lift contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s+h3\s*\{[^}]*font-size:\s*1\.15rem/s
+    );
+  });
+
+  test("service-card h3 keeps 10px bottom margin above the description", () => {
+    // Title size locks still pass if margin collapses — h3 then sits flush on
+    // muted body copy while service-icon spacing and surface contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s+h3\s*\{[^}]*margin-bottom:\s*10px/s
+    );
+  });
+});
+
+describe("shared btn type size, border, and pointer", () => {
+  test("btn keeps 0.98rem type so CTAs stay slightly under body size", () => {
+    // Flex/weight/padding locks still pass if font-size jumps to 1.15rem or
+    // shrinks to caption — Get a Free Quote and Call Now then dominate or
+    // recede beside hero lede while fill and focus contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*font-size:\s*0\.98rem/s
+    );
+  });
+
+  test("btn keeps a transparent 2px border so outline variants can swap color", () => {
+    // Radius/padding locks still pass if the resting border collapses — btn-outline
+    // then has no edge to recolor on hover while primary fill and nowrap
+    // contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*border:\s*2px\s+solid\s+transparent/s
+    );
+  });
+
+  test("btn keeps cursor:pointer so CTAs advertise clickability", () => {
+    // Geometry locks still pass if cursor defaults to text/auto — quote and
+    // Call Now then lose the only affordance cue while flex centering and
+    // weight contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*cursor:\s*pointer/s
+    );
+  });
+});
+
+describe("gallery-tile label type hierarchy", () => {
+  test("gallery-tile strong keeps 0.95rem so project titles stay primary", () => {
+    // Ink color locks still pass if strong inherits body or caption size —
+    // placeholder categories then flatten beside muted spans while wood-light
+    // glyph and centering contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+strong\s*\{[^}]*font-size:\s*0\.95rem/s
+    );
+  });
+
+  test("gallery-tile span keeps 0.8rem so captions stay secondary to titles", () => {
+    // Muted tile color locks still pass if span grows to strong size —
+    // supporting captions then compete with project labels while dashed plane
+    // and ink strong contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.gallery-tile\s+span\s*\{[^}]*font-size:\s*0\.8rem/s
+    );
+  });
+});
+
+describe("service-card body type + spacing", () => {
+  test("service-card p keeps 0.96rem so descriptions stay under h3 titles", () => {
+    // Muted color + h3 size locks still pass if body copy grows to title size —
+    // service blurbs then compete with wood-chip headings while surface and
+    // hover-lift contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s+p\s*\{[^}]*font-size:\s*0\.96rem/s
+    );
+  });
+
+  test("service-card p clears bottom margin so cards do not stack extra space", () => {
+    // Title margin + muted color locks still pass if p keeps a default
+    // paragraph margin — catalog cards then grow uneven gaps under blurbs while
+    // service-icon and h3 spacing contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s+p\s*\{[^}]*margin-bottom:\s*0/s
+    );
+  });
+});
+
+describe("service-card resting plane geometry", () => {
+  test("service-card keeps radius-md corners matching gallery/testimonial planes", () => {
+    // Surface/border locks still pass if radius softens to pill or goes square —
+    // six catalog cards then clash with gallery-tile / testimonial radius-md
+    // while hover-lift and muted-p contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s*\{[^}]*border-radius:\s*var\(--radius-md\)/s
+    );
+  });
+
+  test("service-card keeps 32px/28px padding so icon+title+blurb stay readable", () => {
+    // Surface/border/radius locks still pass if padding collapses — wood chips
+    // and service blurbs then kiss the card edge while catalog↔option parity
+    // and hover translateY contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.service-card\s*\{[^}]*padding:\s*32px\s+28px/s
+    );
+  });
+});
+
+describe("testimonial-card resting plane geometry", () => {
+  test("testimonial-card keeps radius-md corners matching service/gallery planes", () => {
+    // Surface/border + SAMPLE badge locks still pass if radius drifts — review
+    // cards then clash with service-card / gallery-tile radius-md while quote
+    // italic and gold-star contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s*\{[^}]*border-radius:\s*var\(--radius-md\)/s
+    );
+  });
+
+  test("testimonial-card keeps 28px padding so quote and author clear the edges", () => {
+    // Surface/relative/badge locks still pass if padding collapses — italic
+    // quotes and author lines then kiss the border while SAMPLE chip anchor
+    // and muted author-span contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s*\{[^}]*padding:\s*28px/s
+    );
+  });
+});
+
+describe("cta-actions dark-band CTA row layout", () => {
+  test("cta-actions centers Quote + Call with flex wrap and a 16px gap", () => {
+    // cta-band btn-light / btn-outline-light pairing locks still pass if the
+    // actions row loses flex-wrap, gap, or centering — narrow viewports then
+    // overflow or left-align the only dark-band conversion CTAs while fill
+    // contrast contracts remain green.
+    expect(stylesCss).toMatch(/\.cta-actions\s*\{[^}]*display:\s*flex/s);
+    expect(stylesCss).toMatch(/\.cta-actions\s*\{[^}]*flex-wrap:\s*wrap/s);
+    expect(stylesCss).toMatch(/\.cta-actions\s*\{[^}]*gap:\s*16px/s);
+    expect(stylesCss).toMatch(
+      /\.cta-actions\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+});
+
+describe("contact page-hero entry hierarchy", () => {
+  test("page-hero keeps a centered cream band for the contact entry", () => {
+    // Lead-form field/DOM-order locks still pass if page-hero loses bg-alt or
+    // text-align — Get in Touch then sits flush on cream without a distinct
+    // entry plane while contact-grid and form-card contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s*\{[^}]*background:\s*var\(--color-bg-alt\)/s
+    );
+    expect(stylesCss).toMatch(/\.page-hero\s*\{[^}]*text-align:\s*center/s);
+  });
+
+  test("page-hero supporting paragraph stays muted and measure-limited", () => {
+    // Centered bg-alt locks still pass if the lede bleaches to ink or loses
+    // max-width — contact intro then dominates the H1 or stretches edge-to-
+    // edge while form-card heading and hours-row contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+p\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+p\s*\{[^}]*max-width:\s*620px/s
+    );
+  });
+
+  test("page-hero h1 keeps a responsive clamp so Get in Touch stays primary", () => {
+    // Centered bg-alt / muted-lede locks still pass if the H1 collapses to a
+    // fixed body size — contact entry then loses hierarchy above the form
+    // while form-card heading and hours-row contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+h1\s*\{[^}]*font-size:\s*clamp\(\s*2rem\s*,\s*4vw\s*,\s*2\.8rem\s*\)/s
+    );
+  });
+
+  test("page-hero keeps 72px/56px vertical padding for the contact entry band", () => {
+    // Centered cream-band locks still pass if padding collapses to section
+    // defaults — Get in Touch then sits tight against the sticky header while
+    // muted lede and form-card contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s*\{[^}]*padding:\s*72px\s+0\s+56px/s
+    );
+  });
+});
+
+describe("gallery placeholder-note warning chip", () => {
+  test("placeholder-note keeps warning fill, border, and ink for gallery honesty", () => {
+    // Gallery-tile stack / label locks still pass if the warning chip bleaches
+    // into cream page tones — visitors then miss that tiles are placeholders
+    // before launch while gallery-grid and tile geometry contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*background-color:\s*#fff4dd/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*border:\s*1px\s+solid\s+#ecd8a4/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*color:\s*#7a5b12/s
+    );
+  });
+
+  test("placeholder-note stays an inline-flex pill with compact padding", () => {
+    // Warning color locks still pass if the chip loses pill radius or flex
+    // alignment — the honesty banner then reads as a block paragraph while
+    // gallery-tile centering contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*display:\s*inline-flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*border-radius:\s*999px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*padding:\s*8px\s+14px/s
+    );
+  });
+
+  test("placeholder-note--centered centers above the gallery grid", () => {
+    // Chip color/pill locks still pass if centering drops — the warning then
+    // left-aligns under a centered section heading while gallery-grid gap
+    // contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note--centered\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note--centered\s*\{[^}]*margin-inline:\s*auto/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note--centered\s*\{[^}]*width:\s*fit-content/s
+    );
+  });
+});
+
+describe("cta-band conversion band spacing + hierarchy", () => {
+  test("cta-band keeps 80px vertical padding around Quote + Call", () => {
+    // btn-light / btn-outline-light and cta-actions flex locks still pass if
+    // the dark band padding collapses — Ready to Start then sits flush against
+    // service-area while CTA fill contrast contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s*\{[^}]*padding:\s*80px\s+0/s
+    );
+  });
+
+  test("cta-band h2 keeps a responsive clamp so the close stays primary", () => {
+    // White heading color locks still pass if the H2 collapses to body size —
+    // Ready to Start then loses hierarchy above the muted lede while
+    // cta-actions centering contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+h2\s*\{[^}]*font-size:\s*clamp\(\s*1\.6rem\s*,\s*3vw\s*,\s*2\.2rem\s*\)/s
+    );
+  });
+});
+
+describe("service-area area-intro hierarchy", () => {
+  test("area-intro stays muted above the city chip row", () => {
+    // area-chip pill / map-card locks still pass if the intro bleaches to ink —
+    // Proudly Serving then loses a secondary lede above chips while chip
+    // geometry and map-card elevation contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.area-intro\s*\{[^}]*color:\s*var\(--color-text-muted\)/s
+    );
+    expect(stylesCss).toMatch(
+      /\.area-intro\s*\{[^}]*margin-bottom:\s*24px/s
+    );
+  });
+});
+
+describe("shared btn motion transition token", () => {
+  test("btn transitions transform/fill/color/border/shadow via --transition", () => {
+    // Resting geometry / :active translateY locks still pass if transition is
+    // dropped or hardcoded — hover/press motion then desyncs across Quote and
+    // Call CTAs while fill contrast and focus contracts stay green.
+    expect(stylesCss).toMatch(/--transition:\s*200ms\s+ease/);
+    expect(stylesCss).toMatch(
+      /\.btn\s*\{[^}]*transition:\s*transform\s+var\(--transition\)\s*,\s*background-color\s+var\(--transition\)\s*,\s*color\s+var\(--transition\)\s*,\s*border-color\s+var\(--transition\)\s*,\s*box-shadow\s+var\(--transition\)/s
+    );
+  });
+});
+
+describe("gallery placeholder-note icon + grid spacing", () => {
+  test("placeholder-note svg keeps a fixed 16px box and flex-shrink", () => {
+    // Chip color/pill locks still pass if the warning icon loses width/height
+    // or flex-shrink:0 — long honesty copy then crushes the glyph while
+    // placeholder-note padding and gallery-tile contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s+svg\s*\{[^}]*width:\s*16px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s+svg\s*\{[^}]*height:\s*16px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s+svg\s*\{[^}]*flex-shrink:\s*0/s
+    );
+  });
+
+  test("centered placeholder-note keeps 28px gap before the gallery grid", () => {
+    // Centering + gallery-grid column locks still pass if the adjacent-sibling
+    // margin-top drops — the honesty chip then sits flush against tiles while
+    // grid track and tile geometry contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note--centered\s*\+\s*\.gallery-grid\s*\{[^}]*margin-top:\s*28px/s
+    );
+  });
+});
+
+describe("cta-band supporting copy measure", () => {
+  test("cta-band p keeps a limited measure and slightly larger body size", () => {
+    // Muted 78% white color locks still pass if max-width or 1.05rem drop —
+    // Ready to Start lede then spans full band width at body size while
+    // cta-band padding/h2 clamp and CTA fill contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*max-width:\s*560px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*font-size:\s*1\.05rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*margin-inline:\s*auto/s
+    );
+  });
+});
+
+describe("contact page-hero eyebrow centering", () => {
+  test("page-hero .eyebrow stays inline-flex centered above Get in Touch", () => {
+    // Section .eyebrow accent-dark color locks still pass if page-hero loses
+    // inline-flex/center — Let's Talk then left-aligns under a centered H1
+    // while page-hero padding/h1 clamp contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+\.eyebrow\s*\{[^}]*display:\s*inline-flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+\.eyebrow\s*\{[^}]*justify-content:\s*center/s
+    );
+  });
+});
+
+describe("gallery placeholder-note type + spacing tokens", () => {
+  test("placeholder-note keeps compact type weight and icon/text gap", () => {
+    // Chip color/pill/padding locks still pass if type bleaches to body weight
+    // or the icon/text gap collapses — the honesty banner then reads as muted
+    // body copy while gallery-tile and svg size contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*gap:\s*8px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*font-size:\s*0\.85rem/s
+    );
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*font-weight:\s*600/s
+    );
+  });
+
+  test("placeholder-note keeps 20px clearance below the honesty chip", () => {
+    // Adjacent-sibling gallery margin-top locks still pass if the chip's own
+    // margin-bottom drops — warning copy then sits flush against tiles on
+    // non-centered layouts while gallery-grid track contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.placeholder-note\s*\{[^}]*margin-bottom:\s*20px/s
+    );
+  });
+});
+
+describe("cta-band supporting copy CTA clearance", () => {
+  test("cta-band p keeps 32px margin below the lede before Quote + Call", () => {
+    // Measure / 1.05rem / margin-inline locks still pass if margin-bottom
+    // collapses — Ready to Start copy then crowds the CTA row while
+    // cta-actions flex and btn-light contrast contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+p\s*\{[^}]*margin-bottom:\s*32px/s
+    );
+  });
+});
+
+describe("contact page-hero supporting copy size", () => {
+  test("page-hero p keeps 1.05rem so the contact lede stays above body size", () => {
+    // Muted color / max-width locks still pass if font-size collapses to body
+    // — Get in Touch intro then loses hierarchy under the H1 while form-card
+    // heading and hours-row contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+p\s*\{[^}]*font-size:\s*1\.05rem/s
+    );
+  });
+});
+
+describe("cta-band heading clearance above muted lede", () => {
+  test("cta-band h2 keeps 14px margin below Ready to Start", () => {
+    // White color + clamp size locks still pass if margin-bottom collapses —
+    // Ready to Start then sits flush on the 78% white lede while cta-band
+    // padding and cta-actions centering contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+h2\s*\{[^}]*margin-bottom:\s*14px/s
+    );
+  });
+});
+
+describe("contact page-hero heading clearance above lede", () => {
+  test("page-hero h1 keeps 14px margin below Get in Touch", () => {
+    // Clamp size + muted lede locks still pass if margin-bottom collapses —
+    // Get in Touch then crowds the contact intro while page-hero padding and
+    // form-card heading contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+h1\s*\{[^}]*margin-bottom:\s*14px/s
+    );
+  });
+});
+
+describe("contact page-hero supporting copy centering", () => {
+  test("page-hero p stays horizontally centered under the H1", () => {
+    // Muted color / max-width / 1.05rem locks still pass if margin-inline:auto
+    // drops — the contact lede then left-aligns inside a centered page-hero
+    // while form-card and hours-row contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+p\s*\{[^}]*margin-inline:\s*auto/s
+    );
+  });
+});
+
+describe("cta-band conversion band text centering", () => {
+  test("cta-band keeps text-align center for Ready to Start hierarchy", () => {
+    // cta-actions flex justify-content:center locks still pass if the band
+    // loses text-align — Ready to Start and the muted lede then left-align
+    // above centered Quote + Call while btn-light contrast contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s*\{[^}]*text-align:\s*center/s
+    );
   });
 });
