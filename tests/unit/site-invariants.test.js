@@ -4573,3 +4573,47 @@ describe("contact page-hero supporting copy size", () => {
     );
   });
 });
+
+describe("cta-band heading clearance above muted lede", () => {
+  test("cta-band h2 keeps 14px margin below Ready to Start", () => {
+    // White color + clamp size locks still pass if margin-bottom collapses —
+    // Ready to Start then sits flush on the 78% white lede while cta-band
+    // padding and cta-actions centering contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s+h2\s*\{[^}]*margin-bottom:\s*14px/s
+    );
+  });
+});
+
+describe("contact page-hero heading clearance above lede", () => {
+  test("page-hero h1 keeps 14px margin below Get in Touch", () => {
+    // Clamp size + muted lede locks still pass if margin-bottom collapses —
+    // Get in Touch then crowds the contact intro while page-hero padding and
+    // form-card heading contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+h1\s*\{[^}]*margin-bottom:\s*14px/s
+    );
+  });
+});
+
+describe("contact page-hero supporting copy centering", () => {
+  test("page-hero p stays horizontally centered under the H1", () => {
+    // Muted color / max-width / 1.05rem locks still pass if margin-inline:auto
+    // drops — the contact lede then left-aligns inside a centered page-hero
+    // while form-card and hours-row contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.page-hero\s+p\s*\{[^}]*margin-inline:\s*auto/s
+    );
+  });
+});
+
+describe("cta-band conversion band text centering", () => {
+  test("cta-band keeps text-align center for Ready to Start hierarchy", () => {
+    // cta-actions flex justify-content:center locks still pass if the band
+    // loses text-align — Ready to Start and the muted lede then left-align
+    // above centered Quote + Call while btn-light contrast contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.cta-band\s*\{[^}]*text-align:\s*center/s
+    );
+  });
+});
