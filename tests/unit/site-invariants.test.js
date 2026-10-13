@@ -4617,3 +4617,56 @@ describe("cta-band conversion band text centering", () => {
     );
   });
 });
+
+describe("section-heading h2 size + clearance", () => {
+  test("section-heading h2 keeps a responsive clamp so catalog titles stay primary", () => {
+    // Muted supporting-paragraph locks still pass if H2 size collapses to body —
+    // What We Do / About / Gallery / Testimonials titles then lose scan weight
+    // while eyebrow accent-dark and section-heading p muted contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.section-heading\s+h2\s*\{[^}]*font-size:\s*clamp\(\s*1\.7rem\s*,\s*3vw\s*,\s*2\.4rem\s*\)/s
+    );
+  });
+
+  test("section-heading h2 keeps 14px margin below catalog titles", () => {
+    // Clamp size locks still pass if margin-bottom collapses — section H2s then
+    // sit flush on muted supporting copy while eyebrow color and section-heading
+    // p muted contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.section-heading\s+h2\s*\{[^}]*margin-bottom:\s*14px/s
+    );
+  });
+});
+
+describe("section eyebrow clearance above H2", () => {
+  test("eyebrow keeps 14px margin below What We Do-style labels", () => {
+    // Accent-dark color locks still pass if margin-bottom collapses — section
+    // eyebrows then crowd the H2 while hero-eyebrow tint and section-heading
+    // h2 clamp contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.eyebrow\s*\{[^}]*margin-bottom:\s*14px/s
+    );
+  });
+});
+
+describe("testimonial-stars clearance above quote body", () => {
+  test("testimonial-stars keep 14px margin below the gold rating row", () => {
+    // Gold color locks still pass if margin-bottom collapses — star glyphs then
+    // sit flush on italic quote copy while sample-badge and testimonial-author
+    // contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-stars\s*\{[^}]*margin-bottom:\s*14px/s
+    );
+  });
+});
+
+describe("footer-brand wordmark clearance above blurb", () => {
+  test("footer-brand .brand keeps 14px margin below the wordmark", () => {
+    // Explicit #fff color locks still pass if margin-bottom collapses — the
+    // footer wordmark then crowds the blurb while brand-mark wood-light and
+    // footer-col h4 contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.footer-brand\s+\.brand\s*\{[^}]*margin-bottom:\s*14px/s
+    );
+  });
+});
