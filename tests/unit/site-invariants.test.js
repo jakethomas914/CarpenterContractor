@@ -4670,3 +4670,60 @@ describe("footer-brand wordmark clearance above blurb", () => {
     );
   });
 });
+
+describe("section-heading measure + section clearance", () => {
+  test("section-heading keeps a 680px max-width so catalog copy stays readable", () => {
+    // H2 clamp + muted supporting-paragraph locks still pass if max-width
+    // drops — What We Do / About / Gallery intros then stretch full-bleed
+    // while eyebrow accent-dark and section-heading h2 margin contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.section-heading\s*\{[^}]*max-width:\s*680px/s
+    );
+  });
+
+  test("section-heading keeps 48px margin below the intro block", () => {
+    // Max-width + H2 clearance locks still pass if margin-bottom collapses —
+    // section intros then sit flush on service/gallery grids while eyebrow
+    // margin and section-heading p muted contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.section-heading\s*\{[^}]*margin-bottom:\s*48px/s
+    );
+  });
+});
+
+describe("section eyebrow type treatment for scan hierarchy", () => {
+  test("eyebrow keeps uppercase tracking so What We Do labels stay secondary", () => {
+    // Accent-dark color + 14px margin locks still pass if letter-spacing or
+    // text-transform drop — section eyebrows then read as body copy while
+    // hero-eyebrow tint and section-heading h2 clamp contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.eyebrow\s*\{[^}]*letter-spacing:\s*0\.14em/s
+    );
+    expect(stylesCss).toMatch(
+      /\.eyebrow\s*\{[^}]*text-transform:\s*uppercase/s
+    );
+  });
+
+  test("eyebrow keeps bold weight so catalog labels stay distinct from H2", () => {
+    // Uppercase + tracking locks still pass if font-weight softens — eyebrows
+    // then lose the only weight cue against Fraunces H2s while color and
+    // margin-bottom contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.eyebrow\s*\{[^}]*font-weight:\s*700/s
+    );
+  });
+});
+
+describe("testimonial-stars row layout", () => {
+  test("testimonial-stars keep a flex row with 4px glyph gaps", () => {
+    // Gold color + 14px margin locks still pass if display/gap drift — star
+    // glyphs then stack or spread while sample-badge and testimonial-author
+    // contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-stars\s*\{[^}]*display:\s*flex/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-stars\s*\{[^}]*gap:\s*4px/s
+    );
+  });
+});
