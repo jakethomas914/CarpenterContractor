@@ -4727,3 +4727,60 @@ describe("testimonial-stars row layout", () => {
     );
   });
 });
+
+describe("section-heading.center alignment for catalog intros", () => {
+  test("section-heading.center keeps margin-inline auto so Services/Gallery/Testimonials intros stay centered", () => {
+    // Max-width 680px + H2 clamp locks still pass if margin-inline drops —
+    // centered catalog intros then hug the left edge while eyebrow accent-dark
+    // and section-heading measure contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.section-heading\.center\s*\{[^}]*margin-inline:\s*auto/s
+    );
+  });
+
+  test("section-heading.center keeps text-align center so eyebrow/H2/lede stay centered", () => {
+    // margin-inline:auto alone still passes if text-align drifts left — What We
+    // Do / Gallery / Client Feedback blocks then left-align copy inside a
+    // centered box while section-heading max-width contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.section-heading\.center\s*\{[^}]*text-align:\s*center/s
+    );
+  });
+});
+
+describe("section eyebrow compact type + body font", () => {
+  test("eyebrow keeps 0.78rem size so What We Do labels stay secondary to H2", () => {
+    // Uppercase + tracking + weight 700 locks still pass if font-size grows to
+    // body — catalog eyebrows then compete with Fraunces H2s while accent-dark
+    // and margin-bottom contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.eyebrow\s*\{[^}]*font-size:\s*0\.78rem/s
+    );
+  });
+
+  test("eyebrow stays inline-block with body font so labels do not inherit Fraunces", () => {
+    // Compact size + uppercase locks still pass if display becomes block or
+    // font-family inherits heading — eyebrows then stretch full-bleed or read
+    // as mini-H2s while letter-spacing and font-weight contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.eyebrow\s*\{[^}]*display:\s*inline-block/s
+    );
+    expect(stylesCss).toMatch(
+      /\.eyebrow\s*\{[^}]*font-family:\s*var\(--font-body\)/s
+    );
+  });
+});
+
+describe("testimonial-stars glyph scale", () => {
+  test("testimonial-stars svg keeps a 16px box so rating glyphs stay compact", () => {
+    // Flex row + gold color + 14px margin locks still pass if svg width/height
+    // drift — Client Feedback stars then dominate the card while sample-badge
+    // and testimonial-author contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-stars\s+svg\s*\{[^}]*width:\s*16px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.testimonial-stars\s+svg\s*\{[^}]*height:\s*16px/s
+    );
+  });
+});
