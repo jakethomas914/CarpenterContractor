@@ -4784,3 +4784,78 @@ describe("testimonial-stars glyph scale", () => {
     );
   });
 });
+
+describe("section-heading supporting copy size + flush margin", () => {
+  test("section-heading p keeps 1.05rem so catalog ledes stay above body size", () => {
+    // Muted color alone still passes if font-size collapses to body — What We
+    // Do / Gallery / Client Feedback intros then lose hierarchy under H2 while
+    // eyebrow compact type and section-heading measure contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.section-heading\s+p\s*\{[^}]*font-size:\s*1\.05rem/s
+    );
+  });
+
+  test("section-heading p keeps margin-bottom 0 so global p margin does not stack", () => {
+    // Color + 1.05rem locks still pass if margin-bottom inherits the global
+    // `p { margin: 0 0 1em }` — section intros then double-clear below the 48px
+    // section-heading block while H2 clamp and eyebrow contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.section-heading\s+p\s*\{[^}]*margin-bottom:\s*0/s
+    );
+  });
+});
+
+describe("page-hero eyebrow type parity with section eyebrows", () => {
+  test("contact page-hero keeps the shared eyebrow class above Get in Touch", () => {
+    // Layout-only .page-hero .eyebrow locks still pass if markup drops class
+    // "eyebrow" — Let's Talk then loses accent-dark / tracking / uppercase while
+    // inline-flex centering and page-hero padding contracts stay green.
+    expect(contactHtml).toMatch(
+      /class="page-hero"[\s\S]*?<span\s+class="eyebrow">\s*Let's Talk\s*<\/span>/
+    );
+  });
+
+  test("page-hero .eyebrow does not override inherited eyebrow type tokens", () => {
+    // Shared .eyebrow accent-dark / 0.14em / uppercase / 700 / 0.78rem locks
+    // still pass if .page-hero .eyebrow reintroduces a conflicting color or
+    // tracking — Contact "Let's Talk" then desyncs from section eyebrows while
+    // display:inline-flex and justify-content:center contracts remain green.
+    const block = stylesCss.match(/\.page-hero\s+\.eyebrow\s*\{([^}]*)\}/s);
+    expect(block).not.toBeNull();
+    const body = block[1];
+    expect(body).not.toMatch(/color\s*:/);
+    expect(body).not.toMatch(/letter-spacing\s*:/);
+    expect(body).not.toMatch(/text-transform\s*:/);
+    expect(body).not.toMatch(/font-weight\s*:/);
+    expect(body).not.toMatch(/font-size\s*:/);
+  });
+});
+
+describe("testimonial-card quote body type + author clearance", () => {
+  test("testimonial-card p stays italic so Client Feedback quotes read as speech", () => {
+    // Author weight/size + stars glyph locks still pass if font-style drops —
+    // quote copy then reads as another muted bio paragraph while
+    // testimonial-author and sample-badge contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s+p\s*\{[^}]*font-style:\s*italic/s
+    );
+  });
+
+  test("testimonial-card p keeps 18px clearance above the author line", () => {
+    // Italic + text color locks still pass if margin-bottom collapses — quote
+    // body then sits flush on the bold author name while testimonial-stars
+    // and testimonial-author contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s+p\s*\{[^}]*margin-bottom:\s*18px/s
+    );
+  });
+
+  test("testimonial-card p keeps ink text so italic quotes stay readable", () => {
+    // Italic + 18px clearance locks still pass if color softens to muted or
+    // bleaches — Client Feedback quotes then lose contrast on the cream card
+    // while author weight and stars gold contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-card\s+p\s*\{[^}]*color:\s*var\(--color-text\)/s
+    );
+  });
+});
