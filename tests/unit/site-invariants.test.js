@@ -4859,3 +4859,82 @@ describe("testimonial-card quote body type + author clearance", () => {
     );
   });
 });
+
+describe("hero-eyebrow compact type vs section eyebrow tracking", () => {
+  test("hero-eyebrow keeps 0.06em tracking (not section 0.14em)", () => {
+    // Section `.eyebrow` locks 0.14em. Copying that onto `.hero-eyebrow` (or
+    // the reverse) collapses the intentional pill-vs-section hierarchy — the
+    // SWFL location chip then reads as a section label while accent-dark tint
+    // and section letter-spacing contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*letter-spacing:\s*0\.06em/s
+    );
+    expect(stylesCss).toMatch(
+      /\.eyebrow\s*\{[^}]*letter-spacing:\s*0\.14em/s
+    );
+  });
+
+  test("hero-eyebrow stays uppercase bold so the SWFL chip reads as a label", () => {
+    // Compact 0.06em tracking alone still passes if weight/transform drop —
+    // Southwest Florida then reads as muted body beside the H1 while sage tint
+    // and section-eyebrow contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*text-transform:\s*uppercase/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*font-weight:\s*700/s
+    );
+  });
+
+  test("hero-eyebrow keeps 0.8rem so the location pill stays below H1 scale", () => {
+    // Uppercase/weight locks still pass if font-size grows toward body or
+    // matches section 0.78rem without intent — the first-viewport chip then
+    // competes with the brand headline while sage tint contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*font-size:\s*0\.8rem/s
+    );
+  });
+
+  test("hero-eyebrow keeps 22px clearance above the hero H1", () => {
+    // Type/tint locks still pass if margin-bottom collapses to section 14px or
+    // zero — Southwest Florida then crowds Custom Carpentry while hero h1 clamp
+    // and section-eyebrow 14px contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*margin-bottom:\s*22px/s
+    );
+  });
+});
+
+describe("sample-badge compact tracking for SAMPLE disclosure", () => {
+  test("sample-badge keeps 0.06em uppercase tracking on SAMPLE chips", () => {
+    // Ink/#fff + absolute position locks still pass if letter-spacing/transform
+    // drop — SAMPLE then reads as sentence case body on the chip while
+    // testimonial-card surface and stars gold contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*letter-spacing:\s*0\.06em/s
+    );
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*text-transform:\s*uppercase/s
+    );
+  });
+
+  test("sample-badge keeps compact 0.68rem so SAMPLE stays a disclosure chip", () => {
+    // Uppercase/0.06em locks still pass if font-size grows toward body —
+    // SAMPLE then dominates the card corner while ink/#fff and absolute
+    // anchoring contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*font-size:\s*0\.68rem/s
+    );
+  });
+});
+
+describe("testimonial-author role stack under name", () => {
+  test("testimonial-author span stays display:block so city/role wraps below", () => {
+    // Bold name + muted/compact role locks still pass if display:block drops —
+    // "Fort Myers, FL" then runs inline beside the author name while
+    // testimonial-card quote and sample-badge contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.testimonial-author\s+span\s*\{[^}]*display:\s*block/s
+    );
+  });
+});
