@@ -4938,3 +4938,67 @@ describe("testimonial-author role stack under name", () => {
     );
   });
 });
+
+describe("hero-eyebrow pill geometry", () => {
+  test("hero-eyebrow stays inline-flex so the SWFL chip sizes to its label", () => {
+    // Type/tint/tracking locks still pass if display drops to block — Southwest
+    // Florida then stretches full-bleed under the brand H1 while 0.06em / sage
+    // tint / margin-bottom contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*display:\s*inline-flex/s
+    );
+  });
+
+  test("hero-eyebrow keeps 8px 16px padding so the location pill has breathing room", () => {
+    // inline-flex alone still passes if padding collapses — the first-viewport
+    // SWFL chip then reads as tight uppercase text beside the H1 while
+    // letter-spacing and accent-dark tint contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*padding:\s*8px\s+16px/s
+    );
+  });
+
+  test("hero-eyebrow keeps pill radius 999px so the location chip stays a capsule", () => {
+    // Padding/inline-flex locks still pass if border-radius softens to
+    // radius-sm/md — Southwest Florida then looks like a boxed label while
+    // sage tint and 0.8rem type contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*border-radius:\s*999px/s
+    );
+  });
+});
+
+describe("sample-badge corner offset + chip weight", () => {
+  test("sample-badge anchors at top:-10px right:20px so SAMPLE overhangs the card", () => {
+    // Absolute position alone still passes if top/right drift to 0 — SAMPLE
+    // then sits inside card padding instead of the corner overhang while
+    // ink/#fff and 0.68rem contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*top:\s*-10px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*right:\s*20px/s
+    );
+  });
+
+  test("sample-badge keeps font-weight 700 so SAMPLE reads as a disclosure mark", () => {
+    // Compact 0.68rem / uppercase locks still pass if weight drops to 400 —
+    // SAMPLE then bleaches into the card corner while ink/#fff and absolute
+    // anchoring contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*font-weight:\s*700/s
+    );
+  });
+
+  test("sample-badge keeps compact 5px 10px padding and pill radius", () => {
+    // Offset/weight locks still pass if padding grows or radius squares —
+    // SAMPLE then balloons into a blocky corner label while 0.68rem and
+    // ink/#fff contracts remain green.
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*padding:\s*5px\s+10px/s
+    );
+    expect(stylesCss).toMatch(
+      /\.sample-badge\s*\{[^}]*border-radius:\s*999px/s
+    );
+  });
+});
