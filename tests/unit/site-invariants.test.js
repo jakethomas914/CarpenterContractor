@@ -5002,3 +5002,83 @@ describe("sample-badge corner offset + chip weight", () => {
     );
   });
 });
+
+describe("hero-eyebrow service-area messaging ↔ JSON-LD areaServed", () => {
+  test("hero-eyebrow leads with Southwest Florida then middot-separated towns", () => {
+    // Area-chip / contact small-list locks still pass if the first-viewport
+    // pill drops the regional lead-in or the · separators — Southwest Florida
+    // then reads as an unstructured town dump beside the brand H1 while
+    // JSON-LD areaServed content contracts stay green.
+    const match = indexHtml.match(
+      /<span\s+class="hero-eyebrow">\s*([^<]+?)\s*<\/span>/
+    );
+    expect(match).toBeTruthy();
+    const label = match[1].replace(/\s+/g, " ").trim();
+    expect(label.startsWith("Southwest Florida")).toBe(true);
+    expect(label).toMatch(/^Southwest Florida(?:\s*·\s*[^·]+)+$/);
+  });
+
+  test("every town named in the hero-eyebrow is listed in JSON-LD areaServed", () => {
+    // areaServed ↔ area-chip equality still passes if the hero pill advertises
+    // a town that left the schema (or never joined it) — first-viewport
+    // geography then lies about coverage while chip list and contact sidebar
+    // contracts remain green.
+    const areaServed = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    ).areaServed;
+    expect(Array.isArray(areaServed)).toBe(true);
+
+    const label = indexHtml
+      .match(/<span\s+class="hero-eyebrow">\s*([^<]+?)\s*<\/span>/)[1]
+      .replace(/\s+/g, " ")
+      .trim();
+    const parts = label.split(/\s*·\s*/).map((part) => part.trim());
+    expect(parts[0]).toBe("Southwest Florida");
+    const towns = parts.slice(1);
+    expect(towns.length).toBeGreaterThan(0);
+    for (const town of towns) {
+      expect(areaServed).toContain(town);
+    }
+  });
+});
+
+describe("sample testimonial cities ↔ JSON-LD areaServed", () => {
+  test("every testimonial-author city is listed in JSON-LD areaServed", () => {
+    // SAMPLE disclosure + author stack locks still pass if a review names a
+    // city outside the served list — Client Feedback then implies coverage
+    // the business does not claim while sample-badge and stars contracts
+    // remain green.
+    const areaServed = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    ).areaServed;
+    expect(Array.isArray(areaServed)).toBe(true);
+
+    const cities = collectMatches(
+      indexHtml,
+      /class="testimonial-author"[^>]*>[\s\S]*?<span>([^<]+)<\/span>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/,\s*FL\s*$/i, "").trim());
+
+    expect(cities.length).toBeGreaterThan(0);
+    for (const city of cities) {
+      expect(areaServed).toContain(city);
+    }
+  });
+});
+
+describe("hero-eyebrow icon-ready flex alignment", () => {
+  test("hero-eyebrow keeps align-items center and 8px gap for label/icon rows", () => {
+    // inline-flex / padding / pill-radius locks still pass if align-items or
+    // gap drop — a future pin/icon beside Southwest Florida then misaligns or
+    // crowds the label while sage tint and 0.8rem type contracts stay green.
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*align-items:\s*center/s
+    );
+    expect(stylesCss).toMatch(
+      /\.hero-eyebrow\s*\{[^}]*gap:\s*8px/s
+    );
+  });
+});
