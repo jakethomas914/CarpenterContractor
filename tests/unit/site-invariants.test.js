@@ -5082,3 +5082,68 @@ describe("hero-eyebrow icon-ready flex alignment", () => {
     );
   });
 });
+
+describe("hero-eyebrow towns order-preserving prefix of areaServed", () => {
+  test("hero-eyebrow towns match the leading areaServed entries in order", () => {
+    // Membership-only ⊆ locks still pass if the pill reorders towns (Cape Coral
+    // first) or skips the catalog lead (starts at Fort Myers) — first-viewport
+    // geography then disagrees with JSON-LD / area-chip priority while "every
+    // town is listed somewhere" contracts remain green.
+    const areaServed = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    ).areaServed;
+    expect(Array.isArray(areaServed)).toBe(true);
+
+    const label = indexHtml
+      .match(/<span\s+class="hero-eyebrow">\s*([^<]+?)\s*<\/span>/)[1]
+      .replace(/\s+/g, " ")
+      .trim();
+    const parts = label.split(/\s*·\s*/).map((part) => part.trim());
+    expect(parts[0]).toBe("Southwest Florida");
+    const towns = parts.slice(1);
+    expect(towns.length).toBeGreaterThanOrEqual(3);
+    expect(areaServed.slice(0, towns.length)).toEqual(towns);
+  });
+});
+
+describe("sample-badge disclosure copy", () => {
+  test("every sample-badge label is exactly Sample", () => {
+    // Class/presence and ink/#fff locks still pass if the chip text softens to
+    // "Example", "Demo", or empty — placeholder Client Feedback then looks like
+    // real reviews while SAMPLE uppercase/type contracts remain green.
+    const labels = collectMatches(
+      indexHtml,
+      /class="sample-badge"[^>]*>\s*([^<]*?)\s*</g
+    ).map((raw) => decodeBasicEntities(raw).trim());
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) {
+      expect(label).toBe("Sample");
+    }
+  });
+});
+
+describe("sample testimonial cities ↔ hero-eyebrow town order", () => {
+  test("sample author cities follow the same order as hero-eyebrow towns", () => {
+    // ⊆ areaServed membership still passes if sample reviews reorder or skip
+    // the first-viewport towns — Client Feedback then leads with a lower-priority
+    // city while hero-eyebrow prefix and SAMPLE disclosure contracts stay green.
+    const heroTowns = indexHtml
+      .match(/<span\s+class="hero-eyebrow">\s*([^<]+?)\s*<\/span>/)[1]
+      .replace(/\s+/g, " ")
+      .trim()
+      .split(/\s*·\s*/)
+      .map((part) => part.trim())
+      .slice(1);
+
+    const cities = collectMatches(
+      indexHtml,
+      /class="testimonial-author"[^>]*>[\s\S]*?<span>([^<]+)<\/span>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/,\s*FL\s*$/i, "").trim());
+
+    expect(cities.length).toBeGreaterThan(0);
+    expect(cities.length).toBeLessThanOrEqual(heroTowns.length);
+    expect(heroTowns.slice(0, cities.length)).toEqual(cities);
+  });
+});
