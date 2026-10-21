@@ -5147,3 +5147,74 @@ describe("sample testimonial cities ↔ hero-eyebrow town order", () => {
     expect(heroTowns.slice(0, cities.length)).toEqual(cities);
   });
 });
+
+describe("sample testimonial author name disclosure", () => {
+  test("every testimonial-author display name is exactly Sample Client", () => {
+    // SAMPLE chip + city ⊆ areaServed locks still pass if author names soften to
+    // "Happy Homeowner", initials, or a plausible first name — Client Feedback
+    // then reads as attributed social proof while disclosure chrome stays green.
+    const names = collectMatches(
+      indexHtml,
+      /class="testimonial-author"[^>]*>([^<]*?)<span>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+
+    expect(names.length).toBeGreaterThan(0);
+    for (const name of names) {
+      expect(name).toBe("Sample Client");
+    }
+  });
+});
+
+describe("sample testimonial quote placeholder prefix", () => {
+  test("every Client Feedback quote starts with Placeholder testimonial", () => {
+    // Author/SAMPLE disclosure locks still pass if quote bodies drop the
+    // "Placeholder testimonial — …" lead-in and only keep polished praise —
+    // sample cards then look like real reviews while Sample Client / Sample
+    // chip contracts remain green.
+    const quotes = collectMatches(
+      indexHtml,
+      /class="testimonial-card"[^>]*>[\s\S]*?<p>\s*"([^"]+)"/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+
+    expect(quotes.length).toBeGreaterThan(0);
+    for (const quote of quotes) {
+      expect(quote.startsWith("Placeholder testimonial")).toBe(true);
+    }
+  });
+});
+
+describe("testimonials section honesty lede", () => {
+  test("testimonials heading keeps the real-reviews-replace-samples disclaimer", () => {
+    // SAMPLE / Sample Client / Placeholder quote locks still pass if the
+    // section lede softens to generic praise intro copy — visitors lose the
+    // only catalog-level honesty signal above the sample cards.
+    const block = indexHtml.match(
+      /id="testimonials"[\s\S]*?<div class="section-heading[^"]*">([\s\S]*?)<\/div>/
+    );
+    expect(block).toBeTruthy();
+    const lede = block[1]
+      .match(/<p>\s*([^<]+?)\s*<\/p>/)[1]
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(lede).toMatch(/real client reviews/i);
+    expect(lede).toMatch(/sample quotes/i);
+  });
+});
+
+describe("gallery tile placeholder captions", () => {
+  test("every gallery-tile caption is exactly Photos coming soon", () => {
+    // Dashed tile / wood-light mark / strong title locks still pass if span
+    // captions soften to finished-looking project blurbs ("Custom built-ins",
+    // "Recent remodel") — Gallery then reads as a photo portfolio while
+    // placeholder-note chrome contracts remain green.
+    const captions = collectMatches(
+      indexHtml,
+      /class="gallery-tile"[^>]*>[\s\S]*?<span>\s*([^<]*?)\s*<\/span>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+
+    expect(captions.length).toBeGreaterThan(0);
+    for (const caption of captions) {
+      expect(caption).toBe("Photos coming soon");
+    }
+  });
+});
