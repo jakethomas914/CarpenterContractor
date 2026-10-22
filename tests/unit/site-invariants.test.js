@@ -5218,3 +5218,80 @@ describe("gallery tile placeholder captions", () => {
     }
   });
 });
+
+describe("gallery placeholder-note honesty copy", () => {
+  test("placeholder-note keeps the replace-with-real-photos-before-launch string", () => {
+    // Warning-chip chrome + "Photos coming soon" caption locks still pass if the
+    // banner softens to "Featured work" / drops "before launch" — Gallery then
+    // reads as a live portfolio while dashed-tile / caption contracts stay green.
+    // e2e only asserts /placeholder/i, so wording regressions slip through.
+    const notes = collectMatches(
+      indexHtml,
+      /class="placeholder-note[^"]*"[^>]*>[\s\S]*?<\/svg>\s*([^<]+?)\s*</g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+
+    expect(notes.length).toBeGreaterThan(0);
+    for (const note of notes) {
+      expect(note).toBe(
+        "Placeholder gallery — replace with real project photos before launch"
+      );
+    }
+  });
+});
+
+describe("gallery section honesty lede", () => {
+  test("gallery heading keeps the photos-being-added-soon disclaimer", () => {
+    // placeholder-note exact copy + tile captions still pass if the section lede
+    // softens to "Explore our recent builds" — visitors lose the catalog-level
+    // honesty signal above the tiles while chip/caption contracts remain green.
+    const block = indexHtml.match(
+      /id="gallery"[\s\S]*?<div class="section-heading[^"]*">([\s\S]*?)<\/div>/
+    );
+    expect(block).toBeTruthy();
+    const lede = block[1]
+      .match(/<p>\s*([^<]+?)\s*<\/p>/)[1]
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(lede).toMatch(/photos? (are )?being added soon/i);
+    expect(lede).toMatch(/showcase/i);
+  });
+});
+
+describe("gallery-tile project title catalog", () => {
+  test("gallery-tile strong labels keep the ordered project category catalog", () => {
+    // CSS title hierarchy + "Photos coming soon" captions still pass if strong
+    // labels soft-rename (e.g. "Custom Cabinets" vs "Built-In Cabinetry") or
+    // drop categories — Gallery then drifts from the intended showcase map while
+    // placeholder chrome contracts remain green.
+    const titles = collectMatches(
+      indexHtml,
+      /class="gallery-tile"[^>]*>[\s\S]*?<strong>\s*([\s\S]*?)\s*<\/strong>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+
+    expect(titles).toEqual([
+      "Kitchen Remodel",
+      "Custom Trim & Millwork",
+      "Built-In Cabinetry",
+      "Entry Doors & Foyers",
+      "Decks & Outdoor Living",
+      "Bathroom Remodel",
+    ]);
+  });
+});
+
+describe("about-portrait caption honesty copy", () => {
+  test("about-portrait-caption keeps the photo-coming-soon disclosure", () => {
+    // Portrait plane / ink scrim / type locks still pass if the caption softens
+    // to a finished bio line ("Greg Felton, Owner") — About then looks like a
+    // real headshot is present while placeholder gradient contracts stay green.
+    const captions = collectMatches(
+      indexHtml,
+      /class="about-portrait-caption"[^>]*>\s*([^<]+?)\s*</g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+
+    expect(captions.length).toBeGreaterThan(0);
+    for (const caption of captions) {
+      expect(caption).toBe("Photo of Greg Felton — coming soon");
+    }
+  });
+});
