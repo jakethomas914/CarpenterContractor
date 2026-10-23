@@ -5295,3 +5295,116 @@ describe("about-portrait caption honesty copy", () => {
     }
   });
 });
+
+describe("hero-facts first-viewport trust catalog", () => {
+  test("hero-fact value↔label pairs keep the ordered owner/local/custom claims", () => {
+    // Grid geometry + wood-dark/muted type locks still pass if values soft-rename
+    // ("15 yrs", "Fully Staffed") or labels drift — first-viewport trust messaging
+    // then overclaims capacity while hero-facts layout contracts remain green.
+    const facts = [
+      ...indexHtml.matchAll(
+        /class="hero-fact"[^>]*>\s*<strong>\s*([\s\S]*?)\s*<\/strong>\s*<span>\s*([\s\S]*?)\s*<\/span>/g
+      ),
+    ].map((match) => ({
+      value: decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim(),
+      label: decodeBasicEntities(match[2]).replace(/\s+/g, " ").trim(),
+    }));
+
+    expect(facts).toEqual([
+      { value: "1-on-1", label: "Direct with the owner" },
+      { value: "SWFL", label: "Locally based & owned" },
+      { value: "Custom", label: "Carpentry & remodels" },
+    ]);
+  });
+});
+
+describe("trust-strip claim catalog + credentials honesty", () => {
+  test("trust-item claims keep the ordered owner/license/area/scheduling catalog", () => {
+    // Ink surface / accent-light icon / flex-row locks still pass if claims soften
+    // ("Fully Staffed Crews", drop "No Subcontracted") — the dark strip then
+    // overpromises delivery model while trust-item layout contracts stay green.
+    const claims = collectMatches(
+      indexHtml,
+      /class="trust-item"[^>]*>[\s\S]*?<\/svg>\s*([\s\S]*?)\s*<\/div>/g
+    ).map((raw) =>
+      decodeBasicEntities(raw.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
+    );
+
+    expect(claims).toEqual([
+      "Owner-Operated — No Subcontracted Crews",
+      "Licensed & Insured (add credentials)",
+      "Serving All of Southwest Florida",
+      "Prompt, Reliable Scheduling",
+    ]);
+  });
+
+  test("Licensed & Insured trust-item keeps the muted (add credentials) honesty cue", () => {
+    // Exact claim catalog still passes if muted-inline is dropped and the chip
+    // reads as a finished license claim — launch then advertises credentials that
+    // are not filled in while trust-strip color/layout contracts remain green.
+    expect(indexHtml).toMatch(
+      /class="trust-item"[^>]*>[\s\S]*?Licensed\s*&amp;\s*Insured\s*<span\s+class="muted-inline">\s*\(add credentials\)\s*<\/span>/
+    );
+  });
+});
+
+describe("founder signature identity ↔ JSON-LD", () => {
+  test("about-signature strong is the JSON-LD founder and role cites the business name", () => {
+    // Typography/ink/muted locks still pass if the strong name drifts from
+    // JSON-LD founder or the role drops the business name — About identity then
+    // disagrees with structured data / header chrome while CSS contracts stay green.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    const block = indexHtml.match(
+      /class="about-signature"[^>]*>\s*<div>\s*<strong>\s*([\s\S]*?)\s*<\/strong>\s*<span>\s*([\s\S]*?)\s*<\/span>/
+    );
+    expect(block).toBeTruthy();
+    const name = decodeBasicEntities(block[1]).replace(/\s+/g, " ").trim();
+    const role = decodeBasicEntities(block[2]).replace(/\s+/g, " ").trim();
+
+    expect(name).toBe(data.founder);
+    expect(role).toBe(`Owner & Carpenter, ${data.name}`);
+  });
+
+  test("hero-visual-signature attributes the JSON-LD founder as Owner & Carpenter", () => {
+    // Dot/type/opacity locks still pass if the attribution softens to a generic
+    // "Our Team" line or drops the founder — hero then loses the only owner lock
+    // beside the quote while visual-signature geometry contracts remain green.
+    const founder = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    ).founder;
+    const raw = indexHtml.match(
+      /class="hero-visual-signature"[^>]*>\s*<span class="dot"><\/span>\s*([\s\S]*?)\s*<\/div>/
+    )?.[1];
+    expect(raw).toBeTruthy();
+    const signature = decodeBasicEntities(raw).replace(/\s+/g, " ").trim();
+
+    expect(signature).toBe(`${founder}, Owner & Carpenter`);
+  });
+});
+
+describe("service-card ordered catalog", () => {
+  test("service-card h3 labels keep the ordered offerings catalog", () => {
+    // Form option value↔label + "every card is selectable" still pass if cards
+    // reorder or soft-rename in lockstep with options — homepage Services then
+    // drifts from the intended catalog map while mailto triage contracts stay green.
+    const titles = collectMatches(
+      indexHtml,
+      /<article class="service-card"[\s\S]*?<h3>([\s\S]*?)<\/h3>/g
+    ).map((title) => decodeBasicEntities(title.replace(/\s+/g, " ").trim()));
+
+    expect(titles).toEqual([
+      "Custom Trim & Millwork",
+      "Custom Cabinetry & Built-Ins",
+      "Doors & Entryways",
+      "Decks, Framing & Outdoor Structures",
+      "Kitchen & Bath Remodels",
+      "Repairs & Small Renovations",
+    ]);
+  });
+});
