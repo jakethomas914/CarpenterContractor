@@ -5408,3 +5408,134 @@ describe("service-card ordered catalog", () => {
     ]);
   });
 });
+
+describe("value-list trust bullet catalog", () => {
+  test("value-list strong↔span pairs keep the ordered owner-model claims", () => {
+    // Icon accent + title hierarchy + grid spacing locks still pass if bullets
+    // soft-rename ("Full crew support", "Competitive volume pricing") — About
+    // then overclaims delivery model while value-list CSS contracts stay green.
+    const listBlock = indexHtml.match(/class="value-list"[\s\S]*?<\/ul>/);
+    expect(listBlock).toBeTruthy();
+    const bullets = [
+      ...listBlock[0].matchAll(
+        /<strong>\s*([\s\S]*?)\s*<\/strong>\s*<span>\s*([\s\S]*?)\s*<\/span>/g
+      ),
+    ].map((match) => ({
+      title: decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim(),
+      description: decodeBasicEntities(match[2]).replace(/\s+/g, " ").trim(),
+    }));
+
+    expect(bullets).toEqual([
+      {
+        title: "Direct communication",
+        description:
+          "You work with Greg personally — no middlemen, no runaround.",
+      },
+      {
+        title: "Careful, hands-on craftsmanship",
+        description:
+          "Every cut and detail is done personally, not delegated.",
+      },
+      {
+        title: "Respect for your home & budget",
+        description: "Clear pricing and a clean job site, every time.",
+      },
+    ]);
+  });
+});
+
+describe("service-card title↔description catalog", () => {
+  test("service-card h3↔p pairs keep the ordered offering blurbs", () => {
+    // Ordered h3 catalog + form option parity still pass if body copy softens
+    // to overbroad claims ("any commercial build", drop Florida weather) —
+    // Services then overpromises scope while title/mailto triage locks stay green.
+    const cards = [
+      ...indexHtml.matchAll(
+        /<article class="service-card"[\s\S]*?<h3>([\s\S]*?)<\/h3>\s*<p>([\s\S]*?)<\/p>/g
+      ),
+    ].map((match) => ({
+      title: decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim(),
+      description: decodeBasicEntities(match[2]).replace(/\s+/g, " ").trim(),
+    }));
+
+    expect(cards).toEqual([
+      {
+        title: "Custom Trim & Millwork",
+        description:
+          "Crown molding, baseboards, wainscoting, and casing — precise, custom-fit finish carpentry for any room.",
+      },
+      {
+        title: "Custom Cabinetry & Built-Ins",
+        description:
+          "Built-in shelving, closets, entertainment centers, and cabinetry designed and built to fit your space exactly.",
+      },
+      {
+        title: "Doors & Entryways",
+        description:
+          "Interior and exterior door installation, entryway upgrades, and custom trim details that make a strong first impression.",
+      },
+      {
+        title: "Decks, Framing & Outdoor Structures",
+        description:
+          "Wood and composite decking, pergolas, framing repairs, and outdoor living structures built to last in Florida weather.",
+      },
+      {
+        title: "Kitchen & Bath Remodels",
+        description:
+          "Full or partial kitchen and bathroom remodels — cabinetry, trim, fixtures, and finish carpentry handled start to finish.",
+      },
+      {
+        title: "Repairs & Small Renovations",
+        description:
+          "General repairs, punch-list work, and smaller renovation projects — no job too small for the same level of care.",
+      },
+    ]);
+  });
+});
+
+describe("about owner-model honesty copy", () => {
+  test("about copy keeps sole-operator and Greg-on-the-job claims", () => {
+    // Signature↔JSON-LD + value-list catalog locks still pass if About softens
+    // to "our crews" / drops "sole operator" — the page then overclaims staffing
+    // while founder identity and trust-bullet contracts remain green.
+    const block = indexHtml.match(
+      /id="about"[\s\S]*?class="about-copy">([\s\S]*?)<ul class="value-list"/
+    );
+    expect(block).toBeTruthy();
+    const copy = decodeBasicEntities(block[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(copy).toMatch(/sole operator/i);
+    expect(copy).toMatch(/no office/i);
+    expect(copy).toMatch(/no dispatcher/i);
+    expect(copy).toMatch(/no rotating crew/i);
+    expect(copy).toMatch(/Greg is the one doing it/i);
+    expect(copy).toMatch(/one-person approach/i);
+  });
+});
+
+describe("cta-band conversion copy catalog", () => {
+  test("cta-band keeps Ready to Start heading and personal Greg quote lede", () => {
+    // btn-light / btn-outline-light pairing + spacing locks still pass if the
+    // band softens to "Our team will follow up" or drops the free-quote promise —
+    // the final conversion surface then loses owner-personal + quote cues while
+    // dark CTA chrome contracts remain green.
+    const block = indexHtml.match(/class="cta-band"[\s\S]*?<div class="container">([\s\S]*?)<div class="cta-actions"/);
+    expect(block).toBeTruthy();
+    const heading = block[1]
+      .match(/<h2>\s*([\s\S]*?)\s*<\/h2>/)[1]
+      .replace(/\s+/g, " ")
+      .trim();
+    const lede = decodeBasicEntities(
+      block[1].match(/<p>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(heading).toBe("Ready to Start Your Project?");
+    expect(lede).toBe(
+      "Tell us a bit about what you're planning and Greg will get back to you personally to talk through the details and provide a free quote."
+    );
+  });
+});
