@@ -5539,3 +5539,110 @@ describe("cta-band conversion copy catalog", () => {
     );
   });
 });
+
+describe("footer brand owner-operated blurb", () => {
+  test("footer-brand blurb keeps owner-operated + Greg Felton claims on both pages", () => {
+    // Cross-page parity alone still passes if both footers soft-rename into
+    // crew/agency language and drop the owner-operated claim — chrome then
+    // overpromises staffing while footer Contact parity locks stay green.
+    const expected =
+      "Owner-operated carpentry and general contracting serving Southwest Florida. Custom carpentry, remodels, and repairs — done personally by Greg Felton.";
+
+    for (const html of [indexHtml, contactHtml]) {
+      const raw = html.match(/class="footer-brand"[\s\S]*?<p>([\s\S]*?)<\/p>/)?.[1];
+      expect(raw).toBeTruthy();
+      const blurb = decodeBasicEntities(raw).replace(/\s+/g, " ").trim();
+      expect(blurb).toBe(expected);
+    }
+  });
+});
+
+describe("area-map-card conversion copy", () => {
+  test("area-map-card keeps in-range heading and SWFL drive invite", () => {
+    // btn-light / gradient / muted-white paragraph locks still pass if the card
+    // loses the "call if in range" invite — service-area conversion then drops
+    // its only soft-boundary CTA while map-card chrome contracts remain green.
+    const block = indexHtml.match(/class="area-map-card"[^>]*>([\s\S]*?)<\/div>/);
+    expect(block).toBeTruthy();
+    const heading = block[1]
+      .match(/<h3>\s*([\s\S]*?)\s*<\/h3>/)[1]
+      .replace(/\s+/g, " ")
+      .trim();
+    const lede = decodeBasicEntities(
+      block[1].match(/<p>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(heading).toBe("Not sure if you're in range?");
+    expect(lede).toBe(
+      "Give us a call — if it's a reasonable drive in Southwest Florida, we're happy to talk through your project."
+    );
+  });
+});
+
+describe("hero-lede owner-operated first-viewport claim", () => {
+  test("hero-lede keeps personally operated Greg claim and no-crew honesty", () => {
+    // hero-facts catalog + CTA chrome locks still pass if the lede softens to
+    // "our crews" / call-center staffing — first viewport then overclaims
+    // capacity while hero-fact and quote CTA contracts remain green.
+    const raw = indexHtml.match(/class="hero-lede">([\s\S]*?)<\/p>/)?.[1];
+    expect(raw).toBeTruthy();
+    const lede = decodeBasicEntities(raw).replace(/\s+/g, " ").trim();
+
+    expect(lede).toBe(
+      "[Business Name] is owned and personally operated by Greg Felton. When you hire us, you're hiring the craftsman who shows up, does the work, and stands behind it — not a call center or a rotating crew."
+    );
+  });
+});
+
+describe("contact page-hero personal Greg + SLA lede", () => {
+  test("contact page-hero keeps personal Greg response-time free-quote promise", () => {
+    // page-hero H1/eyebrow + spacing locks still pass if the lede drops personal
+    // Greg, the one-business-day SLA, or the free-quote cue — contact entry then
+    // loses the only response promise while page-hero CSS contracts stay green.
+    const block = contactHtml.match(
+      /class="page-hero"[\s\S]*?<div class="container">([\s\S]*?)<\/div>/
+    );
+    expect(block).toBeTruthy();
+    const lede = decodeBasicEntities(
+      block[1].match(/<p>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(lede).toBe(
+      "Tell Greg a bit about your project and he'll get back to you personally — usually within one business day — with next steps and a free quote."
+    );
+  });
+});
+
+describe("contact-form-card Greg follow-up intro", () => {
+  test("contact-form-card keeps Request a Free Quote heading and Greg follow-up lede", () => {
+    // Field/mailto/honeypot contracts still pass if the card softens to "our team
+    // will contact you" — the form surface then loses the owner-personal follow-up
+    // cue while lead-capture wiring locks remain green.
+    const block = contactHtml.match(
+      /class="contact-form-card"[^>]*>\s*<h3>\s*([\s\S]*?)\s*<\/h3>\s*<p>\s*([\s\S]*?)\s*<\/p>/
+    );
+    expect(block).toBeTruthy();
+    const heading = decodeBasicEntities(block[1]).replace(/\s+/g, " ").trim();
+    const lede = decodeBasicEntities(block[2]).replace(/\s+/g, " ").trim();
+
+    expect(heading).toBe("Request a Free Quote");
+    expect(lede).toBe(
+      "Fill out the form below and Greg will follow up directly to discuss your project."
+    );
+  });
+});
+
+describe("contact email honesty placeholder", () => {
+  test("contact mailto row keeps the Placeholder honesty cue beside info@example.com", () => {
+    // mailto href/text parity still passes if the <small> honesty cue is dropped —
+    // info@example.com then reads as a finished business address while lead-capture
+    // identity contracts remain green (same class as gallery/credentials honesty).
+    expect(contactHtml).toMatch(
+      /href="mailto:info@example\.com"[\s\S]*?<small>\s*Placeholder\s*—\s*update with real business email\s*<\/small>/
+    );
+  });
+});
