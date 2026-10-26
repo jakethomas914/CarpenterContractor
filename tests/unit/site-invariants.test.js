@@ -5646,3 +5646,139 @@ describe("contact email honesty placeholder", () => {
     );
   });
 });
+
+describe("lead-form visible label catalog", () => {
+  test("every lead control keeps its for= label text (name/phone/email/service/message)", () => {
+    // id===name + autocomplete + option-value locks still pass if visible labels
+    // drift ("Name", drop Service Interested In, rename message) — AT users and
+    // e2e-only label checks then diverge while mailto FormData keys stay green.
+    // Service is intentionally included: e2e asserts the other four labels only.
+    const formBlock = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[\s\S]*?<\/form>/
+    );
+    expect(formBlock).toBeTruthy();
+
+    const labelsByFor = Object.fromEntries(
+      [...formBlock[0].matchAll(/<label\b[^>]*\bfor="([^"]+)"[^>]*>([\s\S]*?)<\/label>/g)].map(
+        (match) => [
+          match[1],
+          decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+        ]
+      )
+    );
+
+    expect(labelsByFor).toEqual({
+      name: "Full Name",
+      phone: "Phone Number",
+      email: "Email Address",
+      service: "Service Interested In",
+      message: "Tell Us About Your Project",
+    });
+  });
+
+  test("submit control keeps the Send Message CTA label", () => {
+    // type=submit + btn-primary/btn-block locks still pass if the visible label
+    // softens to "Submit" / "Send" — the primary lead CTA then loses its clear
+    // action while geometry and mailto wiring contracts remain green.
+    const formBlock = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[\s\S]*?<\/form>/
+    );
+    expect(formBlock).toBeTruthy();
+    const submit = formBlock[0].match(
+      /<button\b[^>]*\btype="submit"[^>]*>([\s\S]*?)<\/button>/i
+    );
+    expect(submit).toBeTruthy();
+    expect(decodeBasicEntities(submit[1]).replace(/\s+/g, " ").trim()).toBe(
+      "Send Message"
+    );
+  });
+});
+
+describe("footer Florida License honesty placeholder", () => {
+  test("footer-bottom keeps the Florida License #: [add license number] honesty cue", () => {
+    // Cross-page footer-bottom parity alone still passes if both pages drop the
+    // bracketed honesty cue or invent a finished license number — chrome then
+    // advertises credentials that are not filled in while copyright parity and
+    // trust-strip (add credentials) contracts remain green.
+    const expected = "Florida License #: [add license number]";
+    for (const html of [indexHtml, contactHtml]) {
+      const bottom = extractFooterBottom(html);
+      expect(bottom).toBeTruthy();
+      const text = decodeBasicEntities(bottom.replace(/<[^>]+>/g, " "))
+        .replace(/\s+/g, " ")
+        .trim();
+      expect(text).toContain(expected);
+    }
+  });
+});
+
+describe("contact-info-card channel + heading copy", () => {
+  test("contact-info-card keeps Contact Information heading and call-or-text cue", () => {
+    // Tel/mailto digit parity + hours-row locks still pass if the info card
+    // heading softens or the phone row drops "Call or text anytime" — visitors
+    // then lose the only explicit text/SMS channel cue beside the number while
+    // lead-capture identity contracts remain green.
+    const block = contactHtml.match(
+      /class="contact-info-card"[^>]*>([\s\S]*?)<div class="contact-hours"/
+    );
+    expect(block).toBeTruthy();
+    const heading = block[1].match(/<h3>\s*([\s\S]*?)\s*<\/h3>/);
+    expect(heading).toBeTruthy();
+    expect(decodeBasicEntities(heading[1]).replace(/\s+/g, " ").trim()).toBe(
+      "Contact Information"
+    );
+    expect(block[1]).toMatch(
+      /href="tel:\+12394402416"[\s\S]*?<small>\s*Call or text anytime\s*<\/small>/
+    );
+  });
+});
+
+describe("lead form-note Prefer to talk invite", () => {
+  test("form-note keeps Prefer to talk call-or-text invite beside the phone-link", () => {
+    // phone-link tel digit parity + form-note CSS locks still pass if the invite
+    // softens to "Contact us" or drops the call-or-text cue — the under-submit
+    // fallback then loses its conversion copy while tel href contracts stay green.
+    const formBlock = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[\s\S]*?<\/form>/
+    );
+    expect(formBlock).toBeTruthy();
+    const noteBlock = formBlock[0].match(
+      /<p\b[^>]*\bclass="[^"]*\bform-note\b[^"]*"[^>]*>([\s\S]*?)<\/p>/
+    );
+    expect(noteBlock).toBeTruthy();
+    const text = decodeBasicEntities(noteBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(text).toMatch(/^Prefer to talk it through first\?\s*Call or text\b/);
+    expect(text).toMatch(/\bdirectly\.?$/);
+  });
+});
+
+describe("Netlify honeypot accessible label", () => {
+  test("honeypot field keeps the Don't fill this out if you're human label", () => {
+    // netlify-honeypot↔name + autocomplete=off/tabindex locks still pass if the
+    // human-readable label is dropped or rewritten — AT users then lose the only
+    // cue that the field is a spam trap while Netlify attribute contracts stay green.
+    const formBlock = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[\s\S]*?<\/form>/
+    );
+    expect(formBlock).toBeTruthy();
+    expect(formBlock[0]).toMatch(
+      /Don't fill this out if you're human:\s*<input\b[^>]*\bname="bot-field"/
+    );
+  });
+});
+
+describe("JSON-LD telephone exact NANP string", () => {
+  test("JSON-LD telephone stays the exact +1-239-440-2416 shared number", () => {
+    // Digit equality + NANP shape alone still pass if schema softens punctuation
+    // (+12394402416 / +1 239 440 2416) — rich-result dialers and copy-paste then
+    // diverge from the visible tel: href while digit parity stays green.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.telephone).toBe("+1-239-440-2416");
+  });
+});
