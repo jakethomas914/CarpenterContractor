@@ -5782,3 +5782,75 @@ describe("JSON-LD telephone exact NANP string", () => {
     expect(data.telephone).toBe("+1-239-440-2416");
   });
 });
+
+describe("JSON-LD description + hours/pricing honesty", () => {
+  test("JSON-LD description stays the exact Southwest Florida carpentry blurb", () => {
+    // Non-empty string checks still pass if description softens into crew-scale
+    // marketing or drops the Southwest Florida scope — rich results then overclaim
+    // while required-field presence and telephone exactness stay green.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.description).toBe(
+      "Carpentry and general contracting services throughout Southwest Florida."
+    );
+  });
+
+  test("JSON-LD omits openingHours and priceRange so schema cannot invent mismatched hours or pricing", () => {
+    // Contact Availability hours-row is the human source of truth today. Adding
+    // openingHours/priceRange without matching that card invents crawlable claims
+    // that diverge from the site while hours-row and address locks stay green.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data).not.toHaveProperty("openingHours");
+    expect(data).not.toHaveProperty("openingHoursSpecification");
+    expect(data).not.toHaveProperty("priceRange");
+  });
+});
+
+describe("contact meta description exact free-quote invite", () => {
+  test("contact meta description keeps the Greg free-quote Southwest Florida invite", () => {
+    // Business-name/founder containment alone still passes if the contact share
+    // blurb drops the free-quote CTA or softens into generic crew copy — SERP/
+    // share fallback then loses conversion intent while identity locks stay green.
+    const description = decodeBasicEntities(
+      contactHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(description).toBe(
+      "Get in touch with Greg Felton at [Business Name] for a free quote on carpentry and general contracting work throughout Southwest Florida."
+    );
+  });
+});
+
+describe("lead message placeholder exact guidance", () => {
+  test("project message textarea keeps the exact location/timeline placeholder", () => {
+    // location/timeline substring cues still pass if the placeholder softens into
+    // a vague "Tell us about your project" — lead quality prompts then disappear
+    // while required + cue-regex contracts remain green.
+    const textarea = contactHtml.match(/<textarea\b[^>]*\bid="message"[^>]*>/);
+    expect(textarea).toBeTruthy();
+    const placeholder = textarea[0].match(/\bplaceholder="([^"]*)"/);
+    expect(placeholder).toBeTruthy();
+    expect(placeholder[1]).toBe(
+      "Share a few details — location, timeline, and what you have in mind."
+    );
+  });
+});
+
+describe("robots.txt exact crawl body", () => {
+  test("robots.txt keeps the exact allow-all crawl policy and single sitemap line", () => {
+    // Loose User-agent/Allow/Sitemap regexes still pass if Disallow rules or
+    // duplicate Sitemap lines are inserted — crawlers then hit conflicting
+    // directives while discovery origin parity stays green.
+    expect(robotsTxt.replace(/\r\n/g, "\n").trim()).toBe(
+      ["User-agent: *", "Allow: /", "", "Sitemap: https://www.example.com/sitemap.xml"].join(
+        "\n"
+      )
+    );
+  });
+});

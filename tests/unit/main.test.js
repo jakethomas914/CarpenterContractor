@@ -37,6 +37,20 @@ describe("js/main.js pure helper functions", () => {
       expect(main.sanitizeForHeader("")).toBe("");
       expect(main.sanitizeForHeader("   ")).toBe("");
     });
+
+    test("strips a lone carriage return the same way as CRLF pairs", () => {
+      // CR-only payloads still inject header breaks in some clients; treating
+      // only \\r\\n / \\n would leave a raw CR in the mailto subject/recipient.
+      expect(main.sanitizeForHeader("Pat\rBcc:victim@example.com")).toBe(
+        "Pat Bcc:victim@example.com"
+      );
+    });
+
+    test("coerces boolean false to the string false (not empty)", () => {
+      // FormData can surface unexpected types in tests/fixtures; false must not
+      // collapse to "" the way null/undefined do, or triage labels silently blank.
+      expect(main.sanitizeForHeader(false)).toBe("false");
+    });
   });
 
   describe("buildMailtoUrl", () => {
