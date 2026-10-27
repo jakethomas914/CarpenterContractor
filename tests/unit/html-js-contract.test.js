@@ -270,6 +270,27 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     }
   });
 
+  test("nav toggle keeps the exact Toggle navigation menu aria-label on both pages", () => {
+    // Non-empty aria-label still passes if the name softens to "Menu" / "Open" —
+    // AT then loses the documented control purpose while type=button and
+    // aria-expanded contracts stay green.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(
+        /<button\b[^>]*\bclass="[^"]*\bnav-toggle\b[^"]*"[^>]*\baria-label="Toggle navigation menu"/s
+      );
+    }
+  });
+
+  test("mailto subject template keeps New project inquiry from + website visitor fallback in source", () => {
+    // Runtime subject assertions still pass if the template is rebuilt from
+    // scattered strings — inbox filters then break when the source prefix or
+    // fallback token drifts while buildMailtoUrl unit tests stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).toContain(
+      '"New project inquiry from " + (name || "website visitor")'
+    );
+  });
+
   test("nav toggle starts collapsed with aria-expanded=false on both pages", () => {
     // initMobileNav toggles this attribute; a wrong initial value lies to AT users
     // before the first click and can desync the open/closed state.

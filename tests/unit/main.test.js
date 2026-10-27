@@ -37,6 +37,20 @@ describe("js/main.js pure helper functions", () => {
       expect(main.sanitizeForHeader("")).toBe("");
       expect(main.sanitizeForHeader("   ")).toBe("");
     });
+
+    test("strips a lone carriage return the same way as CRLF pairs", () => {
+      // CR-only payloads still inject header breaks in some clients; treating
+      // only \\r\\n / \\n would leave a raw CR in the mailto subject/recipient.
+      expect(main.sanitizeForHeader("Pat\rBcc:victim@example.com")).toBe(
+        "Pat Bcc:victim@example.com"
+      );
+    });
+
+    test("coerces boolean false to the string false (not empty)", () => {
+      // FormData can surface unexpected types in tests/fixtures; false must not
+      // collapse to "" the way null/undefined do, or triage labels silently blank.
+      expect(main.sanitizeForHeader(false)).toBe("false");
+    });
   });
 
   describe("buildMailtoUrl", () => {
@@ -143,6 +157,19 @@ describe("js/main.js pure helper functions", () => {
       const decodedBody = decodeURIComponent(url.split("body=")[1]);
       expect(decodedBody).toContain("Phone: 239-555-0100 Cc:spam@example.com");
       expect(decodedBody).toContain("Service interested in: Remodel Bcc:other@example.com");
+      expect(url.toLowerCase()).not.toContain("%0d%0a");
+    });
+
+    test("sanitizes email field against CRLF header injection in the mailto body", () => {
+      // Name/phone/service/recipient are locked; email is equally header-shaped
+      // once it lands in the body. Skipping it lets CRLF rewrite Cc/Bcc lines.
+      const url = main.buildMailtoUrl("info@example.com", {
+        email: "ok@example.com\r\nBcc:victim@example.com",
+        message: "hi",
+      });
+
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toContain("Email: ok@example.com Bcc:victim@example.com");
       expect(url.toLowerCase()).not.toContain("%0d%0a");
     });
 
