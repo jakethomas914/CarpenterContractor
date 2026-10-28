@@ -5854,3 +5854,94 @@ describe("robots.txt exact crawl body", () => {
     );
   });
 });
+
+describe("homepage meta + Open Graph exact share copy", () => {
+  test("homepage meta description keeps owned-and-operated Greg + one-craftsman honesty", () => {
+    // Business-name/founder containment alone still passes if the SERP blurb
+    // drops "owned and operated" / "one craftsman" or softens into crew-scale
+    // marketing — search snippets then overclaim while identity locks stay green.
+    const description = decodeBasicEntities(
+      indexHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(description).toBe(
+      "[Business Name] is a Southwest Florida carpentry and general contracting business owned and operated by Greg Felton. Custom carpentry, kitchen & bath remodels, additions, and repairs — one craftsman, personally on every job."
+    );
+  });
+
+  test("og:description keeps the exact personally-operated Greg share blurb", () => {
+    // Founder containment + og:type=website still pass if the share card drops
+    // "personally operated" or Southwest Florida scope — link previews then
+    // lose owner-operator honesty while title alignment stays green.
+    const ogDescription = decodeBasicEntities(
+      indexHtml.match(/property="og:description"\s+content="([^"]+)"/)[1]
+    );
+    expect(ogDescription).toBe(
+      "Custom carpentry and general contracting throughout Southwest Florida. Owned and personally operated by Greg Felton."
+    );
+  });
+
+  test("homepage document title stays the exact SWFL carpenter SERP title", () => {
+    // Business-name containment + og:title↔<title> alignment still pass if the
+    // title softens to a generic "Home" / drops Carpenter & General Contractor —
+    // SERP/share titles then lose trade+geo intent while name locks stay green.
+    const title = decodeBasicEntities(indexHtml.match(/<title>([^<]+)<\/title>/)[1]);
+    expect(title).toBe(
+      "Southwest Florida Carpenter & General Contractor | [Business Name]"
+    );
+  });
+});
+
+describe("contact document title exact invite", () => {
+  test("contact <title> keeps Contact Us + SWFL Carpentry & GC framing", () => {
+    // Business-name containment alone still passes if the contact title drops
+    // Contact Us or the SWFL Carpentry & GC trade cue — SERP/tab labels then
+    // lose page purpose while meta description exactness stays green.
+    const title = decodeBasicEntities(contactHtml.match(/<title>([^<]+)<\/title>/)[1]);
+    expect(title).toBe("Contact Us | [Business Name] — SWFL Carpentry & GC");
+  });
+});
+
+describe("JSON-LD founder exact owner identity", () => {
+  test("JSON-LD founder stays the exact Greg Felton owner name", () => {
+    // toBeTruthy / toContain(founder) still pass if founder softens to a brand
+    // handle or drops the personal name — rich results and about parity then
+    // lose owner identity while telephone/email exactness stay green.
+    const founder = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).founder;
+    expect(founder).toBe("Greg Felton");
+  });
+});
+
+describe("JSON-LD areaServed + contact city catalog exactness", () => {
+  test("JSON-LD areaServed keeps the exact seven-town Southwest Florida catalog", () => {
+    // Chip↔areaServed equality still passes if both sides drop a town or reorder
+    // together — rich results and service-area chrome then silently shrink while
+    // pairwise parity stays green. Lock the catalog explicitly.
+    const areaServed = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).areaServed;
+    expect(areaServed).toEqual([
+      "Naples",
+      "Fort Myers",
+      "Bonita Springs",
+      "Estero",
+      "Cape Coral",
+      "Marco Island",
+      "Sanibel",
+    ]);
+  });
+
+  test("contact info-card city <small> keeps the exact comma-joined areaServed string", () => {
+    // Splitting the <small> and comparing to areaServed still passes if separators
+    // or spacing drift into an unreadable blob as long as tokens match — lock the
+    // visible joined string visitors actually read beside Southwest Florida.
+    const contactAreaMatch = contactHtml.match(
+      /Southwest Florida<\/span>\s*<small>([^<]+)<\/small>/
+    );
+    expect(contactAreaMatch).toBeTruthy();
+    expect(contactAreaMatch[1]).toBe(
+      "Naples, Fort Myers, Bonita Springs, Estero, Cape Coral, Marco Island, Sanibel"
+    );
+  });
+});

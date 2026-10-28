@@ -51,6 +51,14 @@ describe("js/main.js pure helper functions", () => {
       // collapse to "" the way null/undefined do, or triage labels silently blank.
       expect(main.sanitizeForHeader(false)).toBe("false");
     });
+
+    test("preserves mid-string tabs while still stripping CR/LF header breaks", () => {
+      // Only CR/LF are header-injection vectors. Collapsing tabs (or all
+      // whitespace) would mangle pasted phone/name values while CRLF locks
+      // still pass — keep tabs as literal characters in sanitized headers.
+      expect(main.sanitizeForHeader("Jane\tDoe")).toBe("Jane\tDoe");
+      expect(main.sanitizeForHeader("Pat\t\r\nBcc:x@y.z")).toBe("Pat\t Bcc:x@y.z");
+    });
   });
 
   describe("buildMailtoUrl", () => {
