@@ -59,6 +59,14 @@ describe("js/main.js pure helper functions", () => {
       expect(main.sanitizeForHeader("Jane\tDoe")).toBe("Jane\tDoe");
       expect(main.sanitizeForHeader("Pat\t\r\nBcc:x@y.z")).toBe("Pat\t Bcc:x@y.z");
     });
+
+    test("coerces boolean true and numeric zero to strings (not empty)", () => {
+      // Mirror of the false coerce lock: true/0 must stringify rather than
+      // collapsing like null/undefined, or triage labels silently blank when
+      // unexpected FormData-like types surface in fixtures.
+      expect(main.sanitizeForHeader(true)).toBe("true");
+      expect(main.sanitizeForHeader(0)).toBe("0");
+    });
   });
 
   describe("buildMailtoUrl", () => {

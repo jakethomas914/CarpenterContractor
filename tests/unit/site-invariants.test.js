@@ -5945,3 +5945,105 @@ describe("JSON-LD areaServed + contact city catalog exactness", () => {
     );
   });
 });
+
+describe("JSON-LD name + email exact launch placeholders", () => {
+  test("JSON-LD name stays the exact [Business Name] launch placeholder", () => {
+    // Non-empty string + chrome containment still pass if name soft-renames to a
+    // wrong brand token or invents a finished DBA before launch — rich results
+    // and header/footer then disagree while toBeTruthy name locks stay green.
+    const name = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).name;
+    expect(name).toBe("[Business Name]");
+  });
+
+  test("JSON-LD email stays the exact info@example.com placeholder address", () => {
+    // Parity with data-recipient alone still passes if both sides drift together
+    // into a finished inbox that is not live — schema/mailto then advertise a
+    // dead address while pairwise recipient locks remain green.
+    const email = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).email;
+    expect(email).toBe("info@example.com");
+  });
+});
+
+describe("JSON-LD address + profile honesty (no invented locality or socials)", () => {
+  test("JSON-LD address stays region/country-only PostalAddress (no street/locality/postal)", () => {
+    // objectContaining(FL/US) still passes if streetAddress / addressLocality /
+    // postalCode are invented — rich results then publish a fake shop address
+    // while hours-row and region/country locks stay green.
+    const address = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).address;
+    expect(address).toEqual({
+      "@type": "PostalAddress",
+      addressRegion: "FL",
+      addressCountry: "US",
+    });
+    expect(address).not.toHaveProperty("streetAddress");
+    expect(address).not.toHaveProperty("addressLocality");
+    expect(address).not.toHaveProperty("postalCode");
+  });
+
+  test("JSON-LD omits sameAs / image / logo so schema cannot invent profiles or assets", () => {
+    // Required-field presence still passes if sameAs/image/logo are added with
+    // placeholder or broken URLs — rich results then claim social profiles or
+    // logos that do not exist while telephone/email exactness stay green.
+    const data = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    );
+    expect(data).not.toHaveProperty("sameAs");
+    expect(data).not.toHaveProperty("image");
+    expect(data).not.toHaveProperty("logo");
+  });
+});
+
+describe("homepage hero H1 exact brand headline", () => {
+  test("hero h1 keeps Custom Carpentry framing and Built by Hand wood span", () => {
+    // Span-presence + wood color locks still pass if the H1 softens to a generic
+    // "Welcome" / drops Built by Hand — first-viewport brand voice then loses the
+    // only trade+craftsmanship headline while CTA contrast contracts stay green.
+    const h1 = indexHtml.match(
+      /<section\b[^>]*\bclass="[^"]*\bhero\b[^"]*"[^>]*>[\s\S]*?<h1\b[^>]*>([\s\S]*?)<\/h1>/i
+    );
+    expect(h1).toBeTruthy();
+    const inner = h1[1].replace(/\s+/g, " ").trim();
+    expect(inner).toBe(
+      "Custom Carpentry &amp; General Contracting, <span>Built by Hand, One Job at a Time.</span>"
+    );
+  });
+});
+
+describe("contact page-hero exact entry copy", () => {
+  test("page-hero keeps Let's Talk eyebrow and Get in Touch heading", () => {
+    // page-hero spacing/type locks still pass if the eyebrow/H1 soften to
+    // "Contact" / "Reach Out" — the contact entry then loses its invite voice
+    // while lede exactness and form-card contracts remain green.
+    const block = contactHtml.match(
+      /class="page-hero"[\s\S]*?<div class="container">([\s\S]*?)<\/div>/
+    );
+    expect(block).toBeTruthy();
+    const eyebrow = block[1].match(/class="eyebrow"[^>]*>\s*([\s\S]*?)\s*</);
+    const heading = block[1].match(/<h1>\s*([\s\S]*?)\s*<\/h1>/);
+    expect(eyebrow).toBeTruthy();
+    expect(heading).toBeTruthy();
+    expect(decodeBasicEntities(eyebrow[1]).replace(/\s+/g, " ").trim()).toBe(
+      "Let's Talk"
+    );
+    expect(decodeBasicEntities(heading[1]).replace(/\s+/g, " ").trim()).toBe(
+      "Get in Touch"
+    );
+  });
+});
+
+describe("Open Graph image honesty", () => {
+  test("homepage omits og:image and twitter cards so shares cannot invent broken assets", () => {
+    // Required og:type/title/description/url still pass if og:image or twitter:*
+    // are added with placeholder paths — link previews then show broken images
+    // while OG property-set and contact-omits-OG locks stay green.
+    expect(indexHtml).not.toMatch(/property="og:image"/);
+    expect(indexHtml).not.toMatch(/name="twitter:/);
+    expect(indexHtml).not.toMatch(/property="twitter:/);
+  });
+});

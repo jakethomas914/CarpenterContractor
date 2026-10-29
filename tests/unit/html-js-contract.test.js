@@ -78,6 +78,15 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     expect(contactHtml).toMatch(/<input\b[^>]*type="email"[^>]*id="email"/i);
   });
 
+  test("service select stays optional (no required) so unsure leads can still submit", () => {
+    // Name/phone/email/message required locks still pass if service gains
+    // required — visitors who are "Not sure yet" / skipping the catalog then
+    // cannot submit while option value↔label contracts remain green.
+    const selectOpen = contactHtml.match(/<select\b[^>]*\bid="service"[^>]*>/i);
+    expect(selectOpen).toBeTruthy();
+    expect(selectOpen[0]).not.toMatch(/\brequired\b/i);
+  });
+
   test("name field stays type=text (not email/tel/hidden) for HTML5 name entry", () => {
     // Wrong type breaks autocomplete=name and mobile keyboards; type=hidden
     // would drop the lead name from visible validation entirely.
