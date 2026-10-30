@@ -168,6 +168,16 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     const sources = (vercelConfig.headers || []).map((entry) => entry.source);
     expect(sources).toContain("/(.*)");
   });
+
+  test("locks the exact host Content-Security-Policy string (no inserted directives)", () => {
+    // Per-directive equality still passes if unknown fetch directives are added
+    // in an order our named locks ignore — exact string equality catches silent
+    // CSP sprawl while Netlify↔Vercel parity on the shared key set stays green.
+    const expected =
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:; frame-ancestors 'none';";
+    expect(netlify["Content-Security-Policy"]).toBe(expected);
+    expect(vercel["Content-Security-Policy"]).toBe(expected);
+  });
 });
 
 describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
