@@ -6047,3 +6047,69 @@ describe("Open Graph image honesty", () => {
     expect(indexHtml).not.toMatch(/property="twitter:/);
   });
 });
+
+describe("sitemap.xml exact discovery body", () => {
+  test("sitemap.xml keeps the exact two-URL urlset body for homepage + contact", () => {
+    // Loc/priority/changefreq token checks still pass if lastmod rows, extra
+    // URLs, or a softer xmlns are inserted — crawlers then hit conflicting
+    // discovery while pairwise loc↔disk and robots origin locks stay green.
+    expect(sitemapXml.replace(/\r\n/g, "\n").trim()).toBe(
+      [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        "  <url>",
+        "    <loc>https://www.example.com/</loc>",
+        "    <changefreq>monthly</changefreq>",
+        "    <priority>1.0</priority>",
+        "  </url>",
+        "  <url>",
+        "    <loc>https://www.example.com/contact.html</loc>",
+        "    <changefreq>monthly</changefreq>",
+        "    <priority>0.8</priority>",
+        "  </url>",
+        "</urlset>",
+      ].join("\n")
+    );
+  });
+});
+
+describe("about owner-model exact copy", () => {
+  test("about-copy keeps About the Owner eyebrow and exact sole-operator paragraphs", () => {
+    // Keyword substring locks still pass if About softens with crew language
+    // while keeping "sole operator" / "one-person" tokens — owner-model honesty
+    // then overclaims staffing while founder/value-list contracts stay green.
+    const block = indexHtml.match(
+      /id="about"[\s\S]*?class="about-copy">([\s\S]*?)<ul class="value-list"/
+    );
+    expect(block).toBeTruthy();
+    const eyebrow = block[1].match(/class="eyebrow"[^>]*>\s*([\s\S]*?)\s*</);
+    const paragraphs = [...block[1].matchAll(/<p>\s*([\s\S]*?)\s*<\/p>/g)].map((match) =>
+      decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim()
+    );
+
+    expect(eyebrow).toBeTruthy();
+    expect(decodeBasicEntities(eyebrow[1]).replace(/\s+/g, " ").trim()).toBe(
+      "About the Owner"
+    );
+    expect(paragraphs).toEqual([
+      "Greg Felton is the owner and sole operator of [Business Name], based in Southwest Florida. There's no office, no dispatcher, and no rotating crew — when you call, you talk to Greg, and when the work happens, Greg is the one doing it.",
+      "That one-person approach means fewer projects at a time, closer attention to detail, and a single point of contact from the first phone call to the final walkthrough. It's an approach built around craftsmanship and trust rather than volume.",
+    ]);
+  });
+});
+
+describe("Google Fonts css2 exact URL", () => {
+  test("both pages request the exact Fraunces + Inter css2 URL with display=swap", () => {
+    // Cross-page equality + family=Fraunces/Inter contains-checks still pass if
+    // both pages drift to missing weights or drop display=swap together — FOIT
+    // / hierarchy then regress while CSP font allowlists stay green.
+    const expected =
+      "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap";
+    for (const html of [indexHtml, contactHtml]) {
+      const fontHref = html.match(
+        /href="(https:\/\/fonts\.googleapis\.com\/css2\?[^"]+)"/
+      )?.[1];
+      expect(fontHref).toBe(expected);
+    }
+  });
+});

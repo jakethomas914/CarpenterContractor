@@ -67,6 +67,14 @@ describe("js/main.js pure helper functions", () => {
       expect(main.sanitizeForHeader(true)).toBe("true");
       expect(main.sanitizeForHeader(0)).toBe("0");
     });
+
+    test("coerces arrays and plain objects via String() without throwing", () => {
+      // Unexpected non-primitives (fixture bugs, future FormData wrappers) must
+      // still produce stable triage strings — throwing here aborts mailto submit.
+      expect(main.sanitizeForHeader([])).toBe("");
+      expect(main.sanitizeForHeader(["Pat", "Lee"])).toBe("Pat,Lee");
+      expect(main.sanitizeForHeader({ name: "Pat" })).toBe("[object Object]");
+    });
   });
 
   describe("buildMailtoUrl", () => {
@@ -209,6 +217,32 @@ describe("js/main.js pure helper functions", () => {
     test("does not throw and returns a string when fields is undefined", () => {
       expect(() => main.buildMailtoUrl("info@example.com", undefined)).not.toThrow();
       expect(typeof main.buildMailtoUrl("info@example.com", undefined)).toBe("string");
+    });
+
+    test("does not throw when fields is null (same empty-field fallback as undefined)", () => {
+      // Callers/tests may pass null; fields && field short-circuit must still
+      // yield a mailto URL instead of throwing on property access.
+      expect(() => main.buildMailtoUrl("info@example.com", null)).not.toThrow();
+      const url = main.buildMailtoUrl("info@example.com", null);
+      expect(url).toContain(encodeURIComponent("New project inquiry from website visitor"));
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toBe(
+        ["Name: ", "Email: ", "Phone: ", "Service interested in: ", "", ""].join("\n")
+      );
+    });
+
+    test("trims whitespace-only message to empty while keeping triage label block", () => {
+      // Message is trim-only (not sanitizeForHeader). Whitespace-only payloads
+      // must collapse to an empty body section — not a blank-looking "   " line
+      // that looks like lost project details in the owner's inbox.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Jane",
+        message: "  \t  \n  ",
+      });
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toBe(
+        ["Name: Jane", "Email: ", "Phone: ", "Service interested in: ", "", ""].join("\n")
+      );
     });
 
     test("percent-encodes ampersands in subject/body so mailto query parsing stays intact", () => {
