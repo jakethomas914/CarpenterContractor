@@ -214,6 +214,29 @@ describe("js/main.js pure helper functions", () => {
       expect(url.startsWith("mailto:?subject=")).toBe(true);
     });
 
+    test("sanitizes whitespace-only recipient to empty so mailto has no forged address", () => {
+      // Empty-string recipient is already locked. Whitespace / CR/LF-only values
+      // must sanitize the same way — otherwise a blank-looking address can still
+      // leave control characters in the mailto authority before ?.
+      const url = main.buildMailtoUrl("  \r\n\t  ", { name: "Jane", message: "hi" });
+      expect(url.startsWith("mailto:?subject=")).toBe(true);
+      expect(url).not.toMatch(/^mailto:\s/);
+      expect(url).not.toMatch(/[\r\n]/);
+    });
+
+    test("mailto query keys stay exactly subject and body (no silent cc/bcc)", () => {
+      // Encoding locks still pass if triage "helpers" append cc=/bcc=/reply-to=
+      // params that quietly fan out lead mail or rewrite the compose target.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Jane",
+        email: "jane@example.com",
+        message: "Need a quote",
+      });
+      const query = url.slice(url.indexOf("?") + 1);
+      const keys = query.split("&").map((part) => part.split("=")[0]).sort();
+      expect(keys).toEqual(["body", "subject"]);
+    });
+
     test("does not throw and returns a string when fields is undefined", () => {
       expect(() => main.buildMailtoUrl("info@example.com", undefined)).not.toThrow();
       expect(typeof main.buildMailtoUrl("info@example.com", undefined)).toBe("string");

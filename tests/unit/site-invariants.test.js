@@ -445,6 +445,19 @@ describe("primary nav label parity across pages", () => {
   test("homepage and contact primary nav keep the same labels in the same order", () => {
     expect(extractPrimaryNavLabels(indexHtml)).toEqual(extractPrimaryNavLabels(contactHtml));
   });
+
+  test("primary nav keeps the exact ordered section label catalog", () => {
+    // Cross-page parity alone still passes if both navs rename or drop
+    // "Service Area" together — conversion IA then drifts while href/hash
+    // contracts stay green.
+    expect(extractPrimaryNavLabels(indexHtml)).toEqual([
+      "Services",
+      "About",
+      "Gallery",
+      "Testimonials",
+      "Service Area",
+    ]);
+  });
 });
 
 describe("static asset + font loading contract", () => {
@@ -541,6 +554,19 @@ describe("footer contact + brand blurb parity", () => {
     const contactTags = tags(contactHtml);
     expect(indexTags.length).toBeGreaterThan(0);
     expect(contactTags).toEqual(indexTags);
+  });
+
+  test("header placeholder-tag stays the exact Carpentry & General Contracting tagline", () => {
+    // Cross-page equality + wood color locks still pass if both headers soft-rename
+    // into crew/agency language together — brand framing then drifts while
+    // wordmark and theme-color contracts stay green.
+    const tags = collectMatches(indexHtml, /class="placeholder-tag">([^<]+)/g).map((t) =>
+      decodeBasicEntities(t.replace(/\s+/g, " ").trim())
+    );
+    expect(tags.length).toBeGreaterThan(0);
+    for (const tag of tags) {
+      expect(tag).toBe("Carpentry & General Contracting");
+    }
   });
 });
 
@@ -728,6 +754,19 @@ describe("footer Explore link contract", () => {
     const indexLinks = extractExploreLinks(indexHtml);
     const contactLinks = extractExploreLinks(contactHtml);
     expect(indexLinks.map((l) => l.label)).toEqual(contactLinks.map((l) => l.label));
+  });
+
+  test("Explore keeps the exact ordered label catalog ending in Contact", () => {
+    // Cross-page parity alone still passes if both footers soft-rename or add
+    // Service Area together — footer IA then drifts from primary nav while
+    // hash/contact.html href contracts stay green.
+    expect(extractExploreLinks(indexHtml).map((link) => link.label)).toEqual([
+      "Services",
+      "About",
+      "Gallery",
+      "Testimonials",
+      "Contact",
+    ]);
   });
 
   test("homepage Explore uses bare section hashes plus contact.html", () => {
@@ -5018,6 +5057,19 @@ describe("hero-eyebrow service-area messaging ↔ JSON-LD areaServed", () => {
     expect(label).toMatch(/^Southwest Florida(?:\s*·\s*[^·]+)+$/);
   });
 
+  test("hero-eyebrow keeps the exact Southwest Florida · Naples · Fort Myers · Bonita Springs string", () => {
+    // Structural Southwest Florida + middot + areaServed-prefix locks still pass
+    // if punctuation or town framing softens — first-viewport geo then drifts
+    // while chip list and JSON-LD areaServed contracts stay green.
+    const match = indexHtml.match(
+      /<span\s+class="hero-eyebrow">\s*([^<]+?)\s*<\/span>/
+    );
+    expect(match).toBeTruthy();
+    expect(match[1].replace(/\s+/g, " ").trim()).toBe(
+      "Southwest Florida · Naples · Fort Myers · Bonita Springs"
+    );
+  });
+
   test("every town named in the hero-eyebrow is listed in JSON-LD areaServed", () => {
     // areaServed ↔ area-chip equality still passes if the hero pill advertises
     // a town that left the schema (or never joined it) — first-viewport
@@ -6111,5 +6163,113 @@ describe("Google Fonts css2 exact URL", () => {
       )?.[1];
       expect(fontHref).toBe(expected);
     }
+  });
+});
+
+describe("JSON-LD top-level key allowlist", () => {
+  test("JSON-LD keeps exactly the documented GeneralContractor property set", () => {
+    // Named omit locks (openingHours/sameAs/image/logo) still pass if schema
+    // invents aggregateRating, review, employee, or numberOfEmployees — rich
+    // results then overclaim staffing or stars while founder/email locks stay green.
+    const data = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    );
+    expect(Object.keys(data).sort()).toEqual(
+      [
+        "@context",
+        "@type",
+        "address",
+        "areaServed",
+        "description",
+        "email",
+        "founder",
+        "name",
+        "telephone",
+        "url",
+      ].sort()
+    );
+  });
+});
+
+describe("hero owner honesty quote", () => {
+  test("hero-visual-quote keeps the exact treat-every-home owner voice", () => {
+    // Signature / Owner & Carpenter locks still pass if the first-viewport quote
+    // softens into generic marketing — owner honesty then drifts while portrait
+    // caption and founder contracts stay green.
+    const match = indexHtml.match(
+      /class="hero-visual-quote"[^>]*>\s*([\s\S]*?)\s*<\/p>/
+    );
+    expect(match).toBeTruthy();
+    expect(decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim()).toBe(
+      "\"I treat every home like it's my own — same attention to detail whether it's a single door or a full remodel.\""
+    );
+  });
+});
+
+describe("about Meet Greg Felton heading", () => {
+  test("about-copy h2 stays exactly Meet Greg Felton", () => {
+    // About the Owner eyebrow + sole-operator paragraphs still pass if the H2
+    // soft-renames to team language — founder signature ↔ JSON-LD can stay green
+    // while the About section heading invents a crew.
+    const block = indexHtml.match(
+      /id="about"[\s\S]*?class="about-copy">([\s\S]*?)<ul class="value-list"/
+    );
+    expect(block).toBeTruthy();
+    const heading = block[1].match(/<h2>\s*([\s\S]*?)\s*<\/h2>/);
+    expect(heading).toBeTruthy();
+    expect(decodeBasicEntities(heading[1]).replace(/\s+/g, " ").trim()).toBe(
+      "Meet Greg Felton"
+    );
+  });
+});
+
+describe("section eyebrow ↔ heading catalog", () => {
+  test("homepage sections keep the exact eyebrow and H2 pairs", () => {
+    // Service-card / gallery / testimonial catalogs still pass if section
+    // eyebrows or H2s soft-rename — IA then drifts while card copy locks stay green.
+    const pairs = [
+      ...indexHtml.matchAll(
+        /<span class="eyebrow">\s*([\s\S]*?)\s*<\/span>\s*<h2>\s*([\s\S]*?)\s*<\/h2>/g
+      ),
+    ].map((match) => [
+      decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim(),
+      decodeBasicEntities(match[2]).replace(/\s+/g, " ").trim(),
+    ]);
+
+    expect(pairs).toEqual([
+      ["What We Do", "Carpentry & General Contracting Services"],
+      ["About the Owner", "Meet Greg Felton"],
+      ["Our Work", "Recent Projects"],
+      ["Client Feedback", "What Customers Say"],
+      ["Where We Work", "Proudly Serving Southwest Florida"],
+    ]);
+  });
+
+  test("services lede keeps the no-big-crew honesty claim", () => {
+    // Service-card h3↔p catalogs still pass if the section lede drops the
+    // anti-crew honesty — services then overclaim staffing while offering
+    // blurbs stay green.
+    const block = indexHtml.match(
+      /id="services"[\s\S]*?class="section-heading center">([\s\S]*?)<div class="services-grid"/
+    );
+    expect(block).toBeTruthy();
+    const lede = block[1].match(/<p>\s*([\s\S]*?)\s*<\/p>/);
+    expect(lede).toBeTruthy();
+    expect(decodeBasicEntities(lede[1]).replace(/\s+/g, " ").trim()).toBe(
+      "From custom trim to full kitchen remodels, every project gets Greg's personal, hands-on craftsmanship — sized right for homeowners who want quality work without the overhead of a big crew."
+    );
+  });
+
+  test("service-area intro keeps including-but-not-limited-to soft boundary", () => {
+    // areaServed chip catalog locks still pass if area-intro invents exclusive
+    // coverage or drops the soft boundary — geography honesty then overclaims
+    // while chips and contact sidebar stay green.
+    const match = indexHtml.match(
+      /id="service-area"[\s\S]*?class="area-intro">\s*([\s\S]*?)\s*<\/p>/
+    );
+    expect(match).toBeTruthy();
+    expect(decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim()).toBe(
+      "[Business Name] takes on projects throughout the Southwest Florida region, including but not limited to:"
+    );
   });
 });
