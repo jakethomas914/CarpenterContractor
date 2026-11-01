@@ -6273,3 +6273,146 @@ describe("section eyebrow ↔ heading catalog", () => {
     );
   });
 });
+
+describe("exact launch discovery URLs", () => {
+  test("homepage and contact canonical hrefs stay the exact example.com launch URLs", () => {
+    // Sitemap loc / robots origin / og:url equality still pass if every surface
+    // drifts together to a staging host or drops www — launch discovery then
+    // points crawlers at the wrong origin while pairwise parity stays green.
+    const indexCanonical = indexHtml.match(/rel="canonical"\s+href="([^"]+)"/)?.[1];
+    const contactCanonical = contactHtml.match(/rel="canonical"\s+href="([^"]+)"/)?.[1];
+    expect(indexCanonical).toBe("https://www.example.com/");
+    expect(contactCanonical).toBe("https://www.example.com/contact.html");
+  });
+
+  test("homepage og:url stays the exact homepage canonical launch URL", () => {
+    // og:url↔canonical equality still passes if both drift to a non-launch host
+    // together — share cards then advertise the wrong origin while sitemap
+    // cardinality and title locks stay green.
+    const ogUrl = indexHtml.match(/property="og:url"\s+content="([^"]+)"/)?.[1];
+    expect(ogUrl).toBe("https://www.example.com/");
+  });
+});
+
+describe("exact theme-color + cream background token", () => {
+  test("theme-color and --color-bg stay the exact cream #faf6f0 launch token", () => {
+    // Cross-page theme-color equality + theme↔--color-bg parity still pass if
+    // both pages and the CSS token drift together to a different hex — browser
+    // chrome / first paint then leave the documented cream brand while contrast
+    // contracts keyed only to the variable stay green.
+    expect(stylesCss).toMatch(/--color-bg:\s*#faf6f0\b/);
+    for (const html of [indexHtml, contactHtml]) {
+      const theme = html.match(/name="theme-color"\s+content="([^"]+)"/)?.[1];
+      expect(theme).toBe("#faf6f0");
+    }
+  });
+});
+
+describe("exact brand home aria-label", () => {
+  test("both brand links keep the exact [Business Name] — Home aria-label", () => {
+    // Business-name containment still passes if the accessible name drops
+    // "Home" or soft-renames the separator — AT users then lose the home cue
+    // while visible wordmark and JSON-LD name locks stay green.
+    for (const html of [indexHtml, contactHtml]) {
+      const labels = [
+        ...html.matchAll(
+          /<a\b[^>]*\bclass="[^"]*\bbrand\b[^"]*"[^>]*\baria-label="([^"]+)"/g
+        ),
+      ].map((match) => decodeBasicEntities(match[1]));
+      expect(labels).toEqual(["[Business Name] — Home"]);
+    }
+  });
+});
+
+describe("exact primary-nav href catalogs", () => {
+  function extractPrimaryNavHrefs(html) {
+    const block = collectMatches(html, /class="nav-links"[\s\S]*?<\/ul>/g)[0];
+    expect(block).toBeTruthy();
+    return collectMatches(block, /<a\b[^>]*href="([^"]+)"/g);
+  }
+
+  test("homepage primary nav keeps the exact ordered bare-hash href catalog", () => {
+    // Label catalog + section-id bidirectionality still pass if hrefs reorder
+    // relative to labels (e.g. Services → #about) as long as the hash set matches
+    // section ids — active-nav then highlights the wrong row while label locks
+    // stay green.
+    expect(extractPrimaryNavHrefs(indexHtml)).toEqual([
+      "#services",
+      "#about",
+      "#gallery",
+      "#testimonials",
+      "#service-area",
+    ]);
+  });
+
+  test("contact primary nav keeps the exact ordered index.html# href catalog", () => {
+    // Cross-page section-id parity still passes if contact softens bare hashes
+    // (breaking cross-page jumps) or reorders destinations while labels stay
+    // put — contact chrome then strands visitors mid-funnel.
+    expect(extractPrimaryNavHrefs(contactHtml)).toEqual([
+      "index.html#services",
+      "index.html#about",
+      "index.html#gallery",
+      "index.html#testimonials",
+      "index.html#service-area",
+    ]);
+  });
+});
+
+describe("exact footer Explore href catalogs", () => {
+  function extractExploreHrefs(html) {
+    const block = html.match(/<h4>Explore<\/h4>\s*<ul>([\s\S]*?)<\/ul>/);
+    expect(block).toBeTruthy();
+    return collectMatches(block[1], /<a\b[^>]*href="([^"]+)"/g);
+  }
+
+  test("homepage Explore keeps the exact ordered hash + contact.html href catalog", () => {
+    // Label catalog + "hashes are real section ids" still pass if Explore
+    // reorders destinations or swaps Contact away from contact.html while
+    // labels stay put — footer IA then misroutes conversion traffic.
+    expect(extractExploreHrefs(indexHtml)).toEqual([
+      "#services",
+      "#about",
+      "#gallery",
+      "#testimonials",
+      "contact.html",
+    ]);
+  });
+
+  test("contact Explore keeps the exact ordered index.html# + contact.html href catalog", () => {
+    // Label parity + index.html# prefix checks still pass if contact Explore
+    // reorders section targets or points Contact at a bare hash — footer then
+    // loops or misroutes while primary-nav contracts stay green.
+    expect(extractExploreHrefs(contactHtml)).toEqual([
+      "index.html#services",
+      "index.html#about",
+      "index.html#gallery",
+      "index.html#testimonials",
+      "contact.html",
+    ]);
+  });
+});
+
+describe("exact contact form recipient attribute", () => {
+  test("data-recipient stays the exact info@example.com launch placeholder", () => {
+    // JSON-LD email exactness + recipient↔email parity still pass if both drift
+    // together to a different placeholder — the mailto submit path then opens
+    // the wrong compose target while identity locks stay green.
+    const recipient = contactHtml.match(/data-recipient="([^"]*)"/)?.[1];
+    expect(recipient).toBe("info@example.com");
+  });
+});
+
+describe("exact homepage Open Graph title", () => {
+  test("og:title stays the exact SWFL carpenter SERP title", () => {
+    // Document-title exactness + og:title↔<title> alignment still pass if the
+    // shared string softens together — share cards then lose trade+geo intent
+    // while business-name containment stays green.
+    const ogTitle = decodeBasicEntities(
+      indexHtml.match(/property="og:title"\s+content="([^"]+)"/)[1]
+    );
+    expect(ogTitle).toBe(
+      "Southwest Florida Carpenter & General Contractor | [Business Name]"
+    );
+  });
+});

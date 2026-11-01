@@ -228,6 +228,15 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
     );
   });
 
+  test("locks the exact index meta Content-Security-Policy string (unsafe-inline for JSON-LD)", () => {
+    // Host↔index directive-map equality still passes if both sides reorder or
+    // insert the same unknown fetch directive — exact string equality catches
+    // homepage CSP sprawl while keeping script-src 'unsafe-inline' for JSON-LD.
+    expect(indexCsp).toBe(
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:;"
+    );
+  });
+
   test("contact meta CSP matches host allowlists for non-script fetch directives", () => {
     // script-src may differ (no 'unsafe-inline' on contact). Everything else that
     // gates fonts/images/XHR must stay aligned or contact page loads break.

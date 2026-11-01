@@ -224,6 +224,38 @@ describe("js/main.js pure helper functions", () => {
       expect(url).not.toMatch(/[\r\n]/);
     });
 
+    test("trims surrounding whitespace on a real recipient before the mailto authority", () => {
+      // Whitespace-only recipients already collapse to empty. A padded but valid
+      // address must still land as a clean mailto:user@host — otherwise some
+      // clients treat the leading space as part of the authority and bounce.
+      const url = main.buildMailtoUrl("  info@example.com  ", {
+        name: "Jane",
+        message: "hi",
+      });
+      expect(url.startsWith("mailto:info@example.com?")).toBe(true);
+      expect(url).not.toMatch(/^mailto:\s/);
+    });
+
+    test("empty-string fields match missing-field triage body (no undefined leaks)", () => {
+      // FormData can yield "" for cleared inputs. Empty strings must sanitize the
+      // same as omitted keys — "undefined" / "null" text in the owner's inbox is
+      // a lead-quality regression even when required HTML5 checks stay green.
+      const fromEmptyStrings = main.buildMailtoUrl("info@example.com", {
+        name: "",
+        email: "",
+        phone: "",
+        service: "",
+        message: "",
+      });
+      const fromMissing = main.buildMailtoUrl("info@example.com", {});
+      expect(fromEmptyStrings).toBe(fromMissing);
+      const decodedBody = decodeURIComponent(fromEmptyStrings.split("body=")[1]);
+      expect(decodedBody).toBe(
+        ["Name: ", "Email: ", "Phone: ", "Service interested in: ", "", ""].join("\n")
+      );
+      expect(decodedBody).not.toMatch(/undefined|null/i);
+    });
+
     test("mailto query keys stay exactly subject and body (no silent cc/bcc)", () => {
       // Encoding locks still pass if triage "helpers" append cc=/bcc=/reply-to=
       // params that quietly fan out lead mail or rewrite the compose target.
