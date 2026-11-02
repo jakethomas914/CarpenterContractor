@@ -75,6 +75,24 @@ describe("js/main.js pure helper functions", () => {
       expect(main.sanitizeForHeader(["Pat", "Lee"])).toBe("Pat,Lee");
       expect(main.sanitizeForHeader({ name: "Pat" })).toBe("[object Object]");
     });
+
+    test("preserves Unicode line separators (only CR/LF are stripped)", () => {
+      // Defense-in-depth today targets RFC822-style CR/LF header breaks only.
+      // Collapsing U+2028 / U+2029 (or treating them like \\n) would silently
+      // rewrite pasted international names while CR/LF locks stay green — lock
+      // the current CR/LF-only policy so broadening it is an intentional change.
+      const lineSeparator = "\u2028";
+      const paragraphSeparator = "\u2029";
+      expect(main.sanitizeForHeader(`Pat${lineSeparator}Lee`)).toBe(
+        `Pat${lineSeparator}Lee`
+      );
+      expect(main.sanitizeForHeader(`Pat${paragraphSeparator}Lee`)).toBe(
+        `Pat${paragraphSeparator}Lee`
+      );
+      expect(main.sanitizeForHeader(`Pat\r${lineSeparator}\nLee`)).toBe(
+        `Pat ${lineSeparator} Lee`
+      );
+    });
   });
 
   describe("buildMailtoUrl", () => {
@@ -207,6 +225,32 @@ describe("js/main.js pure helper functions", () => {
 
       const decodedBody = decodeURIComponent(url.split("body=")[1]);
       expect(decodedBody).toContain("Line one\nLine two\r\nLine three");
+    });
+
+    test("preserves a lone CR in the message body (unlike sanitizeForHeader)", () => {
+      // Header fields strip lone CR as an injection break. Message must keep
+      // that CR so Windows-style / odd-paste project details are not silently
+      // flattened into a single line while multi-line \\n locks still pass.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Jane",
+        message: "Line one\rLine two",
+      });
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toContain("Line one\rLine two");
+      expect(main.sanitizeForHeader("Line one\rLine two")).toBe("Line one Line two");
+    });
+
+    test("keeps a literal @ in the mailto recipient (does not percent-encode authority)", () => {
+      // Subject/body encoding locks still pass if the recipient is encoded to
+      // info%40example.com — some mobile mail clients then fail to resolve the
+      // compose target while triage body contracts stay green.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Jane",
+        message: "Need a quote",
+      });
+      expect(url.startsWith("mailto:info@example.com?")).toBe(true);
+      expect(url).not.toContain("info%40example.com");
+      expect(url).not.toContain(encodeURIComponent("info@example.com"));
     });
 
     test("handles an empty recipient without throwing", () => {
@@ -346,6 +390,13 @@ describe("js/main.js pure helper functions", () => {
 
     test("defaults to the current year when no date is supplied", () => {
       expect(main.getYear()).toBe(String(new Date().getFullYear()));
+    });
+
+    test("returns NaN for an invalid Date (no silent epoch-year fallback)", () => {
+      // Callers that pass a failed Date parse must surface NaN rather than
+      // quietly printing 1970 (or another invented year) in the footer while
+      // the happy-path getYear locks stay green.
+      expect(main.getYear(new Date("not-a-date"))).toBe("NaN");
     });
   });
 

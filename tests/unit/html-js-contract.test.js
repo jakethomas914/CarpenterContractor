@@ -51,6 +51,16 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     expect(contactHtml).toMatch(/data-form-status/);
   });
 
+  test("contact page keeps exactly one data-contact-form (homepage keeps none)", () => {
+    // Presence-only hooks still pass if a second lead form is pasted onto
+    // contact (duplicate submits / conflicting recipients) or if the homepage
+    // gains a half-wired form that initContactForm binds without Netlify fields.
+    const contactForms = contactHtml.match(/\bdata-contact-form\b/g) || [];
+    const indexForms = indexHtml.match(/\bdata-contact-form\b/g) || [];
+    expect(contactForms).toHaveLength(1);
+    expect(indexForms).toHaveLength(0);
+  });
+
   test("includes the named fields buildMailtoUrl reads from FormData", () => {
     for (const name of ["name", "email", "phone", "service", "message"]) {
       expect(contactHtml).toMatch(new RegExp(`name="${name}"`));

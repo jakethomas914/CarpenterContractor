@@ -6416,3 +6416,78 @@ describe("exact homepage Open Graph title", () => {
     );
   });
 });
+
+describe("footer copyright seed-year exactness", () => {
+  test("both pages keep the exact © data-current-year seed copyright line", () => {
+    // Footer-bottom parity + business-name containment still pass if the seed
+    // year is deleted, hard-coded outside data-current-year, or the span is
+    // dropped — noscript / pre-JS visitors then see a blank or stale year while
+    // initFooterYear integration locks stay green.
+    const businessName = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    ).name;
+    const expected = `&copy; <span data-current-year>2026</span> ${businessName}. All rights reserved.`;
+    for (const html of [indexHtml, contactHtml]) {
+      const bottom = extractFooterBottom(html);
+      expect(bottom).toBeTruthy();
+      expect(bottom).toContain(expected);
+      const seeds = collectMatches(
+        bottom,
+        /<span\s+data-current-year>([^<]*)<\/span>/g
+      );
+      expect(seeds).toEqual(["2026"]);
+    }
+  });
+});
+
+describe("exact JSON-LD GeneralContractor document", () => {
+  test("JSON-LD parses to the exact launch GeneralContractor document", () => {
+    // Per-field exactness + top-level key allowlist still pass if values are
+    // swapped across properties (telephone into email, founder into name) or
+    // areaServed order is reshuffled while each individual lock is edited in
+    // isolation — rich results then publish a incoherent business entity.
+    const data = JSON.parse(
+      indexHtml.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]
+    );
+    expect(data).toEqual({
+      "@context": "https://schema.org",
+      "@type": "GeneralContractor",
+      name: "[Business Name]",
+      founder: "Greg Felton",
+      description:
+        "Carpentry and general contracting services throughout Southwest Florida.",
+      areaServed: [
+        "Naples",
+        "Fort Myers",
+        "Bonita Springs",
+        "Estero",
+        "Cape Coral",
+        "Marco Island",
+        "Sanibel",
+      ],
+      telephone: "+1-239-440-2416",
+      email: "info@example.com",
+      address: {
+        "@type": "PostalAddress",
+        addressRegion: "FL",
+        addressCountry: "US",
+      },
+      url: "https://www.example.com/",
+    });
+  });
+});
+
+describe("homepage section id CSS-selector safety", () => {
+  test("main section ids stay simple tokens safe for active-nav querySelector", () => {
+    // initActiveNavHighlight builds '.nav-links a[href="#' + id + '"]'. Spaces,
+    // quotes, or CSS meta-characters in an id break matching (or worse, change
+    // the selector) while href-catalog and observe-count locks stay green.
+    const mainHtml = indexHtml.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
+    expect(mainHtml).toBeTruthy();
+    const sectionIds = collectMatches(mainHtml, /<section\b[^>]*\bid="([^"]+)"/gi);
+    expect(sectionIds.length).toBeGreaterThan(0);
+    for (const id of sectionIds) {
+      expect(id).toMatch(/^[a-z0-9-]+$/);
+    }
+  });
+});
