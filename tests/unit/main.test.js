@@ -37,6 +37,70 @@ describe("js/main.js pure helper functions", () => {
       expect(main.sanitizeForHeader("")).toBe("");
       expect(main.sanitizeForHeader("   ")).toBe("");
     });
+
+    test("strips a lone carriage return the same way as CRLF pairs", () => {
+      // CR-only payloads still inject header breaks in some clients; treating
+      // only \\r\\n / \\n would leave a raw CR in the mailto subject/recipient.
+      expect(main.sanitizeForHeader("Pat\rBcc:victim@example.com")).toBe(
+        "Pat Bcc:victim@example.com"
+      );
+    });
+
+    test("coerces boolean false to the string false (not empty)", () => {
+      // FormData can surface unexpected types in tests/fixtures; false must not
+      // collapse to "" the way null/undefined do, or triage labels silently blank.
+      expect(main.sanitizeForHeader(false)).toBe("false");
+    });
+
+    test("preserves mid-string tabs while still stripping CR/LF header breaks", () => {
+      // Only CR/LF are header-injection vectors. Collapsing tabs (or all
+      // whitespace) would mangle pasted phone/name values while CRLF locks
+      // still pass — keep tabs as literal characters in sanitized headers.
+      expect(main.sanitizeForHeader("Jane\tDoe")).toBe("Jane\tDoe");
+      expect(main.sanitizeForHeader("Pat\t\r\nBcc:x@y.z")).toBe("Pat\t Bcc:x@y.z");
+    });
+
+    test("coerces boolean true and numeric zero to strings (not empty)", () => {
+      // Mirror of the false coerce lock: true/0 must stringify rather than
+      // collapsing like null/undefined, or triage labels silently blank when
+      // unexpected FormData-like types surface in fixtures.
+      expect(main.sanitizeForHeader(true)).toBe("true");
+      expect(main.sanitizeForHeader(0)).toBe("0");
+    });
+
+    test("coerces arrays and plain objects via String() without throwing", () => {
+      // Unexpected non-primitives (fixture bugs, future FormData wrappers) must
+      // still produce stable triage strings — throwing here aborts mailto submit.
+      expect(main.sanitizeForHeader([])).toBe("");
+      expect(main.sanitizeForHeader(["Pat", "Lee"])).toBe("Pat,Lee");
+      expect(main.sanitizeForHeader({ name: "Pat" })).toBe("[object Object]");
+    });
+
+    test("preserves Unicode line separators (only CR/LF are stripped)", () => {
+      // Defense-in-depth today targets RFC822-style CR/LF header breaks only.
+      // Collapsing U+2028 / U+2029 (or treating them like \\n) would silently
+      // rewrite pasted international names while CR/LF locks stay green — lock
+      // the current CR/LF-only policy so broadening it is an intentional change.
+      const lineSeparator = "\u2028";
+      const paragraphSeparator = "\u2029";
+      expect(main.sanitizeForHeader(`Pat${lineSeparator}Lee`)).toBe(
+        `Pat${lineSeparator}Lee`
+      );
+      expect(main.sanitizeForHeader(`Pat${paragraphSeparator}Lee`)).toBe(
+        `Pat${paragraphSeparator}Lee`
+      );
+      expect(main.sanitizeForHeader(`Pat\r${lineSeparator}\nLee`)).toBe(
+        `Pat ${lineSeparator} Lee`
+      );
+    });
+
+    test("preserves zero-width space (CR/LF-only policy does not collapse ZWSP)", () => {
+      // Same CR/LF-only class as U+2028/U+2029. Silent ZWSP collapsing would
+      // rewrite pasted names while CRLF / LS / PS locks stay green.
+      const zwsp = "\u200b";
+      expect(main.sanitizeForHeader(`Pat${zwsp}Lee`)).toBe(`Pat${zwsp}Lee`);
+      expect(main.sanitizeForHeader(`Pat\r${zwsp}\nLee`)).toBe(`Pat ${zwsp} Lee`);
+    });
   });
 
   describe("buildMailtoUrl", () => {
@@ -146,6 +210,19 @@ describe("js/main.js pure helper functions", () => {
       expect(url.toLowerCase()).not.toContain("%0d%0a");
     });
 
+    test("sanitizes email field against CRLF header injection in the mailto body", () => {
+      // Name/phone/service/recipient are locked; email is equally header-shaped
+      // once it lands in the body. Skipping it lets CRLF rewrite Cc/Bcc lines.
+      const url = main.buildMailtoUrl("info@example.com", {
+        email: "ok@example.com\r\nBcc:victim@example.com",
+        message: "hi",
+      });
+
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toContain("Email: ok@example.com Bcc:victim@example.com");
+      expect(url.toLowerCase()).not.toContain("%0d%0a");
+    });
+
     test("preserves intentional newlines in the free-form message body", () => {
       // Message is only trimmed, not run through sanitizeForHeader, so
       // visitors can still write multi-line project details.
@@ -158,14 +235,159 @@ describe("js/main.js pure helper functions", () => {
       expect(decodedBody).toContain("Line one\nLine two\r\nLine three");
     });
 
+    test("preserves a lone CR in the message body (unlike sanitizeForHeader)", () => {
+      // Header fields strip lone CR as an injection break. Message must keep
+      // that CR so Windows-style / odd-paste project details are not silently
+      // flattened into a single line while multi-line \\n locks still pass.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Jane",
+        message: "Line one\rLine two",
+      });
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toContain("Line one\rLine two");
+      expect(main.sanitizeForHeader("Line one\rLine two")).toBe("Line one Line two");
+    });
+
+    test("keeps a literal @ in the mailto recipient (does not percent-encode authority)", () => {
+      // Subject/body encoding locks still pass if the recipient is encoded to
+      // info%40example.com — some mobile mail clients then fail to resolve the
+      // compose target while triage body contracts stay green.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Jane",
+        message: "Need a quote",
+      });
+      expect(url.startsWith("mailto:info@example.com?")).toBe(true);
+      expect(url).not.toContain("info%40example.com");
+      expect(url).not.toContain(encodeURIComponent("info@example.com"));
+    });
+
+    test("does not percent-encode ?, #, or & in the mailto recipient authority", () => {
+      // Subject/body already encode reserved chars. The recipient is concatenated
+      // raw after CR/LF sanitize only — a poisoned launch paste can rewrite or
+      // drop the compose query while @ / CRLF locks stay green. Lock the current
+      // seam so encoding or stripping these becomes an intentional change; HTML
+      // data-recipient shape forbids them on the live form.
+      expect(
+        main.buildMailtoUrl("info@example.com?cc=evil@x.com", { name: "Pat" })
+      ).toMatch(/^mailto:info@example\.com\?cc=evil@x\.com\?subject=/);
+      expect(
+        main.buildMailtoUrl("info@example.com#frag", { name: "Pat" })
+      ).toMatch(/^mailto:info@example\.com#frag\?subject=/);
+      expect(
+        main.buildMailtoUrl("info@example.com&cc=evil@x.com", { name: "Pat" })
+      ).toMatch(/^mailto:info@example\.com&cc=evil@x\.com\?subject=/);
+    });
+
     test("handles an empty recipient without throwing", () => {
       const url = main.buildMailtoUrl("", { name: "Jane", message: "hi" });
       expect(url.startsWith("mailto:?subject=")).toBe(true);
     });
 
+    test("sanitizes whitespace-only recipient to empty so mailto has no forged address", () => {
+      // Empty-string recipient is already locked. Whitespace / CR/LF-only values
+      // must sanitize the same way — otherwise a blank-looking address can still
+      // leave control characters in the mailto authority before ?.
+      const url = main.buildMailtoUrl("  \r\n\t  ", { name: "Jane", message: "hi" });
+      expect(url.startsWith("mailto:?subject=")).toBe(true);
+      expect(url).not.toMatch(/^mailto:\s/);
+      expect(url).not.toMatch(/[\r\n]/);
+    });
+
+    test("trims surrounding whitespace on a real recipient before the mailto authority", () => {
+      // Whitespace-only recipients already collapse to empty. A padded but valid
+      // address must still land as a clean mailto:user@host — otherwise some
+      // clients treat the leading space as part of the authority and bounce.
+      const url = main.buildMailtoUrl("  info@example.com  ", {
+        name: "Jane",
+        message: "hi",
+      });
+      expect(url.startsWith("mailto:info@example.com?")).toBe(true);
+      expect(url).not.toMatch(/^mailto:\s/);
+    });
+
+    test("empty-string fields match missing-field triage body (no undefined leaks)", () => {
+      // FormData can yield "" for cleared inputs. Empty strings must sanitize the
+      // same as omitted keys — "undefined" / "null" text in the owner's inbox is
+      // a lead-quality regression even when required HTML5 checks stay green.
+      const fromEmptyStrings = main.buildMailtoUrl("info@example.com", {
+        name: "",
+        email: "",
+        phone: "",
+        service: "",
+        message: "",
+      });
+      const fromMissing = main.buildMailtoUrl("info@example.com", {});
+      expect(fromEmptyStrings).toBe(fromMissing);
+      const decodedBody = decodeURIComponent(fromEmptyStrings.split("body=")[1]);
+      expect(decodedBody).toBe(
+        ["Name: ", "Email: ", "Phone: ", "Service interested in: ", "", ""].join("\n")
+      );
+      expect(decodedBody).not.toMatch(/undefined|null/i);
+    });
+
+    test("null field properties match empty/missing triage body (no 'null' leaks)", () => {
+      // Integration covers missing FormData keys → null from .get. Explicit null
+      // properties must still coerce via sanitizeForHeader / message || "" — a
+      // regression that String(null) into triage labels would not fail empty-string
+      // or fields===null locks.
+      const fromNullProps = main.buildMailtoUrl("info@example.com", {
+        name: null,
+        email: null,
+        phone: null,
+        service: null,
+        message: null,
+      });
+      const fromMissing = main.buildMailtoUrl("info@example.com", {});
+      expect(fromNullProps).toBe(fromMissing);
+      expect(fromNullProps).toContain(
+        encodeURIComponent("New project inquiry from website visitor")
+      );
+      const decodedBody = decodeURIComponent(fromNullProps.split("body=")[1]);
+      expect(decodedBody).not.toMatch(/null/i);
+    });
+
+    test("mailto query keys stay exactly subject and body (no silent cc/bcc)", () => {
+      // Encoding locks still pass if triage "helpers" append cc=/bcc=/reply-to=
+      // params that quietly fan out lead mail or rewrite the compose target.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Jane",
+        email: "jane@example.com",
+        message: "Need a quote",
+      });
+      const query = url.slice(url.indexOf("?") + 1);
+      const keys = query.split("&").map((part) => part.split("=")[0]).sort();
+      expect(keys).toEqual(["body", "subject"]);
+    });
+
     test("does not throw and returns a string when fields is undefined", () => {
       expect(() => main.buildMailtoUrl("info@example.com", undefined)).not.toThrow();
       expect(typeof main.buildMailtoUrl("info@example.com", undefined)).toBe("string");
+    });
+
+    test("does not throw when fields is null (same empty-field fallback as undefined)", () => {
+      // Callers/tests may pass null; fields && field short-circuit must still
+      // yield a mailto URL instead of throwing on property access.
+      expect(() => main.buildMailtoUrl("info@example.com", null)).not.toThrow();
+      const url = main.buildMailtoUrl("info@example.com", null);
+      expect(url).toContain(encodeURIComponent("New project inquiry from website visitor"));
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toBe(
+        ["Name: ", "Email: ", "Phone: ", "Service interested in: ", "", ""].join("\n")
+      );
+    });
+
+    test("trims whitespace-only message to empty while keeping triage label block", () => {
+      // Message is trim-only (not sanitizeForHeader). Whitespace-only payloads
+      // must collapse to an empty body section — not a blank-looking "   " line
+      // that looks like lost project details in the owner's inbox.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Jane",
+        message: "  \t  \n  ",
+      });
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toBe(
+        ["Name: Jane", "Email: ", "Phone: ", "Service interested in: ", "", ""].join("\n")
+      );
     });
 
     test("percent-encodes ampersands in subject/body so mailto query parsing stays intact", () => {
@@ -214,6 +436,13 @@ describe("js/main.js pure helper functions", () => {
 
     test("defaults to the current year when no date is supplied", () => {
       expect(main.getYear()).toBe(String(new Date().getFullYear()));
+    });
+
+    test("returns NaN for an invalid Date (no silent epoch-year fallback)", () => {
+      // Callers that pass a failed Date parse must surface NaN rather than
+      // quietly printing 1970 (or another invented year) in the footer while
+      // the happy-path getYear locks stay green.
+      expect(main.getYear(new Date("not-a-date"))).toBe("NaN");
     });
   });
 

@@ -51,6 +51,16 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     expect(contactHtml).toMatch(/data-form-status/);
   });
 
+  test("contact page keeps exactly one data-contact-form (homepage keeps none)", () => {
+    // Presence-only hooks still pass if a second lead form is pasted onto
+    // contact (duplicate submits / conflicting recipients) or if the homepage
+    // gains a half-wired form that initContactForm binds without Netlify fields.
+    const contactForms = contactHtml.match(/\bdata-contact-form\b/g) || [];
+    const indexForms = indexHtml.match(/\bdata-contact-form\b/g) || [];
+    expect(contactForms).toHaveLength(1);
+    expect(indexForms).toHaveLength(0);
+  });
+
   test("includes the named fields buildMailtoUrl reads from FormData", () => {
     for (const name of ["name", "email", "phone", "service", "message"]) {
       expect(contactHtml).toMatch(new RegExp(`name="${name}"`));
@@ -76,6 +86,24 @@ describe("JS ↔ HTML contract (contact.html)", () => {
       );
     }
     expect(contactHtml).toMatch(/<input\b[^>]*type="email"[^>]*id="email"/i);
+  });
+
+  test("service select stays optional (no required) so unsure leads can still submit", () => {
+    // Name/phone/email/message required locks still pass if service gains
+    // required — visitors who are "Not sure yet" / skipping the catalog then
+    // cannot submit while option value↔label contracts remain green.
+    const selectOpen = contactHtml.match(/<select\b[^>]*\bid="service"[^>]*>/i);
+    expect(selectOpen).toBeTruthy();
+    expect(selectOpen[0]).not.toMatch(/\brequired\b/i);
+  });
+
+  test("honeypot bot-field stays optional (no required) so real leads can submit", () => {
+    // Lead-field required locks still pass if the empty visually-hidden honeypot
+    // gains required — native HTML5 validation then fails every human submit
+    // while Netlify honeypot attribute contracts stay green.
+    const botOpen = contactHtml.match(/<input\b[^>]*\bname="bot-field"[^>]*>/i);
+    expect(botOpen).toBeTruthy();
+    expect(botOpen[0]).not.toMatch(/\brequired\b/i);
   });
 
   test("name field stays type=text (not email/tel/hidden) for HTML5 name entry", () => {
@@ -106,6 +134,15 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     const formOpen = contactHtml.match(/<form\b[^>]*data-contact-form[^>]*>/i);
     expect(formOpen).toBeTruthy();
     expect(formOpen[0]).not.toMatch(/\baction\s*=\s*["']https?:/i);
+  });
+
+  test("contact form omits action entirely (no relative/empty action drift)", () => {
+    // Absolute-URL forbid still passes with action="/thank-you" or action="" —
+    // those break Netlify POST-to-page + JS mailto dual path while https? checks
+    // stay green.
+    const formOpen = contactHtml.match(/<form\b[^>]*data-contact-form[^>]*>/i);
+    expect(formOpen).toBeTruthy();
+    expect(formOpen[0]).not.toMatch(/\baction\s*=/i);
   });
 
   test("pairs every lead-field label[for] with a matching control id", () => {
@@ -268,6 +305,27 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
         /<button\b[^>]*\bclass="[^"]*\bnav-toggle\b[^"]*"[^>]*\btype="button"[^>]*\baria-label="[^"]+"/s
       );
     }
+  });
+
+  test("nav toggle keeps the exact Toggle navigation menu aria-label on both pages", () => {
+    // Non-empty aria-label still passes if the name softens to "Menu" / "Open" —
+    // AT then loses the documented control purpose while type=button and
+    // aria-expanded contracts stay green.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(
+        /<button\b[^>]*\bclass="[^"]*\bnav-toggle\b[^"]*"[^>]*\baria-label="Toggle navigation menu"/s
+      );
+    }
+  });
+
+  test("mailto subject template keeps New project inquiry from + website visitor fallback in source", () => {
+    // Runtime subject assertions still pass if the template is rebuilt from
+    // scattered strings — inbox filters then break when the source prefix or
+    // fallback token drifts while buildMailtoUrl unit tests stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).toContain(
+      '"New project inquiry from " + (name || "website visitor")'
+    );
   });
 
   test("nav toggle starts collapsed with aria-expanded=false on both pages", () => {
