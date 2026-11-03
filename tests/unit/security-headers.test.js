@@ -76,6 +76,15 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(vercel[key]).toBe(netlify[key]);
   });
 
+  test("host header key sets stay exactly the documented six (no silent sprawl)", () => {
+    // Required-key presence still passes if either host grows CORS / NEL /
+    // Report-To / Access-Control-* while the shared six stay equal. Exact
+    // allowlists keep the hardened surface closed on both Netlify and Vercel.
+    const expected = [...requiredKeys].sort();
+    expect(Object.keys(netlify).sort()).toEqual(expected);
+    expect(Object.keys(vercel).sort()).toEqual(expected);
+  });
+
   test("CSP allows mailto form-action used by the contact form", () => {
     expect(netlify["Content-Security-Policy"]).toMatch(/form-action[^;]*mailto:/);
     expect(vercel["Content-Security-Policy"]).toMatch(/form-action[^;]*mailto:/);
@@ -167,6 +176,21 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     const vercelConfig = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"));
     const sources = (vercelConfig.headers || []).map((entry) => entry.source);
     expect(sources).toContain("/(.*)");
+  });
+
+  test("host header scopes stay a single catch-all on each host (no weaker siblings)", () => {
+    // Presence of /* or /(.*) still passes if extra narrower routes attach a
+    // softer CSP/HSTS to contact.html or assets. Exact cardinality keeps one
+    // site-wide hardened block per host.
+    const netlifyRaw = fs.readFileSync(path.join(root, "_headers"), "utf8");
+    const netlifyPaths = netlifyRaw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("/") && !line.includes(":"));
+    expect(netlifyPaths).toEqual(["/*"]);
+
+    const vercelConfig = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"));
+    expect((vercelConfig.headers || []).map((entry) => entry.source)).toEqual(["/(.*)"]);
   });
 
   test("locks the exact host Content-Security-Policy string (no inserted directives)", () => {

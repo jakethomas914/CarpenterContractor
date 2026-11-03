@@ -93,6 +93,14 @@ describe("js/main.js pure helper functions", () => {
         `Pat ${lineSeparator} Lee`
       );
     });
+
+    test("preserves zero-width space (CR/LF-only policy does not collapse ZWSP)", () => {
+      // Same CR/LF-only class as U+2028/U+2029. Silent ZWSP collapsing would
+      // rewrite pasted names while CRLF / LS / PS locks stay green.
+      const zwsp = "\u200b";
+      expect(main.sanitizeForHeader(`Pat${zwsp}Lee`)).toBe(`Pat${zwsp}Lee`);
+      expect(main.sanitizeForHeader(`Pat\r${zwsp}\nLee`)).toBe(`Pat ${zwsp} Lee`);
+    });
   });
 
   describe("buildMailtoUrl", () => {
@@ -253,6 +261,23 @@ describe("js/main.js pure helper functions", () => {
       expect(url).not.toContain(encodeURIComponent("info@example.com"));
     });
 
+    test("does not percent-encode ?, #, or & in the mailto recipient authority", () => {
+      // Subject/body already encode reserved chars. The recipient is concatenated
+      // raw after CR/LF sanitize only — a poisoned launch paste can rewrite or
+      // drop the compose query while @ / CRLF locks stay green. Lock the current
+      // seam so encoding or stripping these becomes an intentional change; HTML
+      // data-recipient shape forbids them on the live form.
+      expect(
+        main.buildMailtoUrl("info@example.com?cc=evil@x.com", { name: "Pat" })
+      ).toMatch(/^mailto:info@example\.com\?cc=evil@x\.com\?subject=/);
+      expect(
+        main.buildMailtoUrl("info@example.com#frag", { name: "Pat" })
+      ).toMatch(/^mailto:info@example\.com#frag\?subject=/);
+      expect(
+        main.buildMailtoUrl("info@example.com&cc=evil@x.com", { name: "Pat" })
+      ).toMatch(/^mailto:info@example\.com&cc=evil@x\.com\?subject=/);
+    });
+
     test("handles an empty recipient without throwing", () => {
       const url = main.buildMailtoUrl("", { name: "Jane", message: "hi" });
       expect(url.startsWith("mailto:?subject=")).toBe(true);
@@ -298,6 +323,27 @@ describe("js/main.js pure helper functions", () => {
         ["Name: ", "Email: ", "Phone: ", "Service interested in: ", "", ""].join("\n")
       );
       expect(decodedBody).not.toMatch(/undefined|null/i);
+    });
+
+    test("null field properties match empty/missing triage body (no 'null' leaks)", () => {
+      // Integration covers missing FormData keys → null from .get. Explicit null
+      // properties must still coerce via sanitizeForHeader / message || "" — a
+      // regression that String(null) into triage labels would not fail empty-string
+      // or fields===null locks.
+      const fromNullProps = main.buildMailtoUrl("info@example.com", {
+        name: null,
+        email: null,
+        phone: null,
+        service: null,
+        message: null,
+      });
+      const fromMissing = main.buildMailtoUrl("info@example.com", {});
+      expect(fromNullProps).toBe(fromMissing);
+      expect(fromNullProps).toContain(
+        encodeURIComponent("New project inquiry from website visitor")
+      );
+      const decodedBody = decodeURIComponent(fromNullProps.split("body=")[1]);
+      expect(decodedBody).not.toMatch(/null/i);
     });
 
     test("mailto query keys stay exactly subject and body (no silent cc/bcc)", () => {

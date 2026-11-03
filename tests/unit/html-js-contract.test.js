@@ -97,6 +97,15 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     expect(selectOpen[0]).not.toMatch(/\brequired\b/i);
   });
 
+  test("honeypot bot-field stays optional (no required) so real leads can submit", () => {
+    // Lead-field required locks still pass if the empty visually-hidden honeypot
+    // gains required — native HTML5 validation then fails every human submit
+    // while Netlify honeypot attribute contracts stay green.
+    const botOpen = contactHtml.match(/<input\b[^>]*\bname="bot-field"[^>]*>/i);
+    expect(botOpen).toBeTruthy();
+    expect(botOpen[0]).not.toMatch(/\brequired\b/i);
+  });
+
   test("name field stays type=text (not email/tel/hidden) for HTML5 name entry", () => {
     // Wrong type breaks autocomplete=name and mobile keyboards; type=hidden
     // would drop the lead name from visible validation entirely.
@@ -125,6 +134,15 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     const formOpen = contactHtml.match(/<form\b[^>]*data-contact-form[^>]*>/i);
     expect(formOpen).toBeTruthy();
     expect(formOpen[0]).not.toMatch(/\baction\s*=\s*["']https?:/i);
+  });
+
+  test("contact form omits action entirely (no relative/empty action drift)", () => {
+    // Absolute-URL forbid still passes with action="/thank-you" or action="" —
+    // those break Netlify POST-to-page + JS mailto dual path while https? checks
+    // stay green.
+    const formOpen = contactHtml.match(/<form\b[^>]*data-contact-form[^>]*>/i);
+    expect(formOpen).toBeTruthy();
+    expect(formOpen[0]).not.toMatch(/\baction\s*=/i);
   });
 
   test("pairs every lead-field label[for] with a matching control id", () => {

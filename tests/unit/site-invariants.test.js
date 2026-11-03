@@ -147,6 +147,15 @@ describe("discovery / SEO file consistency", () => {
     expect(robotsTxt).not.toMatch(/^\s*Disallow:\s*\/\s*$/im);
   });
 
+  test("HTML pages omit robots/noindex meta so discovery files stay authoritative", () => {
+    // Exact robots.txt allow-all + sitemap body still pass if a page meta hides
+    // the site from SERPs — a common staging leftover that never touches robots.txt.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).not.toMatch(/name=["']robots["']/i);
+      expect(html).not.toMatch(/\bnoindex\b/i);
+    }
+  });
+
   test("canonical URLs on each page match the sitemap locs", () => {
     expect(indexHtml).toMatch(/rel="canonical" href="https:\/\/www\.example\.com\/"/);
     expect(contactHtml).toMatch(
@@ -540,6 +549,22 @@ describe("footer contact + brand blurb parity", () => {
     expect(extractFooterContactList(indexHtml)).toBe(extractFooterContactList(contactHtml));
   });
 
+  test("footer Contact geo line stays exact Serving Southwest Florida on both pages", () => {
+    // Cross-page Contact-list equality still passes if both footers soften into
+    // exclusive statewide or street-address claims together while tel/mailto
+    // identity locks stay green.
+    for (const html of [indexHtml, contactHtml]) {
+      const items = collectMatches(
+        extractFooterContactList(html) || "",
+        /<li\b[^>]*>([\s\S]*?)<\/li>/gi
+      ).map((item) =>
+        decodeBasicEntities(item.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim())
+      );
+      expect(items).toHaveLength(3);
+      expect(items[2]).toBe("Serving Southwest Florida");
+    }
+  });
+
   test("footer brand blurb stays identical across both pages", () => {
     expect(extractFooterBrandBlurb(indexHtml)).toBe(extractFooterBrandBlurb(contactHtml));
   });
@@ -806,6 +831,24 @@ describe("quote CTA destinations", () => {
       const navCta = html.match(/<div class="nav-cta">([\s\S]*?)<\/div>/);
       expect(navCta).toBeTruthy();
       expect(navCta[1]).toMatch(/href="contact\.html"/);
+    }
+  });
+
+  test("header nav-cta primary quote label stays exact Get a Free Quote on both pages", () => {
+    // Href locks + cross-page nav-cta equality still pass if both headers rename
+    // the sticky quote CTA to "Quote" / "Contact" together while destination
+    // contracts stay green.
+    for (const html of [indexHtml, contactHtml]) {
+      const navCta = html.match(/<div class="nav-cta">([\s\S]*?)<\/div>/);
+      expect(navCta).toBeTruthy();
+      const primary = navCta[1].match(
+        /<a\b[^>]*\bclass="[^"]*\bbtn-primary\b[^"]*"[^>]*>([\s\S]*?)<\/a>/i
+      );
+      expect(primary).toBeTruthy();
+      expect(primary[0]).toMatch(/\bhref="contact\.html"/);
+      expect(decodeBasicEntities(primary[1].replace(/\s+/g, " ").trim())).toBe(
+        "Get a Free Quote"
+      );
     }
   });
 
@@ -1284,10 +1327,12 @@ describe("contact form recipient shape", () => {
   test("data-recipient is a non-empty email-shaped address", () => {
     // Empty or non-email recipients produce mailto:? / broken clients while every
     // other identity check can still pass against a shared bad placeholder.
+    // Reject ?, #, and & so a poisoned paste cannot rewrite the mailto query
+    // while the looser ^[^\s@]+@… shape still matches info@example.com?cc=x.
     const recipient = contactHtml.match(/data-recipient="([^"]*)"/)?.[1];
     expect(recipient).toBeTruthy();
     expect(recipient.trim().length).toBeGreaterThan(0);
-    expect(recipient).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+    expect(recipient).toMatch(/^[^\s?#&@]+@[^\s?#&@]+\.[^\s?#&@]+$/);
   });
 });
 
