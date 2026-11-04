@@ -101,6 +101,15 @@ describe("js/main.js pure helper functions", () => {
       expect(main.sanitizeForHeader(`Pat${zwsp}Lee`)).toBe(`Pat${zwsp}Lee`);
       expect(main.sanitizeForHeader(`Pat\r${zwsp}\nLee`)).toBe(`Pat ${zwsp} Lee`);
     });
+
+    test("preserves non-breaking space (CR/LF-only policy does not collapse NBSP)", () => {
+      // Pasted phone/name values often carry U+00A0 from rich text. Collapsing
+      // NBSP into a regular space (or stripping it) would rewrite triage labels
+      // while CR/LF / ZWSP / tab locks stay green — lock the current policy.
+      const nbsp = "\u00a0";
+      expect(main.sanitizeForHeader(`Pat${nbsp}Lee`)).toBe(`Pat${nbsp}Lee`);
+      expect(main.sanitizeForHeader(`Pat\r${nbsp}\nLee`)).toBe(`Pat ${nbsp} Lee`);
+    });
   });
 
   describe("buildMailtoUrl", () => {

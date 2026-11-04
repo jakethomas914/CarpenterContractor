@@ -5262,29 +5262,86 @@ describe("sample testimonial author name disclosure", () => {
   });
 });
 
-describe("sample testimonial quote placeholder prefix", () => {
-  test("every Client Feedback quote starts with Placeholder testimonial", () => {
-    // Author/SAMPLE disclosure locks still pass if quote bodies drop the
-    // "Placeholder testimonial — …" lead-in and only keep polished praise —
-    // sample cards then look like real reviews while Sample Client / Sample
-    // chip contracts remain green.
+describe("sample testimonial quote catalog", () => {
+  test("Client Feedback quotes keep the exact ordered placeholder catalog", () => {
+    // Prefix-only / SAMPLE / Sample Client locks still pass if quote bodies
+    // drop the "replace with a real client quote" stem or swap in polished
+    // praise — sample cards then read as live reviews while disclosure chrome
+    // stays green. Exact ordered catalog catches rewrites and silent drops.
     const quotes = collectMatches(
       indexHtml,
       /class="testimonial-card"[^>]*>[\s\S]*?<p>\s*"([^"]+)"/g
     ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
 
-    expect(quotes.length).toBeGreaterThan(0);
-    for (const quote of quotes) {
-      expect(quote.startsWith("Placeholder testimonial")).toBe(true);
+    expect(quotes).toEqual([
+      "Placeholder testimonial — replace with a real client quote. Greg was on time, communicated clearly, and the finished trim work looks fantastic.",
+      "Placeholder testimonial — replace with a real client quote. We appreciated working directly with the owner from quote to final walkthrough.",
+      "Placeholder testimonial — replace with a real client quote. The job site was spotless every day and the built-ins turned out beautifully.",
+    ]);
+  });
+});
+
+describe("sample testimonial author city catalog", () => {
+  test("sample author cities keep the exact ordered City, FL catalog", () => {
+    // Hero-eyebrow town-order (FL stripped) still passes if authors drop ", FL"
+    // or invent neighborhoods — Client Feedback then implies unverified locales
+    // while SAMPLE / Sample Client / quote-prefix locks stay green.
+    const cities = collectMatches(
+      indexHtml,
+      /class="testimonial-author"[^>]*>[\s\S]*?<span>([^<]+)<\/span>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+
+    expect(cities).toEqual([
+      "Naples, FL",
+      "Fort Myers, FL",
+      "Bonita Springs, FL",
+    ]);
+  });
+});
+
+describe("testimonial-card + gallery-tile honesty cardinality", () => {
+  test("homepage keeps exactly three sample testimonial cards", () => {
+    // Per-card SAMPLE / Sample Client / quote locks still pass if a fourth
+    // polished card is added or one sample is removed — social-proof density
+    // then drifts while individual disclosure chrome stays green.
+    const cards = collectMatches(indexHtml, /class="testimonial-card"/g);
+    expect(cards).toHaveLength(3);
+  });
+
+  test("every testimonial-card keeps exactly five star glyphs", () => {
+    // Gold star CSS + SAMPLE disclosure still pass if a card drops to 3–4
+    // glyphs or invents a sixth — Client Feedback then over/under-claims rating
+    // while type/color contracts remain green.
+    const cards = collectMatches(
+      indexHtml,
+      /class="testimonial-card"[^>]*>([\s\S]*?)(?=class="testimonial-card"|<\/div>\s*<\/div>\s*<\/section>)/g
+    );
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      const starsBlock = card.match(
+        /class="testimonial-stars"[^>]*>([\s\S]*?)<\/div>/
+      );
+      expect(starsBlock).toBeTruthy();
+      const glyphs = collectMatches(starsBlock[1], /<svg\b/gi);
+      expect(glyphs).toHaveLength(5);
     }
+  });
+
+  test("homepage keeps exactly six gallery-tile placeholders", () => {
+    // Project-title catalog + caption locks still pass if a seventh tile is
+    // appended or a category tile is deleted — Gallery density then drifts
+    // while remaining title/caption contracts stay green.
+    const tiles = collectMatches(indexHtml, /class="gallery-tile"/g);
+    expect(tiles).toHaveLength(6);
   });
 });
 
 describe("testimonials section honesty lede", () => {
-  test("testimonials heading keeps the real-reviews-replace-samples disclaimer", () => {
+  test("testimonials heading keeps the exact real-reviews-replace-samples disclaimer", () => {
     // SAMPLE / Sample Client / Placeholder quote locks still pass if the
     // section lede softens to generic praise intro copy — visitors lose the
-    // only catalog-level honesty signal above the sample cards.
+    // only catalog-level honesty signal above the sample cards. Soft keyword
+    // matches miss "Real reviews coming soon" / "Sample quotes for layout".
     const block = indexHtml.match(
       /id="testimonials"[\s\S]*?<div class="section-heading[^"]*">([\s\S]*?)<\/div>/
     );
@@ -5293,8 +5350,9 @@ describe("testimonials section honesty lede", () => {
       .match(/<p>\s*([^<]+?)\s*<\/p>/)[1]
       .replace(/\s+/g, " ")
       .trim();
-    expect(lede).toMatch(/real client reviews/i);
-    expect(lede).toMatch(/sample quotes/i);
+    expect(lede).toBe(
+      "Real client reviews will replace the sample quotes below once available."
+    );
   });
 });
 
@@ -5309,10 +5367,14 @@ describe("gallery tile placeholder captions", () => {
       /class="gallery-tile"[^>]*>[\s\S]*?<span>\s*([^<]*?)\s*<\/span>/g
     ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
 
-    expect(captions.length).toBeGreaterThan(0);
-    for (const caption of captions) {
-      expect(caption).toBe("Photos coming soon");
-    }
+    expect(captions).toEqual([
+      "Photos coming soon",
+      "Photos coming soon",
+      "Photos coming soon",
+      "Photos coming soon",
+      "Photos coming soon",
+      "Photos coming soon",
+    ]);
   });
 });
 
@@ -5327,20 +5389,18 @@ describe("gallery placeholder-note honesty copy", () => {
       /class="placeholder-note[^"]*"[^>]*>[\s\S]*?<\/svg>\s*([^<]+?)\s*</g
     ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
 
-    expect(notes.length).toBeGreaterThan(0);
-    for (const note of notes) {
-      expect(note).toBe(
-        "Placeholder gallery — replace with real project photos before launch"
-      );
-    }
+    expect(notes).toEqual([
+      "Placeholder gallery — replace with real project photos before launch",
+    ]);
   });
 });
 
 describe("gallery section honesty lede", () => {
-  test("gallery heading keeps the photos-being-added-soon disclaimer", () => {
+  test("gallery heading keeps the exact photos-being-added-soon disclaimer", () => {
     // placeholder-note exact copy + tile captions still pass if the section lede
     // softens to "Explore our recent builds" — visitors lose the catalog-level
     // honesty signal above the tiles while chip/caption contracts remain green.
+    // Soft keyword matches miss dropping "Greg will showcase" / category framing.
     const block = indexHtml.match(
       /id="gallery"[\s\S]*?<div class="section-heading[^"]*">([\s\S]*?)<\/div>/
     );
@@ -5349,8 +5409,9 @@ describe("gallery section honesty lede", () => {
       .match(/<p>\s*([^<]+?)\s*<\/p>/)[1]
       .replace(/\s+/g, " ")
       .trim();
-    expect(lede).toMatch(/photos? (are )?being added soon/i);
-    expect(lede).toMatch(/showcase/i);
+    expect(lede).toBe(
+      "Project photos are being added soon. Each tile below marks a category of work Greg will showcase here."
+    );
   });
 });
 
