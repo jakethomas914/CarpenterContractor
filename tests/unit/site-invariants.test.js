@@ -5799,8 +5799,12 @@ describe("contact email honesty placeholder", () => {
     // mailto href/text parity still passes if the <small> honesty cue is dropped —
     // info@example.com then reads as a finished business address while lead-capture
     // identity contracts remain green (same class as gallery/credentials honesty).
-    expect(contactHtml).toMatch(
-      /href="mailto:info@example\.com"[\s\S]*?<small>\s*Placeholder\s*—\s*update with real business email\s*<\/small>/
+    const emailRow = contactHtml.match(
+      /href="mailto:info@example\.com"[\s\S]*?<small>([\s\S]*?)<\/small>/
+    );
+    expect(emailRow).toBeTruthy();
+    expect(decodeBasicEntities(emailRow[1]).replace(/\s+/g, " ").trim()).toBe(
+      "Placeholder — update with real business email"
     );
   });
 });
@@ -5905,10 +5909,15 @@ describe("lead form-note Prefer to talk invite", () => {
     );
     expect(noteBlock).toBeTruthy();
     const text = decodeBasicEntities(noteBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\u2011/g, "-")
       .replace(/\s+/g, " ")
       .trim();
-    expect(text).toMatch(/^Prefer to talk it through first\?\s*Call or text\b/);
-    expect(text).toMatch(/\bdirectly\.?$/);
+    // Prefix/suffix soft matches still pass if the mid-string phone invite drifts
+    // ("email us", drop "Call or text", reformat the number) while tel: digit
+    // parity and phone-link CSS contracts stay green — lock the exact sentence.
+    expect(text).toBe(
+      "Prefer to talk it through first? Call or text 239-440-2416 directly."
+    );
   });
 });
 
@@ -6595,5 +6604,190 @@ describe("homepage section id CSS-selector safety", () => {
     for (const id of sectionIds) {
       expect(id).toMatch(/^[a-z0-9-]+$/);
     }
+  });
+});
+
+function visibleTelLabel(htmlSnippet) {
+  return decodeBasicEntities(String(htmlSnippet).replace(/<[^>]+>/g, " "))
+    .replace(/\u2011/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+describe("homepage primary quote CTA label surfaces", () => {
+  test("hero and cta-band primary quote buttons stay exact Request a Free Quote", () => {
+    // contact.html href + (Get|Request) alternation still pass if hero/cta-band
+    // soft-rename to "Get a Free Quote" / "Quote" while sticky nav keeps its
+    // exact Get a Free Quote lock — first-viewport + band conversion copy then
+    // drifts while destination contracts stay green.
+    const heroPrimary = indexHtml.match(
+      /class="hero-actions"[\s\S]*?<a\b[^>]*\bclass="[^"]*\bbtn-primary\b[^"]*"[^>]*>([\s\S]*?)<\/a>/i
+    );
+    expect(heroPrimary).toBeTruthy();
+    expect(heroPrimary[0]).toMatch(/\bhref="contact\.html"/);
+    expect(visibleTelLabel(heroPrimary[1])).toBe("Request a Free Quote");
+
+    const bandPrimary = indexHtml.match(
+      /class="cta-actions"[\s\S]*?<a\b[^>]*\bclass="[^"]*\bbtn-light\b[^"]*"[^>]*>([\s\S]*?)<\/a>/i
+    );
+    expect(bandPrimary).toBeTruthy();
+    expect(bandPrimary[0]).toMatch(/\bhref="contact\.html"/);
+    expect(visibleTelLabel(bandPrimary[1])).toBe("Request a Free Quote");
+  });
+});
+
+describe("homepage Call CTA visible label catalog", () => {
+  test("hero, area-map, and cta-band Call CTAs stay exact Call 239-440-2416", () => {
+    // tel:+12394402416 uniqueness + digit parity still pass if visible labels
+    // drop "Call", reformat the number, or soft-rename to "Phone" — conversion
+    // surfaces then lose the dial cue while href contracts stay green.
+    const callLabels = [
+      indexHtml.match(
+        /class="hero-actions"[\s\S]*?<a\b[^>]*\bhref="tel:[^"]+"[^>]*>([\s\S]*?)<\/a>/i
+      )?.[1],
+      indexHtml.match(
+        /class="area-map-card"[\s\S]*?<a\b[^>]*\bhref="tel:[^"]+"[^>]*>([\s\S]*?)<\/a>/i
+      )?.[1],
+      indexHtml.match(
+        /class="cta-actions"[\s\S]*?<a\b[^>]*\bhref="tel:[^"]+"[^>]*>([\s\S]*?)<\/a>/i
+      )?.[1],
+    ].map((raw) => {
+      expect(raw).toBeTruthy();
+      return visibleTelLabel(raw);
+    });
+
+    expect(callLabels).toEqual([
+      "Call 239-440-2416",
+      "Call 239-440-2416",
+      "Call 239-440-2416",
+    ]);
+  });
+});
+
+describe("bare tel visible NANP format exactness", () => {
+  test("nav-phone, footer, contact-info, and form-note phone text stay 239-440-2416", () => {
+    // Digit parity still passes for 239.440.2416 / (239) 440-2416 while
+    // tel:+12394402416 stays green — lock the hyphenated NANP visitors copy.
+    const bareLabels = [];
+
+    for (const html of [indexHtml, contactHtml]) {
+      const navPhone = html.match(
+        /class="nav-phone"[^>]*href="tel:[^"]+"[^>]*>([\s\S]*?)<\/a>/i
+      )?.[1];
+      expect(navPhone).toBeTruthy();
+      bareLabels.push(visibleTelLabel(navPhone));
+
+      const footerContact = html.match(
+        /<h4>Contact<\/h4>\s*<ul>([\s\S]*?)<\/ul>/i
+      )?.[1];
+      expect(footerContact).toBeTruthy();
+      const footerTel = footerContact.match(
+        /<a\b[^>]*\bhref="tel:[^"]+"[^>]*>([\s\S]*?)<\/a>/i
+      )?.[1];
+      expect(footerTel).toBeTruthy();
+      bareLabels.push(visibleTelLabel(footerTel));
+    }
+
+    const contactInfoTel = contactHtml.match(
+      /class="contact-info-list"[\s\S]*?<a\b[^>]*\bhref="tel:[^"]+"[^>]*>([\s\S]*?)<\/a>/i
+    )?.[1];
+    expect(contactInfoTel).toBeTruthy();
+    bareLabels.push(visibleTelLabel(contactInfoTel));
+
+    const formNoteTel = contactHtml.match(
+      /class="[^"]*\bphone-link\b[^"]*"[^>]*>([\s\S]*?)<\/a>/i
+    )?.[1];
+    expect(formNoteTel).toBeTruthy();
+    bareLabels.push(visibleTelLabel(formNoteTel));
+
+    expect(bareLabels.length).toBeGreaterThan(0);
+    for (const label of bareLabels) {
+      expect(label).toBe("239-440-2416");
+    }
+  });
+});
+
+describe("gallery-tile ↔ service-card catalog crosswalk", () => {
+  test("every gallery project title maps into a service-card / lead-form family", () => {
+    // Gallery title catalog and service-card catalog are locked separately — a
+    // gallery can invent showcase categories outside the lead-form offerings
+    // (or drop the remodel/cabinetry/doors/decks families) while each list
+    // still looks internally consistent.
+    const serviceTitles = collectMatches(
+      indexHtml,
+      /<article class="service-card"[\s\S]*?<h3>([\s\S]*?)<\/h3>/g
+    ).map((title) => decodeBasicEntities(title.replace(/\s+/g, " ").trim()));
+
+    const galleryTitles = collectMatches(
+      indexHtml,
+      /class="gallery-tile"[^>]*>[\s\S]*?<strong>\s*([\s\S]*?)\s*<\/strong>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+
+    const galleryToServiceFamily = {
+      "Kitchen Remodel": "Kitchen & Bath Remodels",
+      "Custom Trim & Millwork": "Custom Trim & Millwork",
+      "Built-In Cabinetry": "Custom Cabinetry & Built-Ins",
+      "Entry Doors & Foyers": "Doors & Entryways",
+      "Decks & Outdoor Living": "Decks, Framing & Outdoor Structures",
+      "Bathroom Remodel": "Kitchen & Bath Remodels",
+    };
+
+    expect(galleryTitles).toEqual(Object.keys(galleryToServiceFamily));
+    for (const [galleryTitle, serviceFamily] of Object.entries(
+      galleryToServiceFamily
+    )) {
+      expect(serviceTitles).toContain(serviceFamily);
+      expect(galleryToServiceFamily[galleryTitle]).toBe(serviceFamily);
+    }
+  });
+});
+
+describe("CSS :root remaining launch token catalog", () => {
+  test(":root keeps exact cream/text/border/layout tokens beyond bg/wood/accent/ink", () => {
+    // Existing locks cover --color-bg / wood / accent / ink. Softening the
+    // remaining cream neutrals, wood/accent shades, container measure, radii,
+    // or transition still passes those RGB/hex locks while first-viewport
+    // atmosphere and shared geometry drift.
+    const rootBlock = stylesCss.match(/:root\s*\{([\s\S]*?)\n\}/);
+    expect(rootBlock).toBeTruthy();
+    const root = rootBlock[1];
+
+    expect(root).toMatch(/--color-bg-alt:\s*#f2e9db\b/);
+    expect(root).toMatch(/--color-text:\s*#2a2420\b/);
+    expect(root).toMatch(/--color-text-muted:\s*#544c41\b/);
+    expect(root).toMatch(/--color-border:\s*#e6d9c6\b/);
+    expect(root).toMatch(/--color-wood-dark:\s*#5c3620\b/);
+    expect(root).toMatch(/--color-wood-light:\s*#a9764f\b/);
+    expect(root).toMatch(/--color-accent-dark:\s*#3b5340\b/);
+    expect(root).toMatch(/--color-accent-light:\s*#6f8f6f\b/);
+    expect(root).toMatch(/--container-width:\s*1180px\b/);
+    expect(root).toMatch(/--radius-sm:\s*6px\b/);
+    expect(root).toMatch(/--radius-md:\s*12px\b/);
+    expect(root).toMatch(/--radius-lg:\s*20px\b/);
+    expect(root).toMatch(/--transition:\s*200ms\s+ease\b/);
+  });
+});
+
+describe("favicon SVG brand color ↔ CSS token parity", () => {
+  test("favicon fill/stroke stay on --color-accent and --color-bg hexes", () => {
+    // Href + type + on-disk existence still pass if the SVG drifts off brand
+    // sage/cream while CSS tokens stay locked — browser chrome then shows a
+    // mismatched mark against every other accent/bg surface.
+    const faviconSvg = fs.readFileSync(
+      path.join(root, "assets/favicon.svg"),
+      "utf8"
+    );
+    const accentHex = stylesCss.match(/--color-accent:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    const bgHex = stylesCss.match(/--color-bg:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(accentHex).toBe("#4f6d52");
+    expect(bgHex).toBe("#faf6f0");
+
+    expect(faviconSvg).toMatch(/<svg\b[^>]*\bxmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+    expect(faviconSvg).toMatch(
+      new RegExp(`<rect\\b[^>]*\\bfill="${accentHex}"`, "i")
+    );
+    expect(faviconSvg).toMatch(
+      new RegExp(`stroke="${bgHex}"`, "i")
+    );
   });
 });
