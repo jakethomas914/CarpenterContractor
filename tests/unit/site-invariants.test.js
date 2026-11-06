@@ -6791,3 +6791,241 @@ describe("favicon SVG brand color ↔ CSS token parity", () => {
     );
   });
 });
+
+describe("primary-nav ↔ Explore Service Area / Contact asymmetry", () => {
+  function extractPrimaryNavLabels(html) {
+    const block = collectMatches(html, /class="nav-links"[\s\S]*?<\/ul>/g)[0];
+    expect(block).toBeTruthy();
+    return collectMatches(block, /<a\b[^>]*>([\s\S]*?)<\/a>/g).map((label) =>
+      decodeBasicEntities(label.replace(/\s+/g, " ").trim())
+    );
+  }
+
+  function extractExploreLabels(html) {
+    const block = html.match(/<h4>Explore<\/h4>\s*<ul>([\s\S]*?)<\/ul>/)?.[1];
+    expect(block).toBeTruthy();
+    return collectMatches(block, /<a\b[^>]*>([\s\S]*?)<\/a>/g).map((label) =>
+      decodeBasicEntities(label.replace(/\s+/g, " ").trim())
+    );
+  }
+
+  test("primary nav ends in Service Area while Explore ends in Contact (not mirrored)", () => {
+    // Separate exact catalogs still pass if both sides are "harmonized" into the
+    // same fifth item — sticky IA then loses Service Area jump while footer loses
+    // Contact conversion, or both gain the same label and the intentional
+    // asymmetry disappears while each catalog lock stays green in isolation.
+    const primary = extractPrimaryNavLabels(indexHtml);
+    const explore = extractExploreLabels(indexHtml);
+
+    expect(primary[primary.length - 1]).toBe("Service Area");
+    expect(explore[explore.length - 1]).toBe("Contact");
+    expect(primary).not.toContain("Contact");
+    expect(explore).not.toContain("Service Area");
+
+    const onlyPrimary = primary.filter((label) => !explore.includes(label));
+    const onlyExplore = explore.filter((label) => !primary.includes(label));
+    expect(onlyPrimary).toEqual(["Service Area"]);
+    expect(onlyExplore).toEqual(["Contact"]);
+  });
+});
+
+describe("quote CTA Get vs Request surface map", () => {
+  test("sticky nav keeps Get while hero, cta-band, and form card keep Request", () => {
+    // Per-surface exact locks still pass if a "normalize all CTAs" edit only
+    // updates some surfaces — conversion voice then flips between sticky chrome
+    // and first-viewport / form intent while each isolated string stays green.
+    const navPrimary = indexHtml.match(
+      /<div class="nav-cta">[\s\S]*?<a\b[^>]*\bclass="[^"]*\bbtn-primary\b[^"]*"[^>]*>([\s\S]*?)<\/a>/i
+    )?.[1];
+    const heroPrimary = indexHtml.match(
+      /class="hero-actions"[\s\S]*?<a\b[^>]*\bclass="[^"]*\bbtn-primary\b[^"]*"[^>]*>([\s\S]*?)<\/a>/i
+    )?.[1];
+    const bandPrimary = indexHtml.match(
+      /class="cta-actions"[\s\S]*?<a\b[^>]*\bclass="[^"]*\bbtn-light\b[^"]*"[^>]*>([\s\S]*?)<\/a>/i
+    )?.[1];
+    const formHeading = contactHtml.match(
+      /class="[^"]*\bcontact-form-card\b[^"]*"[\s\S]*?<h3>([\s\S]*?)<\/h3>/i
+    )?.[1];
+
+    const surfaceMap = {
+      navCta: visibleTelLabel(navPrimary),
+      heroPrimary: visibleTelLabel(heroPrimary),
+      ctaBandPrimary: visibleTelLabel(bandPrimary),
+      formCardH3: decodeBasicEntities(
+        String(formHeading).replace(/\s+/g, " ").trim()
+      ),
+    };
+
+    expect(surfaceMap).toEqual({
+      navCta: "Get a Free Quote",
+      heroPrimary: "Request a Free Quote",
+      ctaBandPrimary: "Request a Free Quote",
+      formCardH3: "Request a Free Quote",
+    });
+    expect(surfaceMap.navCta).not.toBe(surfaceMap.heroPrimary);
+  });
+});
+
+describe("lead email identity rejects mailto scheme and display-name wrappers", () => {
+  test("data-recipient, JSON-LD email, and visible mailto addresses stay bare addr-specs", () => {
+    // Exact info@example.com + loose email-shape still pass if a launch paste
+    // introduces mailto:info@… or "Name" <addr> wrappers — clients then mis-parse
+    // the compose target while digit/URL catalogs stay green.
+    const recipient = contactHtml.match(/data-recipient="([^"]*)"/)?.[1];
+    const jsonEmail = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    ).email;
+    const mailtoAddresses = [
+      ...collectMatches(indexHtml, /href="mailto:([^"]+)"/g),
+      ...collectMatches(contactHtml, /href="mailto:([^"]+)"/g),
+    ];
+
+    for (const value of [recipient, jsonEmail, ...mailtoAddresses]) {
+      expect(value).toBeTruthy();
+      expect(value).not.toMatch(/^mailto:/i);
+      expect(value).not.toMatch(/[<>]/);
+      expect(value).toMatch(/^[^\s?#&@]+@[^\s?#&@]+\.[^\s?#&@]+$/);
+    }
+
+    expect(recipient).toBe(jsonEmail);
+    for (const address of mailtoAddresses) {
+      expect(address).toBe(recipient);
+    }
+  });
+});
+
+describe("service-card title → option value end-to-end", () => {
+  test("every service-card H3 maps to the mailto option value (Decks abbreviated)", () => {
+    // Label containment + value↔label pairs still pass if card titles and option
+    // values drift independently — inbox triage then disagrees with marketed
+    // offerings while each catalog looks internally consistent.
+    const select = contactHtml.match(
+      /<select\b[^>]*\bid="service"[^>]*>([\s\S]*?)<\/select>/i
+    )?.[1];
+    expect(select).toBeTruthy();
+    const labelToValue = new Map(
+      [...select.matchAll(/<option\b([^>]*)>([\s\S]*?)<\/option>/gi)].map(
+        (match) => [
+          decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+          (match[1].match(/\bvalue="([^"]*)"/i) || [])[1] || "",
+        ]
+      )
+    );
+
+    const cardTitles = collectMatches(
+      indexHtml,
+      /<article class="service-card"[\s\S]*?<h3>([\s\S]*?)<\/h3>/g
+    ).map((title) => decodeBasicEntities(title.replace(/\s+/g, " ").trim()));
+
+    const cardTitleToValue = {
+      "Custom Trim & Millwork": "Custom Trim & Millwork",
+      "Custom Cabinetry & Built-Ins": "Custom Cabinetry & Built-Ins",
+      "Doors & Entryways": "Doors & Entryways",
+      "Decks, Framing & Outdoor Structures": "Decks & Outdoor Structures",
+      "Kitchen & Bath Remodels": "Kitchen & Bath Remodels",
+      "Repairs & Small Renovations": "Repairs & Small Renovations",
+    };
+
+    expect(cardTitles).toEqual(Object.keys(cardTitleToValue));
+    for (const [title, value] of Object.entries(cardTitleToValue)) {
+      expect(labelToValue.get(title)).toBe(value);
+    }
+    expect(labelToValue.get("Decks, Framing & Outdoor Structures")).toBe(
+      "Decks & Outdoor Structures"
+    );
+    expect(labelToValue.get("Decks, Framing & Outdoor Structures")).not.toBe(
+      "Decks, Framing & Outdoor Structures"
+    );
+  });
+});
+
+describe("Call-or-text anytime ↔ Availability hours dual honesty", () => {
+  test("phone anytime promise coexists with exact weekday hours and no schema hours", () => {
+    // Separate anytime + hours-row + openingHours-omit locks still pass if one
+    // side is "reconciled" into the other (24/7 hours, drop anytime, or invent
+    // schema hours) — SLA honesty then flips while isolated contracts stay green.
+    expect(contactHtml).toMatch(
+      /href="tel:\+12394402416"[\s\S]*?<small>\s*Call or text anytime\s*<\/small>/
+    );
+
+    const hoursRows = [
+      ...contactHtml.matchAll(
+        /class="hours-row"[^>]*>\s*<span>([\s\S]*?)<\/span>\s*<span>([\s\S]*?)<\/span>/g
+      ),
+    ].map((match) => ({
+      day: decodeBasicEntities(match[1].replace(/\s+/g, " ").trim()),
+      hours: decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+    }));
+
+    expect(hoursRows).toEqual([
+      { day: "Monday – Friday", hours: "7:00 AM – 5:00 PM" },
+      { day: "Saturday", hours: "By appointment" },
+      { day: "Sunday", hours: "Closed" },
+    ]);
+
+    const hoursBlob = hoursRows
+      .map((row) => `${row.day} ${row.hours}`)
+      .join(" ");
+    expect(hoursBlob).not.toMatch(/24\s*\/?\s*7|anytime/i);
+
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data).not.toHaveProperty("openingHours");
+    expect(data).not.toHaveProperty("openingHoursSpecification");
+  });
+});
+
+describe("CSS font stack fallback exactness", () => {
+  test(":root keeps full Fraunces/Inter fallback stacks beyond family names", () => {
+    // Family-name-only locks still pass if Georgia/system fallbacks are dropped —
+    // FOIT/FOUT hierarchy then collapses when Google Fonts fail while Fraunces/
+    // Inter name checks stay green.
+    const rootBlock = stylesCss.match(/:root\s*\{([\s\S]*?)\n\}/);
+    expect(rootBlock).toBeTruthy();
+    const root = rootBlock[1];
+
+    expect(root).toMatch(
+      /--font-heading:\s*"Fraunces",\s*Georgia,\s*"Times New Roman",\s*serif\s*;/
+    );
+    expect(root).toMatch(
+      /--font-body:\s*"Inter",\s*-apple-system,\s*BlinkMacSystemFont,\s*"Segoe UI",\s*Roboto,\s*sans-serif\s*;/
+    );
+  });
+});
+
+describe("brand-mark path geometry parity across chrome", () => {
+  test("header and footer brand-mark path sets stay identical on both pages", () => {
+    // Color/href locks still pass if carpenter cut paths diverge between header
+    // and footer marks — chrome then shows mismatched brand geometry while
+    // wood/wood-light token contracts stay green. fill-opacity intentionally
+    // differs (cream header 0.12 vs ink footer 0.14) so lock that asymmetry too.
+    const expectedPaths = [
+      "M16 32L28 20",
+      "M26 16.5L31.5 22",
+      "M29.5 13.5L34.5 18.5",
+      "M13.5 34.5L16.5 31.5",
+    ];
+
+    for (const html of [indexHtml, contactHtml]) {
+      const brandSvgs = [
+        ...html.matchAll(
+          /<svg\b[^>]*\bclass="[^"]*\bbrand-mark\b[^"]*"[^>]*>([\s\S]*?)<\/svg>/gi
+        ),
+      ];
+      expect(brandSvgs.length).toBe(2);
+
+      const opacities = brandSvgs.map((match) => {
+        const paths = collectMatches(match[1], /\bd="([^"]+)"/g);
+        expect(paths).toEqual(expectedPaths);
+        return match[1].match(/\bfill-opacity="([^"]+)"/)?.[1];
+      });
+
+      expect(opacities).toEqual(["0.12", "0.14"]);
+    }
+  });
+});

@@ -361,6 +361,56 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     expect(formOpen[0]).not.toMatch(/\bnovalidate\b/i);
   });
 
+  test("contact form open tag keeps the exact Netlify+mailto attribute allowlist", () => {
+    // Piecewise forbids (no action / no novalidate / has data-netlify) still pass
+    // if target, enctype, or extra attrs appear and change POST/mailto behavior.
+    const formOpen = contactHtml.match(
+      /<form\b([\s\S]*?)data-contact-form([\s\S]*?)>/i
+    );
+    expect(formOpen).toBeTruthy();
+    const openTag = formOpen[0];
+    const attrNames = new Set();
+    for (const match of openTag.matchAll(
+      /\s([:@A-Za-z_][\w:.-]*)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/g
+    )) {
+      attrNames.add(match[1].toLowerCase());
+    }
+    expect([...attrNames].sort()).toEqual(
+      [
+        "data-contact-form",
+        "data-netlify",
+        "data-recipient",
+        "method",
+        "name",
+        "netlify-honeypot",
+      ].sort()
+    );
+  });
+
+  test("buildMailtoUrl keeps message trim-only (does not call sanitizeForHeader)", () => {
+    // Multiline/lone-CR behavior tests stay green if someone "cleans up" by
+    // routing message through sanitizeForHeader — project details then collapse
+    // to a single line while header-field sanitization locks remain green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const buildFn = mainJs.match(
+      /function buildMailtoUrl\(\s*recipient\s*,\s*fields\s*\)\s*\{[\s\S]*?\n  \}\n/
+    );
+    expect(buildFn).toBeTruthy();
+    const body = buildFn[0];
+
+    expect(body).toMatch(
+      /var\s+message\s*=\s*String\(\(fields\s*&&\s*fields\.message\)\s*\|\|\s*""\)\.trim\(\)/
+    );
+    expect(body).not.toMatch(/sanitizeForHeader\(\s*fields\s*&&\s*fields\.message/);
+    expect(body).not.toMatch(/sanitizeForHeader\(\s*fields\.message/);
+
+    for (const field of ["name", "email", "phone", "service"]) {
+      expect(body).toMatch(
+        new RegExp(`sanitizeForHeader\\(\\s*fields\\s*&&\\s*fields\\.${field}\\s*\\)`)
+      );
+    }
+  });
+
   test("main.js script tags are not deferred or async (init runs after body hooks)", () => {
     // async/defer can race ahead of DOM parsing or reorder after body hooks.
     // Combined with end-of-body placement, a plain sync script is required.

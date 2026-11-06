@@ -436,6 +436,49 @@ describe("js/main.js pure helper functions", () => {
       expect(query.match(/body=/g)).toHaveLength(1);
       expect(query.includes("#")).toBe(false);
     });
+
+    test("coerces non-object fields (string/number/boolean) without throwing", () => {
+      // null/undefined fields are locked. Primitive mistaken callers must not
+      // throw — fields && field short-circuit + String/sanitizeForHeader coerce
+      // quirks stay documented so a refactor cannot introduce crashes while the
+      // null/undefined locks stay green.
+      expect(() => main.buildMailtoUrl("info@example.com", "oops")).not.toThrow();
+      expect(() => main.buildMailtoUrl("info@example.com", true)).not.toThrow();
+      expect(() => main.buildMailtoUrl("info@example.com", 0)).not.toThrow();
+      expect(() => main.buildMailtoUrl("info@example.com", false)).not.toThrow();
+
+      const fromString = main.buildMailtoUrl("info@example.com", "oops");
+      const fromTrue = main.buildMailtoUrl("info@example.com", true);
+      const fromMissing = main.buildMailtoUrl("info@example.com", {});
+      expect(fromString).toBe(fromMissing);
+      expect(fromTrue).toBe(fromMissing);
+
+      // 0/false are falsy but still passed into sanitizeForHeader via the
+      // short-circuit value itself — lock that coerce rather than inventing a
+      // cleaner empty-body fallback that production does not implement.
+      const fromZero = main.buildMailtoUrl("info@example.com", 0);
+      expect(fromZero).toContain(encodeURIComponent("New project inquiry from 0"));
+      expect(decodeURIComponent(fromZero.split("body=")[1])).toBe(
+        ["Name: 0", "Email: 0", "Phone: 0", "Service interested in: 0", "", ""].join(
+          "\n"
+        )
+      );
+
+      const fromFalse = main.buildMailtoUrl("info@example.com", false);
+      expect(fromFalse).toContain(
+        encodeURIComponent("New project inquiry from false")
+      );
+      expect(decodeURIComponent(fromFalse.split("body=")[1])).toBe(
+        [
+          "Name: false",
+          "Email: false",
+          "Phone: false",
+          "Service interested in: false",
+          "",
+          "",
+        ].join("\n")
+      );
+    });
   });
 
   describe("getYear", () => {
