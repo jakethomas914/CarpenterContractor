@@ -479,6 +479,31 @@ describe("js/main.js pure helper functions", () => {
         ].join("\n")
       );
     });
+
+    test("treats array fields like an empty object (no indexed name/email leaks)", () => {
+      // Arrays are objects, so fields && fields.name is undefined — lock that
+      // empty-triage behavior so a mistaken FormData-like array caller cannot
+      // start reading indexed values or throw while string/boolean coerce locks
+      // stay green.
+      expect(() => main.buildMailtoUrl("info@example.com", [])).not.toThrow();
+      expect(() =>
+        main.buildMailtoUrl("info@example.com", ["Pat", "pat@example.com"])
+      ).not.toThrow();
+
+      const fromEmptyArray = main.buildMailtoUrl("info@example.com", []);
+      const fromPopulatedArray = main.buildMailtoUrl("info@example.com", [
+        "Pat",
+        "pat@example.com",
+      ]);
+      const fromMissing = main.buildMailtoUrl("info@example.com", {});
+
+      expect(fromEmptyArray).toBe(fromMissing);
+      expect(fromPopulatedArray).toBe(fromMissing);
+      expect(fromPopulatedArray).not.toContain(encodeURIComponent("Pat"));
+      expect(fromPopulatedArray).not.toContain(
+        encodeURIComponent("pat@example.com")
+      );
+    });
   });
 
   describe("getYear", () => {

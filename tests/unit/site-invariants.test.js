@@ -7029,3 +7029,131 @@ describe("brand-mark path geometry parity across chrome", () => {
     }
   });
 });
+
+describe("hero dual-wash atmosphere geometry ↔ wood/accent RGB", () => {
+  test("hero keeps opposing wood/sage radial positions with 45% transparent stops", () => {
+    // Wood/accent channel↔token locks still pass if both washes are centered,
+    // swapped, or lose their transparent stops — first-viewport atmosphere then
+    // muddies into a single blot or bleeds full-bleed while RGB parity stays green.
+    const woodHex = stylesCss.match(/--color-wood:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    const accentHex = stylesCss.match(/--color-accent:\s*(#[0-9a-fA-F]{6})/)?.[1];
+    expect(woodHex).toBe("#7a4a2b");
+    expect(accentHex).toBe("#4f6d52");
+
+    const wr = parseInt(woodHex.slice(1, 3), 16);
+    const wg = parseInt(woodHex.slice(3, 5), 16);
+    const wb = parseInt(woodHex.slice(5, 7), 16);
+    const ar = parseInt(accentHex.slice(1, 3), 16);
+    const ag = parseInt(accentHex.slice(3, 5), 16);
+    const ab = parseInt(accentHex.slice(5, 7), 16);
+
+    const woodWash = new RegExp(
+      `radial-gradient\\(\\s*circle\\s+at\\s+85%\\s+10%\\s*,\\s*rgb\\(\\s*${wr}\\s+${wg}\\s+${wb}\\s*/\\s*10%\\s*\\)\\s*,\\s*transparent\\s+45%\\s*\\)`
+    );
+    const sageWash = new RegExp(
+      `radial-gradient\\(\\s*circle\\s+at\\s+10%\\s+90%\\s*,\\s*rgb\\(\\s*${ar}\\s+${ag}\\s+${ab}\\s*/\\s*12%\\s*\\)\\s*,\\s*transparent\\s+45%\\s*\\)`
+    );
+
+    const heroBlock = stylesCss.match(/\.hero\s*\{([\s\S]*?)\n\}/);
+    expect(heroBlock).toBeTruthy();
+    const hero = heroBlock[1];
+
+    expect(hero).toMatch(woodWash);
+    expect(hero).toMatch(sageWash);
+    expect(hero).toMatch(
+      new RegExp(
+        `background:\\s*${woodWash.source}\\s*,\\s*${sageWash.source}\\s*,\\s*var\\(--color-bg\\)`
+      )
+    );
+    // Opposing corners stay opposing — a "harmonize both to center" edit would
+    // still satisfy two independent radial-gradient presence checks.
+    expect(hero).not.toMatch(
+      /radial-gradient\(\s*circle\s+at\s+50%\s+50%/
+    );
+  });
+});
+
+describe("primary-nav ↔ Explore destination asymmetry", () => {
+  test("Service Area keeps #service-area while Explore Contact keeps contact.html", () => {
+    // Label-only asymmetry still passes if both fifth items are retargeted to the
+    // same destination family (both contact.html, or both #service-area) —
+    // sticky IA then loses the service-area jump while footer loses lead-form
+    // conversion (or vice versa) while label catalogs stay green.
+    function extractPrimaryPairs(html) {
+      const block = collectMatches(html, /class="nav-links"[\s\S]*?<\/ul>/g)[0];
+      expect(block).toBeTruthy();
+      return [...block.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map(
+        (match) => ({
+          href: match[1],
+          label: decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+        })
+      );
+    }
+
+    function extractExplorePairs(html) {
+      const block = html.match(/<h4>Explore<\/h4>\s*<ul>([\s\S]*?)<\/ul>/)?.[1];
+      expect(block).toBeTruthy();
+      return [...block.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].map(
+        (match) => ({
+          href: match[1],
+          label: decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+        })
+      );
+    }
+
+    for (const [html, serviceAreaHref] of [
+      [indexHtml, "#service-area"],
+      [contactHtml, "index.html#service-area"],
+    ]) {
+      const primary = extractPrimaryPairs(html);
+      const explore = extractExplorePairs(html);
+      const primaryTail = primary[primary.length - 1];
+      const exploreTail = explore[explore.length - 1];
+
+      expect(primaryTail).toEqual({
+        label: "Service Area",
+        href: serviceAreaHref,
+      });
+      expect(exploreTail).toEqual({
+        label: "Contact",
+        href: "contact.html",
+      });
+      expect(primaryTail.href).not.toBe(exploreTail.href);
+      expect(primary.map((item) => item.href)).not.toContain("contact.html");
+      expect(explore.map((item) => item.href)).not.toContain(serviceAreaHref);
+    }
+  });
+});
+
+describe("contact sidebar geo label ↔ footer Serving dual honesty", () => {
+  test("sidebar keeps bare Southwest Florida while footer keeps Serving prefix", () => {
+    // City-list↔areaServed and footer "Serving Southwest Florida" locks still
+    // pass if the sidebar span is "harmonized" into the footer Serving phrase
+    // (or the footer drops Serving) — contact IA then doubles/drops the region
+    // voice while town catalogs stay green.
+    const sidebarGeo = contactHtml.match(
+      /class="contact-info-list"[\s\S]*?<span>([\s\S]*?)<\/span>\s*<small>/
+    )?.[1];
+    expect(decodeBasicEntities(String(sidebarGeo).replace(/\s+/g, " ").trim())).toBe(
+      "Southwest Florida"
+    );
+    expect(sidebarGeo).not.toMatch(/Serving/i);
+
+    for (const html of [indexHtml, contactHtml]) {
+      const footerContact = html.match(
+        /<h4>Contact<\/h4>\s*<ul>([\s\S]*?)<\/ul>/i
+      )?.[1];
+      expect(footerContact).toBeTruthy();
+      const items = collectMatches(footerContact, /<li\b[^>]*>([\s\S]*?)<\/li>/gi).map(
+        (item) =>
+          decodeBasicEntities(item.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim())
+      );
+      expect(items).toHaveLength(3);
+      expect(items[2]).toBe("Serving Southwest Florida");
+      expect(items[2]).not.toBe("Southwest Florida");
+      expect(items[2]).not.toBe(
+        decodeBasicEntities(String(sidebarGeo).replace(/\s+/g, " ").trim())
+      );
+    }
+  });
+});

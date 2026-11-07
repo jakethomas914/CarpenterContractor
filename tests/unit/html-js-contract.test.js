@@ -411,6 +411,25 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     }
   });
 
+  test("buildMailtoUrl joins triage body lines with LF only (not CRLF or other separators)", () => {
+    // Decoded-body happy-path asserts still pass if a "Windows mailto" edit swaps
+    // join("\n") for join("\r\n") or join("\\n") while carefully updating a few
+    // expectations — inbox triage then gains raw CR noise or literal \\n while
+    // label-order locks stay green. Lock the source seam beside the runtime body.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const buildFn = mainJs.match(
+      /function buildMailtoUrl\(\s*recipient\s*,\s*fields\s*\)\s*\{[\s\S]*?\n  \}\n/
+    );
+    expect(buildFn).toBeTruthy();
+    const body = buildFn[0];
+
+    expect(body).toMatch(/bodyLines\.join\(\s*"\\n"\s*\)/);
+    expect(body).not.toMatch(/bodyLines\.join\(\s*"\\r\\n"\s*\)/);
+    expect(body).not.toMatch(/bodyLines\.join\(\s*'\\n'\s*\)/);
+    expect(body).not.toMatch(/bodyLines\.join\(\s*`\\n`\s*\)/);
+    expect(body).not.toMatch(/bodyLines\.join\(\s*"[^"]*,[^"]*"\s*\)/);
+  });
+
   test("main.js script tags are not deferred or async (init runs after body hooks)", () => {
     // async/defer can race ahead of DOM parsing or reorder after body hooks.
     // Combined with end-of-body placement, a plain sync script is required.

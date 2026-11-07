@@ -817,6 +817,44 @@ Line three</textarea>
     expect(decoded).toContain("Jane Doe");
   });
 
+  test("percent-encodes FormData name/service reserved characters through submit", () => {
+    // Unit encode locks still pass if the submit handler starts concatenating
+    // FormData values into the mailto URL without buildMailtoUrl — &, ?, #, and =
+    // in visitor name/service would then rewrite subject/body query parsing while
+    // honeypot-ignore and happy-path Jane Doe redirects stay green.
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="Pat & Lee #1" />
+        <input name="email" value="pat@example.com" />
+        <input name="phone" value="239-555-0100" />
+        <select name="service"><option value="Repairs?=urgent" selected>Repairs</option></select>
+        <textarea name="message">Need a quote? Call after 5=pm</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    const [calledUrl] = redirectSpy.mock.calls[0];
+    const query = calledUrl.slice(calledUrl.indexOf("?") + 1);
+
+    for (const raw of ["Pat & Lee #1", "Repairs?=urgent", "Need a quote? Call after 5=pm"]) {
+      expect(calledUrl).toContain(encodeURIComponent(raw));
+      expect(query.includes(raw)).toBe(false);
+    }
+    expect(query.match(/subject=/g)).toHaveLength(1);
+    expect(query.match(/body=/g)).toHaveLength(1);
+    expect(query.includes("#")).toBe(false);
+    expect(calledUrl).toContain(
+      encodeURIComponent("New project inquiry from Pat & Lee #1")
+    );
+  });
+
   test("does not throw when the page has no contact form", () => {
     expect(() => loadMainWithFixture("<div></div>")).not.toThrow();
   });
