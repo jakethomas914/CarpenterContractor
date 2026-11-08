@@ -855,6 +855,35 @@ Line three</textarea>
     );
   });
 
+  test("whitespace-only name through FormData submit falls back to website visitor", () => {
+    // Unit sanitize/subject locks still pass if submit bypasses buildMailtoUrl
+    // and concatenates raw FormData name into the subject — blank/whitespace
+    // names then produce empty or noisy subjects while helper tests stay green.
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="   \t  " />
+        <input name="email" value="pat@example.com" />
+        <input name="phone" value="239-555-0100" />
+        <select name="service"><option value="Decks" selected>Decks</option></select>
+        <textarea name="message">Need a quote</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    const [calledUrl] = redirectSpy.mock.calls[0];
+    expect(calledUrl).toContain(
+      encodeURIComponent("New project inquiry from website visitor")
+    );
+    expect(calledUrl).not.toContain(encodeURIComponent("New project inquiry from    \t  "));
+  });
+
   test("does not throw when the page has no contact form", () => {
     expect(() => loadMainWithFixture("<div></div>")).not.toThrow();
   });

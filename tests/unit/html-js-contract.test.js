@@ -253,6 +253,22 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     );
   });
 
+  test("initContactForm still builds mailto via buildMailtoUrl + navigation.redirect", () => {
+    // FormData.get / status-copy locks still pass if submit inlines URI
+    // construction and skips sanitize/encode — lead fields then lose header
+    // defense and percent-encoding while field-name contracts stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const contactInit = mainJs.match(/function initContactForm\(\)\s*\{[\s\S]*?\n  \}\n/);
+    expect(contactInit).toBeTruthy();
+    const body = contactInit[0];
+
+    expect(body).toMatch(/getAttribute\(\s*["']data-recipient["']\s*\)\s*\|\|\s*["']["']/);
+    expect(body).toMatch(/buildMailtoUrl\s*\(\s*recipient\s*,/);
+    expect(body).toMatch(/navigation\.redirect\s*\(\s*mailtoUrl\s*\)/);
+    expect(body).not.toMatch(/window\.location\.href\s*=/);
+    expect(body).not.toMatch(/["']mailto:\s*\+/);
+  });
+
   test("active-nav and scroll-reveal keep the README selector + observer contracts", () => {
     // README documents these exact selectors/options. Softening them (e.g. observing
     // all sections, or dropping rootMargin) silently changes highlighting and reveal timing.

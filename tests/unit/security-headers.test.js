@@ -310,4 +310,33 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
       }
     }
   });
+
+  test("main.js forbids network APIs while CSP connect-src stays 'self'", () => {
+    // connect-src 'self' locks still pass if main.js grows fetch/XHR/beacon
+    // calls that either break under CSP or force allowlist widening — HTML
+    // "local js/ only" contracts miss JS-body network.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).not.toMatch(/\bfetch\s*\(/);
+    expect(mainJs).not.toMatch(/\bXMLHttpRequest\b/);
+    expect(mainJs).not.toMatch(/\bWebSocket\b/);
+    expect(mainJs).not.toMatch(/\bsendBeacon\s*\(/);
+
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      expect(parseCspDirectives(csp)["connect-src"]).toBe("'self'");
+    }
+  });
+
+  test("HTML forbids base/iframe/object/embed markup that CSP only soft-denies", () => {
+    // object-src 'none' / base-uri 'self' still pass if markup introduces a
+    // <base> hijack or plugin/iframe embed while host directive maps stay
+    // aligned — deny directives alone do not prove the documents stay clean.
+    const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
+    const contactHtml = fs.readFileSync(path.join(root, "contact.html"), "utf8");
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).not.toMatch(/<base\b/i);
+      expect(html).not.toMatch(/<iframe\b/i);
+      expect(html).not.toMatch(/<object\b/i);
+      expect(html).not.toMatch(/<embed\b/i);
+    }
+  });
 });

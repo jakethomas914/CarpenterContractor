@@ -7157,3 +7157,120 @@ describe("contact sidebar geo label ↔ footer Serving dual honesty", () => {
     }
   });
 });
+
+describe("trust Serving All ↔ service-area soft-boundary dual honesty", () => {
+  test("Serving All trust claim coexists with including-but-not-limited-to area intro", () => {
+    // Exact trust catalog and area-intro locks still pass if both sides are
+    // "harmonized" into exclusive-All or soft-only geography — customers then
+    // get a coverage overclaim (or lose the All promise) while isolated copy
+    // contracts remain green.
+    const trustClaims = collectMatches(
+      indexHtml,
+      /class="trust-item"[^>]*>[\s\S]*?<\/svg>\s*([\s\S]*?)\s*<\/div>/g
+    ).map((raw) =>
+      decodeBasicEntities(raw.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
+    );
+    expect(trustClaims).toContain("Serving All of Southwest Florida");
+
+    const areaIntro = indexHtml.match(
+      /id="service-area"[\s\S]*?class="area-intro">\s*([\s\S]*?)\s*<\/p>/
+    )?.[1];
+    expect(areaIntro).toBeTruthy();
+    const areaText = decodeBasicEntities(areaIntro).replace(/\s+/g, " ").trim();
+    expect(areaText).toContain("including but not limited to:");
+    expect(areaText).not.toMatch(/\bAll of\b/i);
+    expect(trustClaims.find((claim) => claim.includes("Southwest Florida"))).not.toBe(
+      areaText
+    );
+  });
+});
+
+describe("license honesty dual cue (trust ↔ footer)", () => {
+  test("trust (add credentials) and footer [add license number] stay unfinished together", () => {
+    // Isolated trust muted-inline and footer license locks still pass if one
+    // surface is finished while the other keeps a placeholder — chrome then
+    // advertises a real license on one path while the honesty cue survives on
+    // the other.
+    expect(indexHtml).toMatch(
+      /Licensed\s*&amp;\s*Insured\s*<span\s+class="muted-inline">\s*\(add credentials\)\s*<\/span>/
+    );
+
+    const finishedLicense = /Florida License\s*#:\s*(?!\[add license number\])\S+/i;
+    for (const html of [indexHtml, contactHtml]) {
+      const bottom = extractFooterBottom(html);
+      expect(bottom).toBeTruthy();
+      const text = decodeBasicEntities(bottom.replace(/<[^>]+>/g, " "))
+        .replace(/\s+/g, " ")
+        .trim();
+      expect(text).toContain("Florida License #: [add license number]");
+      expect(text).not.toMatch(finishedLicense);
+    }
+  });
+});
+
+describe("contact email Placeholder ↔ footer bare-mailto asymmetry", () => {
+  test("sidebar keeps Placeholder honesty while footer mailto stays bare", () => {
+    // Sidebar Placeholder lock still passes if footer Contact grows the same
+    // cue (clutter) or if a "cleanup" drops Placeholder while finishing the
+    // example.com address — launch honesty then collapses on one surface.
+    const sidebarEmail = contactHtml.match(
+      /class="contact-info-list"[\s\S]*?href="mailto:[^"]+"[\s\S]*?<small>([\s\S]*?)<\/small>/
+    );
+    expect(sidebarEmail).toBeTruthy();
+    expect(decodeBasicEntities(sidebarEmail[1]).replace(/\s+/g, " ").trim()).toBe(
+      "Placeholder — update with real business email"
+    );
+
+    for (const html of [indexHtml, contactHtml]) {
+      const footerContact = html.match(
+        /<h4>Contact<\/h4>\s*<ul>([\s\S]*?)<\/ul>/i
+      )?.[1];
+      expect(footerContact).toBeTruthy();
+      const mailtoItem = [...footerContact.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].find(
+        (match) => /mailto:/i.test(match[1])
+      );
+      expect(mailtoItem).toBeTruthy();
+      expect(mailtoItem[1]).not.toMatch(/Placeholder/i);
+      expect(mailtoItem[1]).not.toMatch(/<small\b/i);
+    }
+  });
+});
+
+describe("hero atmosphere clip + Introduction landmark", () => {
+  test("hero keeps overflow:hidden beside dual-wash atmosphere", () => {
+    // Dual-wash geometry locks still pass if overflow:hidden drops — washes then
+    // bleed under the sticky header / trust strip while RGB stop contracts stay
+    // green.
+    const heroBlock = stylesCss.match(/\.hero\s*\{([\s\S]*?)\n\}/);
+    expect(heroBlock).toBeTruthy();
+    expect(heroBlock[1]).toMatch(/overflow:\s*hidden/);
+    expect(heroBlock[1]).toMatch(/radial-gradient\(/);
+  });
+
+  test("hero section keeps the exact Introduction aria-label landmark", () => {
+    // H1 / CTA / wash locks still pass if the first-viewport landmark softens or
+    // drops — AT users then lose the Introduction region while conversion copy
+    // contracts remain green.
+    expect(indexHtml).toMatch(
+      /<section\b[^>]*\bclass="[^"]*\bhero\b[^"]*"[^>]*\baria-label="Introduction"/
+    );
+  });
+});
+
+describe("local asset paths stay relative (no root-absolute href/src)", () => {
+  test("non-scheme href/src values never start with /", () => {
+    // Exact nav/Explore catalogs still pass if a new surface introduces
+    // /contact.html-style root-absolute links — file://, relative hosts, and
+    // subdirectory deploys then 404 while named catalogs stay green.
+    for (const html of [indexHtml, contactHtml]) {
+      const refs = collectMatches(html, /\b(?:href|src)="([^"]+)"/g);
+      expect(refs.length).toBeGreaterThan(0);
+      for (const ref of refs) {
+        if (/^(?:https?:|mailto:|tel:|#)/i.test(ref)) {
+          continue;
+        }
+        expect(ref.startsWith("/")).toBe(false);
+      }
+    }
+  });
+});
