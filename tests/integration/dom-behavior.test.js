@@ -136,6 +136,27 @@ describe("scroll reveal fallback", () => {
     window.IntersectionObserver = original;
   });
 
+  test("reveals every [data-reveal] when IntersectionObserver is unavailable", () => {
+    // The no-IO path must force-show the full set (contact cards, service tiles).
+    // Revealing only querySelector (first match) leaves sibling lead UI at opacity:0.
+    const original = window.IntersectionObserver;
+    delete window.IntersectionObserver;
+
+    loadMainWithFixture(`
+      <section data-reveal>One</section>
+      <section data-reveal>Two</section>
+      <section data-reveal>Three</section>
+    `);
+
+    const els = [...document.querySelectorAll("[data-reveal]")];
+    expect(els).toHaveLength(3);
+    for (const el of els) {
+      expect(el.classList.contains("is-visible")).toBe(true);
+    }
+
+    window.IntersectionObserver = original;
+  });
+
   test("does not eagerly reveal elements when IntersectionObserver is available", () => {
     let capturedCallback;
     const observe = jest.fn();
@@ -744,6 +765,31 @@ describe("contact form handling", () => {
     );
   });
 
+  test("preserves multi-line message body through the form submit path", () => {
+    // Unit tests lock buildMailtoUrl's message trim-only behavior. The submit
+    // handler must not route message through sanitizeForHeader — collapsing
+    // visitor newlines loses project details in the owner's inbox.
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="Jane Doe" />
+        <textarea name="message">Line one
+Line two
+Line three</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    const decodedBody = decodeURIComponent(redirectSpy.mock.calls[0][0].split("body=")[1]);
+    expect(decodedBody).toContain("Line one\nLine two\nLine three");
+  });
+
   test("ignores Netlify honeypot and form-name fields when building the mailto URL", () => {
     const main = loadMainWithFixture(`
       <form data-contact-form data-recipient="info@example.com" data-netlify="true" netlify-honeypot="bot-field">
@@ -769,6 +815,73 @@ describe("contact form handling", () => {
     expect(decoded).not.toContain("I am a bot");
     expect(decoded).not.toContain("form-name");
     expect(decoded).toContain("Jane Doe");
+  });
+
+  test("percent-encodes FormData name/service reserved characters through submit", () => {
+    // Unit encode locks still pass if the submit handler starts concatenating
+    // FormData values into the mailto URL without buildMailtoUrl — &, ?, #, and =
+    // in visitor name/service would then rewrite subject/body query parsing while
+    // honeypot-ignore and happy-path Jane Doe redirects stay green.
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="Pat & Lee #1" />
+        <input name="email" value="pat@example.com" />
+        <input name="phone" value="239-555-0100" />
+        <select name="service"><option value="Repairs?=urgent" selected>Repairs</option></select>
+        <textarea name="message">Need a quote? Call after 5=pm</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    const [calledUrl] = redirectSpy.mock.calls[0];
+    const query = calledUrl.slice(calledUrl.indexOf("?") + 1);
+
+    for (const raw of ["Pat & Lee #1", "Repairs?=urgent", "Need a quote? Call after 5=pm"]) {
+      expect(calledUrl).toContain(encodeURIComponent(raw));
+      expect(query.includes(raw)).toBe(false);
+    }
+    expect(query.match(/subject=/g)).toHaveLength(1);
+    expect(query.match(/body=/g)).toHaveLength(1);
+    expect(query.includes("#")).toBe(false);
+    expect(calledUrl).toContain(
+      encodeURIComponent("New project inquiry from Pat & Lee #1")
+    );
+  });
+
+  test("whitespace-only name through FormData submit falls back to website visitor", () => {
+    // Unit sanitize/subject locks still pass if submit bypasses buildMailtoUrl
+    // and concatenates raw FormData name into the subject — blank/whitespace
+    // names then produce empty or noisy subjects while helper tests stay green.
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="   \t  " />
+        <input name="email" value="pat@example.com" />
+        <input name="phone" value="239-555-0100" />
+        <select name="service"><option value="Decks" selected>Decks</option></select>
+        <textarea name="message">Need a quote</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    const [calledUrl] = redirectSpy.mock.calls[0];
+    expect(calledUrl).toContain(
+      encodeURIComponent("New project inquiry from website visitor")
+    );
+    expect(calledUrl).not.toContain(encodeURIComponent("New project inquiry from    \t  "));
   });
 
   test("does not throw when the page has no contact form", () => {

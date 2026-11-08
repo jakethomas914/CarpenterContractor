@@ -76,6 +76,15 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(vercel[key]).toBe(netlify[key]);
   });
 
+  test("host header key sets stay exactly the documented six (no silent sprawl)", () => {
+    // Required-key presence still passes if either host grows CORS / NEL /
+    // Report-To / Access-Control-* while the shared six stay equal. Exact
+    // allowlists keep the hardened surface closed on both Netlify and Vercel.
+    const expected = [...requiredKeys].sort();
+    expect(Object.keys(netlify).sort()).toEqual(expected);
+    expect(Object.keys(vercel).sort()).toEqual(expected);
+  });
+
   test("CSP allows mailto form-action used by the contact form", () => {
     expect(netlify["Content-Security-Policy"]).toMatch(/form-action[^;]*mailto:/);
     expect(vercel["Content-Security-Policy"]).toMatch(/form-action[^;]*mailto:/);
@@ -168,6 +177,31 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     const sources = (vercelConfig.headers || []).map((entry) => entry.source);
     expect(sources).toContain("/(.*)");
   });
+
+  test("host header scopes stay a single catch-all on each host (no weaker siblings)", () => {
+    // Presence of /* or /(.*) still passes if extra narrower routes attach a
+    // softer CSP/HSTS to contact.html or assets. Exact cardinality keeps one
+    // site-wide hardened block per host.
+    const netlifyRaw = fs.readFileSync(path.join(root, "_headers"), "utf8");
+    const netlifyPaths = netlifyRaw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("/") && !line.includes(":"));
+    expect(netlifyPaths).toEqual(["/*"]);
+
+    const vercelConfig = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"));
+    expect((vercelConfig.headers || []).map((entry) => entry.source)).toEqual(["/(.*)"]);
+  });
+
+  test("locks the exact host Content-Security-Policy string (no inserted directives)", () => {
+    // Per-directive equality still passes if unknown fetch directives are added
+    // in an order our named locks ignore — exact string equality catches silent
+    // CSP sprawl while Netlify↔Vercel parity on the shared key set stays green.
+    const expected =
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:; frame-ancestors 'none';";
+    expect(netlify["Content-Security-Policy"]).toBe(expected);
+    expect(vercel["Content-Security-Policy"]).toBe(expected);
+  });
 });
 
 describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
@@ -207,6 +241,24 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
     expect(contact["script-src"]).toBe("'self'");
     expect(contact["script-src"]).not.toMatch(/https?:/);
     expect(contact["script-src"]).not.toMatch(/'unsafe-inline'/);
+  });
+
+  test("locks the exact contact meta Content-Security-Policy string (script-src self-only)", () => {
+    // Per-directive allowlist checks still pass if unknown fetch directives are
+    // inserted on contact only — exact string equality catches silent CSP sprawl
+    // while keeping script-src 'self' (no unsafe-inline) for the no-JSON-LD page.
+    expect(contactCsp).toBe(
+      "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:;"
+    );
+  });
+
+  test("locks the exact index meta Content-Security-Policy string (unsafe-inline for JSON-LD)", () => {
+    // Host↔index directive-map equality still passes if both sides reorder or
+    // insert the same unknown fetch directive — exact string equality catches
+    // homepage CSP sprawl while keeping script-src 'unsafe-inline' for JSON-LD.
+    expect(indexCsp).toBe(
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:;"
+    );
   });
 
   test("contact meta CSP matches host allowlists for non-script fetch directives", () => {
@@ -256,6 +308,35 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
           expect(["'self'", "'none'"]).toContain(token);
         }
       }
+    }
+  });
+
+  test("main.js forbids network APIs while CSP connect-src stays 'self'", () => {
+    // connect-src 'self' locks still pass if main.js grows fetch/XHR/beacon
+    // calls that either break under CSP or force allowlist widening — HTML
+    // "local js/ only" contracts miss JS-body network.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).not.toMatch(/\bfetch\s*\(/);
+    expect(mainJs).not.toMatch(/\bXMLHttpRequest\b/);
+    expect(mainJs).not.toMatch(/\bWebSocket\b/);
+    expect(mainJs).not.toMatch(/\bsendBeacon\s*\(/);
+
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      expect(parseCspDirectives(csp)["connect-src"]).toBe("'self'");
+    }
+  });
+
+  test("HTML forbids base/iframe/object/embed markup that CSP only soft-denies", () => {
+    // object-src 'none' / base-uri 'self' still pass if markup introduces a
+    // <base> hijack or plugin/iframe embed while host directive maps stay
+    // aligned — deny directives alone do not prove the documents stay clean.
+    const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
+    const contactHtml = fs.readFileSync(path.join(root, "contact.html"), "utf8");
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).not.toMatch(/<base\b/i);
+      expect(html).not.toMatch(/<iframe\b/i);
+      expect(html).not.toMatch(/<object\b/i);
+      expect(html).not.toMatch(/<embed\b/i);
     }
   });
 });
