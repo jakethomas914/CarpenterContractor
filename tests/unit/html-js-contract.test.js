@@ -456,4 +456,103 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
       expect(scriptTag[0]).not.toMatch(/\basync\b/i);
     }
   });
+
+  test("initContactForm calls preventDefault before FormData / mailto / redirect work", () => {
+    // Presence-only preventDefault still passes if it moves after throwable
+    // FormData/buildMailtoUrl work — native method="POST" then races mailto /
+    // Netlify and can duplicate or drop leads while field-name locks stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const contactInit = mainJs.match(/function initContactForm\(\)\s*\{[\s\S]*?\n  \}\n/);
+    expect(contactInit).toBeTruthy();
+    const body = contactInit[0];
+
+    const preventIdx = body.search(/event\.preventDefault\s*\(\s*\)/);
+    const formDataIdx = body.search(/new\s+FormData\s*\(/);
+    const buildIdx = body.search(/buildMailtoUrl\s*\(/);
+    const redirectIdx = body.search(/navigation\.redirect\s*\(/);
+
+    expect(preventIdx).toBeGreaterThanOrEqual(0);
+    expect(formDataIdx).toBeGreaterThan(preventIdx);
+    expect(buildIdx).toBeGreaterThan(formDataIdx);
+    expect(redirectIdx).toBeGreaterThan(buildIdx);
+  });
+
+  test("initContactForm redirects before revealing form-status confirmation", () => {
+    // Redirect + status-copy presence locks still pass if status UI is reordered
+    // ahead of navigation.redirect — confirmation can flash while mailto never
+    // launches (or a later throw skips status) while seam contracts stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const contactInit = mainJs.match(/function initContactForm\(\)\s*\{[\s\S]*?\n  \}\n/);
+    expect(contactInit).toBeTruthy();
+    const body = contactInit[0];
+
+    const redirectIdx = body.search(/navigation\.redirect\s*\(\s*mailtoUrl\s*\)/);
+    const statusTextIdx = body.indexOf(
+      "Opening your email app to send this message…"
+    );
+    const statusVisibleIdx = body.search(
+      /statusEl\.classList\.add\(\s*["']is-visible["']\s*\)/
+    );
+
+    expect(redirectIdx).toBeGreaterThanOrEqual(0);
+    expect(statusTextIdx).toBeGreaterThan(redirectIdx);
+    expect(statusVisibleIdx).toBeGreaterThan(statusTextIdx);
+  });
+
+  test("buildMailtoUrl encodes subject and body with encodeURIComponent (not encodeURI)", () => {
+    // bodyLines.join("\\n") source locks still pass if encodeURIComponent is
+    // swapped for encodeURI or bare concat — &, ?, # in Kitchen & Bath / visitor
+    // names then truncate mailto query parsing while LF-join contracts stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const buildFn = mainJs.match(
+      /function buildMailtoUrl\(\s*recipient\s*,\s*fields\s*\)\s*\{[\s\S]*?\n  \}\n/
+    );
+    expect(buildFn).toBeTruthy();
+    const body = buildFn[0];
+
+    expect(body).toMatch(
+      /var\s+subject\s*=\s*encodeURIComponent\(\s*"New project inquiry from "\s*\+/
+    );
+    expect(body).toMatch(
+      /var\s+body\s*=\s*encodeURIComponent\(\s*bodyLines\.join\(\s*"\\n"\s*\)\s*\)/
+    );
+    expect(body).not.toMatch(/encodeURI\s*\(/);
+    expect(body).not.toMatch(
+      /subject\s*=\s*["']New project inquiry from ["']\s*\+/
+    );
+  });
+
+  test("window.location.href assignment lives only inside navigation.redirect", () => {
+    // initContactForm redirect-seam locks still pass if a second direct
+    // location.href write appears elsewhere — that path bypasses the testable
+    // navigation seam and can skip sanitize/encode while form contracts stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    // Strip block comments so docstrings mentioning the assignment do not count.
+    const codeOnly = mainJs.replace(/\/\*[\s\S]*?\*\//g, "");
+    const assignments = [...codeOnly.matchAll(/window\.location\.href\s*=/g)];
+    expect(assignments).toHaveLength(1);
+
+    const redirectFn = mainJs.match(
+      /redirect:\s*function\s*\(\s*url\s*\)\s*\{[\s\S]*?\n\s*\}/
+    );
+    expect(redirectFn).toBeTruthy();
+    expect(redirectFn[0]).toMatch(/window\.location\.href\s*=\s*url/);
+    expect(codeOnly).not.toMatch(
+      /initContactForm[\s\S]*window\.location\.href\s*=/
+    );
+  });
+
+  test("production form-status starts empty and without is-visible", () => {
+    // CSS display toggles + JS is-visible adds still pass if markup ships
+    // prefilled / pre-visible — visitors then see a false "Opening your email
+    // app…" confirmation before submit while reveal contracts stay green.
+    const statusOpen = contactHtml.match(
+      /<div\b([^>]*\bdata-form-status\b[^>]*)>([\s\S]*?)<\/div>/i
+    );
+    expect(statusOpen).toBeTruthy();
+    expect(statusOpen[1]).toMatch(/\bclass="[^"]*\bform-status\b[^"]*"/);
+    expect(statusOpen[1]).toMatch(/\brole="status"/);
+    expect(statusOpen[1]).not.toMatch(/\bis-visible\b/);
+    expect(statusOpen[2].trim()).toBe("");
+  });
 });

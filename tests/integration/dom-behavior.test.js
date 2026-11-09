@@ -884,6 +884,75 @@ Line three</textarea>
     expect(calledUrl).not.toContain(encodeURIComponent("New project inquiry from    \t  "));
   });
 
+  test("whitespace-only email/phone through FormData submit triage as empty labels", () => {
+    // Name whitespace submit lock still passes if email/phone skip sanitize and
+    // keep raw tabs/spaces in the mailto body — owner triage then gets noisy
+    // contact lines while subject-fallback contracts stay green.
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="Pat" />
+        <input name="email" value="   \t  " />
+        <input name="phone" value="   \t  " />
+        <select name="service"><option value="Decks" selected>Decks</option></select>
+        <textarea name="message">Need a quote</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    const decodedBody = decodeURIComponent(
+      redirectSpy.mock.calls[0][0].split("body=")[1]
+    );
+    expect(decodedBody).toContain("Name: Pat");
+    expect(decodedBody).toMatch(/^Email: $/m);
+    expect(decodedBody).toMatch(/^Phone: $/m);
+    expect(decodedBody).not.toMatch(/^Email: \S/m);
+    expect(decodedBody).not.toMatch(/^Phone: \S/m);
+  });
+
+  test("default first service option with & percent-encodes through FormData submit", () => {
+    // Forced-selected Kitchen & Bath fixtures still pass if the real no-selected
+    // default path concatenates raw option text into the mailto query — Custom
+    // Trim & Millwork then splits the body= parameter while selected-option
+    // encode locks stay green.
+    const main = loadMainWithFixture(`
+      <form data-contact-form data-recipient="info@example.com">
+        <input name="name" value="Pat" />
+        <input name="email" value="pat@example.com" />
+        <input name="phone" value="239-555-0100" />
+        <select name="service">
+          <option value="Custom Trim & Millwork">Custom Trim & Millwork</option>
+          <option value="Kitchen & Bath Remodels">Kitchen & Bath Remodels</option>
+        </select>
+        <textarea name="message">Need a quote</textarea>
+        <div data-form-status></div>
+      </form>
+    `);
+    const redirectSpy = jest.fn();
+    main.navigation.redirect = redirectSpy;
+
+    document
+      .querySelector("[data-contact-form]")
+      .dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
+
+    expect(redirectSpy).toHaveBeenCalledTimes(1);
+    const [calledUrl] = redirectSpy.mock.calls[0];
+    const query = calledUrl.slice(calledUrl.indexOf("?") + 1);
+    const decodedBody = decodeURIComponent(calledUrl.split("body=")[1]);
+
+    expect(calledUrl).toContain(encodeURIComponent("Custom Trim & Millwork"));
+    expect(query.includes("Custom Trim & Millwork")).toBe(false);
+    expect(query.includes("& Millwork")).toBe(false);
+    expect(decodedBody).toContain("Service interested in: Custom Trim & Millwork");
+    expect(query.match(/body=/g)).toHaveLength(1);
+  });
+
   test("does not throw when the page has no contact form", () => {
     expect(() => loadMainWithFixture("<div></div>")).not.toThrow();
   });

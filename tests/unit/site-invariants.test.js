@@ -7274,3 +7274,138 @@ describe("local asset paths stay relative (no root-absolute href/src)", () => {
     }
   });
 });
+
+describe("trust Serving All ↔ Proudly Serving / footer Serving dual honesty", () => {
+  test("All-of trust claim coexists with Proudly/footer Serving without All of", () => {
+    // Soft-boundary dual + exact heading/footer locks still pass if "All of" is
+    // copied into Proudly Serving / footer Serving (or dropped from trust) —
+    // coverage honesty then flips while isolated catalogs stay green.
+    const trustClaims = collectMatches(
+      indexHtml,
+      /class="trust-item"[^>]*>[\s\S]*?<\/svg>\s*([\s\S]*?)\s*<\/div>/g
+    ).map((raw) =>
+      decodeBasicEntities(raw.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
+    );
+    expect(trustClaims).toContain("Serving All of Southwest Florida");
+
+    const proudly = indexHtml.match(
+      /id="service-area"[\s\S]*?<h2>\s*([\s\S]*?)\s*<\/h2>/
+    )?.[1];
+    expect(proudly).toBeTruthy();
+    const proudlyText = decodeBasicEntities(proudly).replace(/\s+/g, " ").trim();
+    expect(proudlyText).toBe("Proudly Serving Southwest Florida");
+    expect(proudlyText).not.toMatch(/\bAll of\b/i);
+
+    for (const html of [indexHtml, contactHtml]) {
+      const footerContact = html.match(
+        /<h4>Contact<\/h4>\s*<ul>([\s\S]*?)<\/ul>/i
+      )?.[1];
+      expect(footerContact).toBeTruthy();
+      const items = [...footerContact.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].map(
+        (match) =>
+          decodeBasicEntities(match[1].replace(/<[^>]+>/g, " "))
+            .replace(/\s+/g, " ")
+            .trim()
+      );
+      expect(items).toContain("Serving Southwest Florida");
+      expect(items.some((item) => /\bAll of\b/i.test(item))).toBe(false);
+    }
+  });
+});
+
+describe("Owner-Operated ↔ About sole-operator dual honesty", () => {
+  test("trust Owner-Operated coexists with About sole-operator and personal Greg value", () => {
+    // Separate trust-catalog + About sole-operator + value-list locks still pass
+    // if one surface softens to crew language while the others stay sole-op —
+    // owner-model honesty then splits while isolated catalogs remain green.
+    const trustClaims = collectMatches(
+      indexHtml,
+      /class="trust-item"[^>]*>[\s\S]*?<\/svg>\s*([\s\S]*?)\s*<\/div>/g
+    ).map((raw) =>
+      decodeBasicEntities(raw.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
+    );
+    expect(trustClaims).toContain("Owner-Operated — No Subcontracted Crews");
+    expect(
+      trustClaims.some((claim) => /our crews|subcontracted team|fully staffed/i.test(claim))
+    ).toBe(false);
+
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?class="about-copy">([\s\S]*?)<ul class="value-list"/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutCopy = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutCopy).toMatch(/sole operator/i);
+    expect(aboutCopy).not.toMatch(/\bour crews\b/i);
+    expect(aboutCopy).not.toMatch(/\brotating crew of\b/i);
+
+    const valueList = indexHtml.match(/class="value-list"[\s\S]*?<\/ul>/);
+    expect(valueList).toBeTruthy();
+    expect(valueList[0]).toMatch(
+      /You work with Greg personally — no middlemen, no runaround\./
+    );
+  });
+});
+
+describe("phone CTA scheme allowlist (tel only)", () => {
+  test("pages never introduce non-tel phone schemes beside the shared tel href", () => {
+    // Unique tel:+12394402416 locks still pass if sms:/whatsapp:/javascript:
+    // phone CTAs appear — clicks then leave the site or run scripted handlers
+    // while the tel uniqueness contract stays green.
+    const forbidden = /\bhref\s*=\s*["'](?:sms|whatsapp|javascript|callto|skype|facetime):/i;
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).not.toMatch(forbidden);
+      const tels = collectMatches(html, /href="(tel:[^"]+)"/g);
+      expect(tels.length).toBeGreaterThan(0);
+      expect([...new Set(tels)]).toEqual(["tel:+12394402416"]);
+    }
+  });
+});
+
+describe("gallery placeholder-note ↔ Photos coming soon dual honesty", () => {
+  test("launch placeholder note coexists with all Photos coming soon captions", () => {
+    // Isolated placeholder-note + caption catalog locks still pass if one side
+    // is launch-finished while the other stays placeholder — gallery then
+    // half-claims real photos while note/caption contracts stay green.
+    expect(indexHtml).toMatch(
+      /Placeholder gallery — replace with real project photos before launch/
+    );
+
+    const captions = collectMatches(
+      indexHtml,
+      /class="gallery-tile"[^>]*>[\s\S]*?<span>\s*([\s\S]*?)\s*<\/span>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+
+    expect(captions).toHaveLength(6);
+    expect(captions.every((caption) => caption === "Photos coming soon")).toBe(
+      true
+    );
+    expect(captions.some((caption) => /real project|completed|finished/i.test(caption))).toBe(
+      false
+    );
+  });
+});
+
+describe("about-portrait coming-soon ↔ gallery Photos coming soon dual honesty", () => {
+  test("portrait coming-soon disclosure coexists with gallery Photos coming soon", () => {
+    // Separate portrait-caption + gallery-caption locks still pass if one media
+    // surface is finished alone — About/gallery honesty then claims real photos
+    // on one path while the other keeps the coming-soon cue.
+    const portrait = collectMatches(
+      indexHtml,
+      /class="about-portrait-caption"[^>]*>\s*([^<]+?)\s*</g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+    expect(portrait).toEqual(["Photo of Greg Felton — coming soon"]);
+
+    const gallery = collectMatches(
+      indexHtml,
+      /class="gallery-tile"[^>]*>[\s\S]*?<span>\s*([\s\S]*?)\s*<\/span>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+    expect(gallery).toHaveLength(6);
+    expect(gallery.every((caption) => caption === "Photos coming soon")).toBe(true);
+
+    expect(portrait[0]).toMatch(/coming soon/i);
+    expect(gallery.every((caption) => /coming soon/i.test(caption))).toBe(true);
+  });
+});
