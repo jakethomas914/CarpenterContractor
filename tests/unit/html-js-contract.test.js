@@ -555,4 +555,20 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     expect(statusOpen[1]).not.toMatch(/\bis-visible\b/);
     expect(statusOpen[2].trim()).toBe("");
   });
+
+  test("main.js DOM writes stay on textContent (no insertAdjacentHTML/outerHTML)", () => {
+    // innerHTML/eval/document.write bans still pass if status/year paths switch
+    // to insertAdjacentHTML or outerHTML — form/year surfaces then become XSS
+    // sinks while the narrower ban and empty form-status contracts stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const codeOnly = mainJs.replace(/\/\*[\s\S]*?\*\//g, "");
+
+    expect(codeOnly).not.toMatch(/\.insertAdjacentHTML\b/);
+    expect(codeOnly).not.toMatch(/\.outerHTML\s*=/);
+    expect(codeOnly).not.toMatch(/\.innerHTML\b/);
+    expect(codeOnly).toMatch(/yearEl\.textContent\s*=\s*getYear\s*\(/);
+    expect(codeOnly).toMatch(
+      /statusEl\.textContent\s*=\s*["']Opening your email app to send this message…["']/
+    );
+  });
 });

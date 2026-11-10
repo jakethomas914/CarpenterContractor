@@ -7409,3 +7409,341 @@ describe("about-portrait coming-soon ↔ gallery Photos coming soon dual honesty
     expect(gallery.every((caption) => /coming soon/i.test(caption))).toBe(true);
   });
 });
+
+describe("contact SLA ↔ Availability hours dual honesty", () => {
+  test("one-business-day promise coexists with weekday hours and closed Sunday", () => {
+    // Exact page-hero SLA + hours-row catalog locks still pass if one side is
+    // "reconciled" into 24/7 / same-day guaranteed response while the other
+    // keeps soft weekday hours — contact honesty then invents always-on support
+    // while isolated SLA/hours contracts stay green.
+    const heroBlock = contactHtml.match(
+      /class="page-hero"[\s\S]*?<div class="container">([\s\S]*?)<\/div>/
+    );
+    expect(heroBlock).toBeTruthy();
+    const sla = decodeBasicEntities(
+      heroBlock[1].match(/<p>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(sla).toMatch(/usually within one business day/i);
+    expect(sla).not.toMatch(/24\s*\/?\s*7|same[- ]day|guaranteed|anytime/i);
+
+    const hoursRows = [
+      ...contactHtml.matchAll(
+        /class="hours-row"[^>]*>\s*<span>([\s\S]*?)<\/span>\s*<span>([\s\S]*?)<\/span>/g
+      ),
+    ].map((match) => ({
+      day: decodeBasicEntities(match[1].replace(/\s+/g, " ").trim()),
+      hours: decodeBasicEntities(match[2].replace(/\s+/g, " ").trim()),
+    }));
+    expect(hoursRows).toEqual([
+      { day: "Monday – Friday", hours: "7:00 AM – 5:00 PM" },
+      { day: "Saturday", hours: "By appointment" },
+      { day: "Sunday", hours: "Closed" },
+    ]);
+    const hoursBlob = hoursRows
+      .map((row) => `${row.day} ${row.hours}`)
+      .join(" ");
+    expect(hoursBlob).not.toMatch(/24\s*\/?\s*7|anytime|same[- ]day/i);
+
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data).not.toHaveProperty("openingHours");
+    expect(data).not.toHaveProperty("openingHoursSpecification");
+  });
+});
+
+describe("SAMPLE testimonials ↔ gallery Photos coming soon dual honesty", () => {
+  test("sample review chrome coexists with all Photos coming soon captions", () => {
+    // Isolated SAMPLE/Sample Client/quote catalogs + gallery caption locks still
+    // pass if testimonials are launch-finished while gallery stays placeholder
+    // (or reverse) — social proof then claims real clients beside unfinished
+    // photos while per-surface contracts stay green.
+    const badges = collectMatches(
+      indexHtml,
+      /class="sample-badge"[^>]*>\s*([^<]+?)\s*</g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+    expect(badges).toEqual(["Sample", "Sample", "Sample"]);
+
+    const authors = collectMatches(
+      indexHtml,
+      /class="testimonial-author"[^>]*>([^<]*?)<span>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+    expect(authors.every((name) => name === "Sample Client")).toBe(true);
+
+    const quotes = collectMatches(
+      indexHtml,
+      /class="testimonial-card"[^>]*>[\s\S]*?<p>\s*"([^"]+)"/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+    expect(
+      quotes.every((quote) =>
+        /Placeholder testimonial — replace with a real client quote/i.test(quote)
+      )
+    ).toBe(true);
+
+    const captions = collectMatches(
+      indexHtml,
+      /class="gallery-tile"[^>]*>[\s\S]*?<span>\s*([\s\S]*?)\s*<\/span>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+    expect(captions).toHaveLength(6);
+    expect(captions.every((caption) => caption === "Photos coming soon")).toBe(
+      true
+    );
+  });
+});
+
+describe("hero-facts 1-on-1 ↔ Owner-Operated dual honesty", () => {
+  test("first-viewport 1-on-1 claim coexists with trust Owner-Operated sole-op", () => {
+    // hero-facts catalog + trust Owner↔About dual still pass if the first-viewport
+    // fact softens to crew language while trust stays sole-op (or reverse) —
+    // owner-model honesty then splits across above-the-fold surfaces.
+    const facts = [
+      ...indexHtml.matchAll(
+        /class="hero-fact"[^>]*>\s*<strong>\s*([\s\S]*?)\s*<\/strong>\s*<span>\s*([\s\S]*?)\s*<\/span>/g
+      ),
+    ].map((match) => ({
+      value: decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim(),
+      label: decodeBasicEntities(match[2]).replace(/\s+/g, " ").trim(),
+    }));
+    expect(facts[0]).toEqual({
+      value: "1-on-1",
+      label: "Direct with the owner",
+    });
+    expect(
+      facts.some(
+        (fact) =>
+          /crew|staffed|team of|subcontract/i.test(fact.value) ||
+          /crew|staffed|team of|subcontract/i.test(fact.label)
+      )
+    ).toBe(false);
+
+    const trustClaims = collectMatches(
+      indexHtml,
+      /class="trust-item"[^>]*>[\s\S]*?<\/svg>\s*([\s\S]*?)\s*<\/div>/g
+    ).map((raw) =>
+      decodeBasicEntities(raw.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
+    );
+    expect(trustClaims).toContain("Owner-Operated — No Subcontracted Crews");
+    expect(
+      trustClaims.some((claim) => /our crews|fully staffed|subcontracted team/i.test(claim))
+    ).toBe(false);
+  });
+});
+
+describe("cta-band personal follow-up ↔ contact page-hero SLA dual", () => {
+  test("homepage personal Greg follow-up coexists with contact one-business-day SLA", () => {
+    // Exact cta-band + page-hero SLA copy locks still pass if one surface hardens
+    // into same-day / guaranteed 24hr while the other stays soft personal follow-up
+    // — response promises then disagree across conversion paths.
+    const ctaBand = indexHtml.match(
+      /class="cta-band"[\s\S]*?<h2>[\s\S]*?<\/h2>\s*<p>\s*([\s\S]*?)\s*<\/p>/
+    );
+    expect(ctaBand).toBeTruthy();
+    const ctaLede = decodeBasicEntities(ctaBand[1]).replace(/\s+/g, " ").trim();
+    expect(ctaLede).toMatch(/Greg will get back to you personally/i);
+    expect(ctaLede).not.toMatch(/24\s*\/?\s*7|same[- ]day|guaranteed/i);
+
+    const heroBlock = contactHtml.match(
+      /class="page-hero"[\s\S]*?<div class="container">([\s\S]*?)<\/div>/
+    );
+    expect(heroBlock).toBeTruthy();
+    const contactLede = decodeBasicEntities(
+      heroBlock[1].match(/<p>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(contactLede).toMatch(/get back to you personally/i);
+    expect(contactLede).toMatch(/usually within one business day/i);
+    expect(contactLede).not.toMatch(/24\s*\/?\s*7|same[- ]day|guaranteed/i);
+  });
+});
+
+describe("Prompt Reliable Scheduling ↔ Call-or-text anytime dual honesty", () => {
+  test("scheduling claim coexists with anytime cue without inventing 24/7 emergency", () => {
+    // Trust Prompt catalog + Call-or-text anytime + hours duals still pass if one
+    // surface invents 24/7 emergency response while others stay soft — availability
+    // honesty then overclaims while isolated catalogs remain green.
+    const trustClaims = collectMatches(
+      indexHtml,
+      /class="trust-item"[^>]*>[\s\S]*?<\/svg>\s*([\s\S]*?)\s*<\/div>/g
+    ).map((raw) =>
+      decodeBasicEntities(raw.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
+    );
+    expect(trustClaims).toContain("Prompt, Reliable Scheduling");
+    expect(
+      trustClaims.some((claim) => /24\s*\/?\s*7|emergency|always on|round[- ]the[- ]clock/i.test(claim))
+    ).toBe(false);
+
+    expect(contactHtml).toMatch(
+      /href="tel:\+12394402416"[\s\S]*?<small>\s*Call or text anytime\s*<\/small>/
+    );
+    expect(contactHtml).not.toMatch(/24\s*\/?\s*7 emergency|emergency dispatch/i);
+
+    const hoursBlob = [
+      ...contactHtml.matchAll(
+        /class="hours-row"[^>]*>\s*<span>([\s\S]*?)<\/span>\s*<span>([\s\S]*?)<\/span>/g
+      ),
+    ]
+      .map(
+        (match) =>
+          `${decodeBasicEntities(match[1])} ${decodeBasicEntities(match[2])}`
+      )
+      .join(" ");
+    expect(hoursBlob).not.toMatch(/24\s*\/?\s*7|emergency|anytime/i);
+  });
+});
+
+describe("JSON-LD telephone format ↔ visible NANP asymmetry", () => {
+  test("schema keeps +1-hyphenated while visible Call labels stay bare NANP", () => {
+    // Digit-parity locks still pass if formats are "harmonized" (+1-… everywhere
+    // or bare digits in schema) — rich-result dialers and visible copy-paste UX
+    // then diverge while digit equality stays green.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.telephone).toBe("+1-239-440-2416");
+    expect(data.telephone.replace(/\D/g, "")).toBe("12394402416");
+
+    const visiblePhones = [
+      ...indexHtml.matchAll(/href="tel:\+12394402416"[^>]*>([\s\S]*?)<\/a>/g),
+      ...contactHtml.matchAll(/href="tel:\+12394402416"[^>]*>([\s\S]*?)<\/a>/g),
+    ].map((match) =>
+      decodeBasicEntities(match[1].replace(/<[^>]+>/g, " "))
+        .replace(/\s+/g, " ")
+        .trim()
+    );
+    expect(visiblePhones.length).toBeGreaterThan(0);
+    for (const text of visiblePhones) {
+      expect(text).toMatch(/239.?440.?2416/);
+      expect(text).not.toMatch(/\+1/);
+      expect(text).not.toBe("+1-239-440-2416");
+    }
+
+    const tels = [
+      ...collectMatches(indexHtml, /href="(tel:[^"]+)"/g),
+      ...collectMatches(contactHtml, /href="(tel:[^"]+)"/g),
+    ];
+    expect([...new Set(tels)]).toEqual(["tel:+12394402416"]);
+  });
+});
+
+describe("JSON-LD addressRegion FL ↔ footer Florida License dual", () => {
+  test("schema FL region coexists with Florida License honesty placeholder", () => {
+    // Exact addressRegion + footer license placeholder locks still pass if one
+    // invents another state/jurisdiction while the other stays Florida — geo/
+    // license honesty then splits while isolated catalogs remain green.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.address.addressRegion).toBe("FL");
+    expect(data.address.addressRegion).not.toMatch(/CA|TX|NY|GA/i);
+
+    for (const html of [indexHtml, contactHtml]) {
+      const footer = extractFooterBottom(html);
+      expect(footer).toBeTruthy();
+      expect(footer).toContain("Florida License #: [add license number]");
+      expect(footer).not.toMatch(
+        /\b(?:California|Texas|New York|Georgia)\s+License/i
+      );
+    }
+  });
+});
+
+describe("contact method=POST ↔ CSP form-action self dual", () => {
+  test("lead form stays POST with no action beside form-action self+mailto", () => {
+    // Isolated method=POST + form-action string locks still pass if the form
+    // softens to GET / gains an absolute action, or CSP drops 'self' — Netlify
+    // POST then breaks while mailto-only contracts stay green.
+    const formOpen = contactHtml.match(/<form\b[^>]*\bdata-contact-form\b[^>]*>/i);
+    expect(formOpen).toBeTruthy();
+    expect(formOpen[0]).toMatch(/\bmethod\s*=\s*["']POST["']/i);
+    expect(formOpen[0]).not.toMatch(/\bmethod\s*=\s*["']GET["']/i);
+    expect(formOpen[0]).not.toMatch(/\baction\s*=/);
+
+    const headers = fs.readFileSync(path.join(root, "_headers"), "utf8");
+    const hostCsp = headers.match(/Content-Security-Policy:\s*(.+)/)[1].trim();
+    const indexCsp = indexHtml.match(
+      /http-equiv=["']Content-Security-Policy["']\s+content="([^"]+)"/i
+    )[1];
+    const contactCsp = contactHtml.match(
+      /http-equiv=["']Content-Security-Policy["']\s+content="([^"]+)"/i
+    )[1];
+
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      expect(csp).toMatch(/form-action[^;]*'self'/);
+      expect(csp).toMatch(/form-action[^;]*mailto:/);
+    }
+  });
+});
+
+describe("README Netlify↔mailto mutual-exclusivity ↔ production dual-ready seam", () => {
+  test("README documents remove-initContactForm switch while production stays dual-ready", () => {
+    // initContactForm wiring + Netlify attribute presence locks still pass if
+    // README drops the mutual-exclusivity runbook or production loses Netlify
+    // attrs / mailto status copy — operators then cannot flip modes safely while
+    // isolated hooks stay green.
+    const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
+    expect(readme).toMatch(/mutually\s+exclusive/i);
+    expect(readme).toMatch(/Do not leave both modes active/i);
+    expect(readme).toMatch(
+      /Remove[`*\s]*the[`*\s]*`?initContactForm\(\);`?/i
+    );
+    expect(readme).toMatch(/form-action 'self' mailto:/);
+
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const initBody = mainJs.match(/function init\(\)\s*\{([\s\S]*?)\n\s*\}/);
+    expect(initBody[1]).toMatch(/initContactForm\s*\(\s*\)\s*;/);
+
+    expect(contactHtml).toMatch(/\bdata-netlify\s*=\s*["']true["']/i);
+    expect(contactHtml).toMatch(/name="form-name"[^>]*value="contact"/);
+    expect(contactHtml).toMatch(/netlify-honeypot\s*=\s*["']bot-field["']/i);
+    expect(contactHtml).not.toContain(
+      "Opening your email app to send this message…"
+    );
+    expect(mainJs).toContain(
+      "Opening your email app to send this message…"
+    );
+  });
+});
+
+describe("README launch placeholder inventory ↔ on-disk remnants", () => {
+  test("every README-listed placeholder still appears in the documented files", () => {
+    // Per-placeholder honesty locks still pass if README drops a still-present
+    // launch cue or HTML invents new unfinished markers ([TBD]/TODO/lorem)
+    // outside the documented inventory — launch checklist then drifts while
+    // individual placeholder contracts stay green.
+    const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
+    const required = [
+      "[Business Name]",
+      "info@example.com",
+      "https://www.example.com/",
+      "[add license number]",
+      "(add credentials)",
+      "Sample",
+      "Photos coming soon",
+      "Photo of Greg Felton — coming soon",
+    ];
+    for (const token of required) {
+      expect(readme).toContain(token);
+    }
+
+    expect(indexHtml).toContain("[Business Name]");
+    expect(contactHtml).toContain("[Business Name]");
+    expect(contactHtml).toContain("info@example.com");
+    expect(indexHtml).toContain("Photos coming soon");
+    expect(indexHtml).toContain("Photo of Greg Felton — coming soon");
+    expect(indexHtml).toMatch(/class="sample-badge"[^>]*>\s*Sample\s*</);
+
+    const scan = `${indexHtml}\n${contactHtml}\n${readme}`;
+    expect(scan).not.toMatch(/\bTODO\b/);
+    expect(scan).not.toMatch(/\[TBD\]/i);
+    expect(scan).not.toMatch(/\blorem ipsum\b/i);
+  });
+});

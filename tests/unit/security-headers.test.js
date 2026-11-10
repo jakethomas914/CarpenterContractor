@@ -339,4 +339,23 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
       expect(html).not.toMatch(/<embed\b/i);
     }
   });
+
+  test("style-src forbids unsafe-inline beside HTML that forbids style= attributes", () => {
+    // Exact CSP strings + "no style=" HTML locks still pass independently if one
+    // side softens alone — reintroducing style= under a permissive style-src (or
+    // the reverse) enables style XSS while the other contract stays green.
+    const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
+    const contactHtml = fs.readFileSync(path.join(root, "contact.html"), "utf8");
+
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      const styleSrc = parseCspDirectives(csp)["style-src"] || "";
+      expect(styleSrc).not.toMatch(/'unsafe-inline'/);
+      expect(styleSrc).toContain("'self'");
+      expect(styleSrc).toContain("https://fonts.googleapis.com");
+    }
+
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).not.toMatch(/\sstyle\s*=/);
+    }
+  });
 });
