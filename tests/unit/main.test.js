@@ -102,6 +102,21 @@ describe("js/main.js pure helper functions", () => {
       expect(main.sanitizeForHeader(`Pat\r${zwsp}\nLee`)).toBe(`Pat ${zwsp} Lee`);
     });
 
+    test("coerces File-like objects via String() without throwing or inventing filenames", () => {
+      // Adding a type=file control would make FormData.get return a File; String()
+      // then yields "[object File]" in triage. Lock the coerce so a future file
+      // input cannot crash submit while HTML field-name locks stay green.
+      const fileLike = {
+        name: "quote.pdf",
+        toString() {
+          return "[object File]";
+        },
+      };
+      expect(() => main.sanitizeForHeader(fileLike)).not.toThrow();
+      expect(main.sanitizeForHeader(fileLike)).toBe("[object File]");
+      expect(main.sanitizeForHeader(fileLike)).not.toContain("quote.pdf");
+    });
+
     test("preserves non-breaking space (CR/LF-only policy does not collapse NBSP)", () => {
       // Pasted phone/name values often carry U+00A0 from rich text. Collapsing
       // NBSP into a regular space (or stripping it) would rewrite triage labels
@@ -168,6 +183,19 @@ describe("js/main.js pure helper functions", () => {
       const url = main.buildMailtoUrl("info@example.com", { name: "   \t  " });
       expect(url).toContain(encodeURIComponent("New project inquiry from website visitor"));
       expect(url).not.toContain(encodeURIComponent("New project inquiry from  "));
+    });
+
+    test("ZWSP-only name keeps the ZWSP subject token (does not invent website visitor)", () => {
+      // Mid-string ZWSP preservation is locked. A ZWSP-only paste still survives
+      // .trim(), so subject becomes "from \u200b" rather than the stable inbox
+      // filter token — lock that current policy so silent collapsing or a new
+      // fallback is an intentional change while whitespace-only stays green.
+      const zwsp = "\u200b";
+      const url = main.buildMailtoUrl("info@example.com", { name: zwsp });
+      expect(url).toContain(encodeURIComponent(`New project inquiry from ${zwsp}`));
+      expect(url).not.toContain(
+        encodeURIComponent("New project inquiry from website visitor")
+      );
     });
 
     test("locks the inquiry subject prefix used for inbox filters", () => {
@@ -397,6 +425,47 @@ describe("js/main.js pure helper functions", () => {
       expect(decodedBody).toBe(
         ["Name: Jane", "Email: ", "Phone: ", "Service interested in: ", "", ""].join("\n")
       );
+    });
+
+    test("trims newline-only message to empty triage body (same as spaces/tabs)", () => {
+      // Space/tab whitespace-only is locked. A paste of only \\n / \\r\\n must
+      // still collapse — otherwise multiline blank messages diverge from the
+      // documented empty triage while space/tab locks stay green.
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: "Pat",
+        message: "\n\n\r\n",
+      });
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toBe(
+        ["Name: Pat", "Email: ", "Phone: ", "Service interested in: ", "", ""].join("\n")
+      );
+    });
+
+    test("File-like message/name values coerce via String() without throwing", () => {
+      // HTML forbids type=file today, but buildMailtoUrl must stay crash-free if
+      // a File-shaped value reaches it — "[object File]" in triage is ugly but
+      // recoverable; an exception aborts lead capture entirely.
+      const fileLike = {
+        name: "plans.pdf",
+        toString() {
+          return "[object File]";
+        },
+      };
+      expect(() =>
+        main.buildMailtoUrl("info@example.com", {
+          name: fileLike,
+          message: fileLike,
+        })
+      ).not.toThrow();
+      const url = main.buildMailtoUrl("info@example.com", {
+        name: fileLike,
+        message: fileLike,
+      });
+      expect(url).toContain(encodeURIComponent("New project inquiry from [object File]"));
+      const decodedBody = decodeURIComponent(url.split("body=")[1]);
+      expect(decodedBody).toContain("Name: [object File]");
+      expect(decodedBody.endsWith("\n[object File]")).toBe(true);
+      expect(decodedBody).not.toContain("plans.pdf");
     });
 
     test("percent-encodes ampersands in subject/body so mailto query parsing stays intact", () => {

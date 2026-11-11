@@ -571,4 +571,26 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
       /statusEl\.textContent\s*=\s*["']Opening your email app to send this message…["']/
     );
   });
+
+  test("active-nav querySelector keeps id-concat seam beside CSS-safe section ids", () => {
+    // Homepage section-id /^[a-z0-9-]+$/ locks still pass if the unsafe concat
+    // seam '.nav-links a[href="#' + id + '"]' is swapped for CSS.escape /
+    // template changes that desync from the id policy — both look fine alone.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const activeFn = mainJs.match(
+      /function initActiveNavHighlight\(\)\s*\{[\s\S]*?\n  \}\n/
+    );
+    expect(activeFn).toBeTruthy();
+    expect(activeFn[0]).toMatch(
+      /querySelector\(\s*['"]\.nav-links a\[href=["']#["']\s*\+\s*id/
+    );
+
+    const mainHtml = indexHtml.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
+    expect(mainHtml).toBeTruthy();
+    const sectionIds = [
+      ...mainHtml.matchAll(/<section\b[^>]*\bid="([^"]+)"/gi),
+    ].map((match) => match[1]);
+    expect(sectionIds.length).toBeGreaterThan(0);
+    expect(sectionIds.every((id) => /^[a-z0-9-]+$/.test(id))).toBe(true);
+  });
 });

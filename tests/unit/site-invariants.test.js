@@ -7747,3 +7747,261 @@ describe("README launch placeholder inventory ↔ on-disk remnants", () => {
     expect(scan).not.toMatch(/\blorem ipsum\b/i);
   });
 });
+
+describe("lead email addr-spec rejects comma / paren / trailing-dot junk", () => {
+  test("recipient, JSON-LD email, and mailto hrefs stay strict bare addr-specs", () => {
+    // Loose ^[^\s?#&@]+@… still accepts info@example.com,evil / (info@…) /
+    // trailing-dot hosts — launch paste can multi-route or wrap the compose
+    // target while ?#& / mailto: / <> bans stay green.
+    const recipient = contactHtml.match(/data-recipient="([^"]*)"/)?.[1];
+    const jsonEmail = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    ).email;
+    const mailtoAddresses = [
+      ...collectMatches(indexHtml, /href="mailto:([^"]+)"/g),
+      ...collectMatches(contactHtml, /href="mailto:([^"]+)"/g),
+    ];
+    const strictAddr =
+      /^[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
+
+    for (const value of [recipient, jsonEmail, ...mailtoAddresses]) {
+      expect(value).toBeTruthy();
+      expect(value).toMatch(strictAddr);
+      expect(value).not.toMatch(/[(),;<>]/);
+      expect(value).not.toMatch(/\.$/);
+      expect(value).not.toMatch(/^mailto:/i);
+    }
+  });
+});
+
+describe("trust No Subcontracted Crews ↔ hero not-call-center dual honesty", () => {
+  test("trust Owner-Operated claim coexists with hero call-center rejection", () => {
+    // Isolated trust catalog + hero-lede exact locks still pass if one surface
+    // softens to crew/call-center language while the other stays sole-op —
+    // first-viewport vs trust-strip owner honesty then splits.
+    const trustClaims = collectMatches(
+      indexHtml,
+      /class="trust-item"[^>]*>[\s\S]*?<\/svg>\s*([\s\S]*?)\s*<\/div>/g
+    ).map((raw) =>
+      decodeBasicEntities(raw.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
+    );
+    expect(trustClaims).toContain("Owner-Operated — No Subcontracted Crews");
+
+    const heroLede = indexHtml.match(/class="hero-lede"[^>]*>\s*([\s\S]*?)\s*<\/p>/);
+    expect(heroLede).toBeTruthy();
+    const heroText = decodeBasicEntities(heroLede[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(heroText).toMatch(/not a call center or a rotating crew/);
+
+    const combined = `${heroText} ${trustClaims.join(" ")}`;
+    expect(combined).not.toMatch(/fully staffed|our crews|subcontracted team/i);
+  });
+});
+
+describe("services no-big-crew ↔ About sole-operator dual honesty", () => {
+  test("services lede anti-crew claim coexists with About sole-operator copy", () => {
+    // Exact services lede + About sole-operator locks still pass if one invents
+    // crew scale while the other stays sole-op — catalog honesty then drifts
+    // without a paired dual.
+    const servicesBlock = indexHtml.match(
+      /id="services"[\s\S]*?class="section-heading center">([\s\S]*?)<div class="services-grid"/
+    );
+    expect(servicesBlock).toBeTruthy();
+    const servicesLede = decodeBasicEntities(
+      servicesBlock[1].match(/<p>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(servicesLede).toMatch(/without the overhead of a big crew/);
+
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?class="about-copy">([\s\S]*?)<ul class="value-list"/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutCopy = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutCopy).toMatch(/sole operator|one-person approach/i);
+
+    const combined = `${servicesLede} ${aboutCopy}`;
+    expect(combined).not.toMatch(/\bour crews\b|\bfully staffed\b/i);
+  });
+});
+
+describe("meta one-craftsman ↔ About sole-operator dual honesty", () => {
+  test("SERP meta craftsman claim coexists with About sole-operator body", () => {
+    // Homepage meta exact + About exact still pass if meta invents crew-scale
+    // while About stays sole-op (or reverse) — search snippet vs page body
+    // honesty then diverges.
+    const metaDesc = decodeBasicEntities(
+      indexHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(metaDesc).toContain("one craftsman, personally on every job");
+    expect(metaDesc).not.toMatch(/our team|our crews|fully staffed/i);
+
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?class="about-copy">([\s\S]*?)<ul class="value-list"/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutCopy = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutCopy).toMatch(/sole operator/i);
+    expect(aboutCopy).not.toMatch(/our team|our crews|fully staffed/i);
+  });
+});
+
+describe("hero-facts Locally based ↔ Proudly/footer Serving dual honesty", () => {
+  test("SWFL locally-owned fact coexists with Proudly/footer Serving geo copy", () => {
+    // hero-facts catalog + Serving duals still pass if first-viewport
+    // "Locally based & owned" is dropped/renamed to national while geo Serving
+    // copy stays — SWFL locality honesty then splits.
+    const facts = [
+      ...indexHtml.matchAll(
+        /class="hero-fact"[^>]*>\s*<strong>\s*([\s\S]*?)\s*<\/strong>\s*<span>\s*([\s\S]*?)\s*<\/span>/g
+      ),
+    ].map((match) => ({
+      value: decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim(),
+      label: decodeBasicEntities(match[2]).replace(/\s+/g, " ").trim(),
+    }));
+    expect(facts).toContainEqual({
+      value: "SWFL",
+      label: "Locally based & owned",
+    });
+    expect(
+      facts.some(
+        (fact) =>
+          /nationwide|national|coast.?to.?coast/i.test(fact.value) ||
+          /nationwide|national|coast.?to.?coast/i.test(fact.label)
+      )
+    ).toBe(false);
+
+    const proudly = indexHtml.match(
+      /id="service-area"[\s\S]*?<h2>\s*([\s\S]*?)\s*<\/h2>/
+    )?.[1];
+    expect(decodeBasicEntities(proudly).replace(/\s+/g, " ").trim()).toBe(
+      "Proudly Serving Southwest Florida"
+    );
+
+    for (const html of [indexHtml, contactHtml]) {
+      const footerContact = html.match(
+        /<h4>Contact<\/h4>\s*<ul>([\s\S]*?)<\/ul>/i
+      )?.[1];
+      const items = [...footerContact.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].map(
+        (match) =>
+          decodeBasicEntities(match[1].replace(/<[^>]+>/g, " "))
+            .replace(/\s+/g, " ")
+            .trim()
+      );
+      expect(items).toContain("Serving Southwest Florida");
+    }
+  });
+});
+
+describe("package.json zero runtime dependencies ↔ README claim", () => {
+  test("package stays private with empty runtime deps beside README promise", () => {
+    // Architecture / README "zero runtime dependencies" is otherwise untested —
+    // a production dependency can land while lint/unit/e2e still pass.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    const readme = fs.readFileSync(path.join(root, "README.md"), "utf8");
+
+    expect(pkg.private).toBe(true);
+    expect(pkg.dependencies ?? {}).toEqual({});
+    expect(pkg).not.toHaveProperty("dependencies");
+    expect(Object.keys(pkg.devDependencies || {}).length).toBeGreaterThan(0);
+    expect(readme).toMatch(/zero runtime dependencies|no runtime dependencies/i);
+    expect(pkg.description).toMatch(/No runtime dependencies/i);
+  });
+});
+
+describe("global href scheme allowlist", () => {
+  test("pages only use relative, hash, https, mailto, or tel hrefs", () => {
+    // Phone tel-only + absolute-https locks still pass if general anchors grow
+    // ftp:/data:/blob:/javascript:/intent: — clicks then leave the site or run
+    // scripted handlers while phone uniqueness stays green.
+    const allowed =
+      /^(?:#|[\w./-]+\.html(?:#[\w-]*)?|[\w./-]+\.(?:css|svg|js|xml|txt)|https:\/\/|mailto:|tel:)/i;
+    for (const html of [indexHtml, contactHtml]) {
+      const hrefs = collectMatches(html, /\bhref="([^"]+)"/g);
+      expect(hrefs.length).toBeGreaterThan(0);
+      for (const href of hrefs) {
+        expect(href).toMatch(allowed);
+        expect(href).not.toMatch(/^(?:javascript|data|blob|ftp|intent|sms):/i);
+      }
+    }
+  });
+});
+
+describe("CI npm run scripts ↔ package.json dual", () => {
+  test("workflow npm run targets still exist as package.json scripts", () => {
+    // CI locks Node 22 + command strings, but not that package.json still defines
+    // those script names — rename/split can break Actions while ci.yml text still
+    // looks right.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+
+    expect(ci).toMatch(/npm run lint\b/);
+    expect(ci).toMatch(/npm run test:unit\b/);
+    expect(ci).toMatch(/npm run test:e2e\b/);
+
+    expect(pkg.scripts.lint).toBeTruthy();
+    expect(pkg.scripts["test:unit"]).toMatch(/jest/);
+    expect(pkg.scripts["test:e2e"]).toMatch(/playwright/);
+    expect(pkg.scripts["lint:js"]).toMatch(/eslint/);
+    expect(pkg.scripts["lint:css"]).toMatch(/stylelint/);
+    expect(pkg.scripts["lint:html"]).toMatch(/html-validate/);
+  });
+});
+
+describe("footer Owner-operated ↔ trust Owner-Operated dual honesty", () => {
+  test("footer brand blurb coexists with trust No Subcontracted Crews claim", () => {
+    // Footer blurb exact + trust catalog exact still pass if footer softens to
+    // agency language while trust stays Owner-Operated — About dual does not
+    // cover the footer chrome path.
+    for (const html of [indexHtml, contactHtml]) {
+      const blurb = html.match(
+        /class="footer-brand"[\s\S]*?<p>\s*([\s\S]*?)\s*<\/p>/
+      )?.[1];
+      expect(blurb).toBeTruthy();
+      const text = decodeBasicEntities(blurb).replace(/\s+/g, " ").trim();
+      expect(text).toMatch(/^Owner-operated carpentry/);
+      expect(text).not.toMatch(/our crews|fully staffed|subcontracted team/i);
+    }
+
+    const trustClaims = collectMatches(
+      indexHtml,
+      /class="trust-item"[^>]*>[\s\S]*?<\/svg>\s*([\s\S]*?)\s*<\/div>/g
+    ).map((raw) =>
+      decodeBasicEntities(raw.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
+    );
+    expect(trustClaims).toContain("Owner-Operated — No Subcontracted Crews");
+  });
+});
+
+describe("contact forbids file inputs beside mailto FormData coerce", () => {
+  test("lead form never declares type=file controls", () => {
+    // Field-name / required locks still pass if a file input is added — FormData
+    // then yields File values and triage becomes "[object File]" while mailto
+    // submit seams stay green.
+    const form = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[\s\S]*?<\/form>/i
+    )?.[0];
+    expect(form).toBeTruthy();
+    expect(form).not.toMatch(/<input\b[^>]*\btype=["']file["']/i);
+    expect(contactHtml).not.toMatch(/<input\b[^>]*\btype=["']file["']/i);
+  });
+});
+
+describe("contact omits twitter cards beside intentional OG omit", () => {
+  test("contact page has neither Open Graph nor twitter meta tags", () => {
+    // Homepage locks "no twitter cards"; contact only locks og: omit — a
+    // half-added twitter:card on contact invents share chrome while OG-omit
+    // stays green.
+    expect(contactHtml).not.toMatch(/property="og:/);
+    expect(contactHtml).not.toMatch(/name="twitter:/);
+    expect(contactHtml).not.toMatch(/property="twitter:/);
+  });
+});

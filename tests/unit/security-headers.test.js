@@ -358,4 +358,20 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
       expect(html).not.toMatch(/\sstyle\s*=/);
     }
   });
+
+  test("img-src allows data: while HTML forbids data: image/URI payloads", () => {
+    // Host/meta CSP exact strings include img-src 'self' data:, but that alone
+    // does not prove documents stay free of base64 embeds — same pattern as
+    // base/iframe bans beside object-src/base-uri.
+    const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
+    const contactHtml = fs.readFileSync(path.join(root, "contact.html"), "utf8");
+
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      expect(parseCspDirectives(csp)["img-src"]).toBe("'self' data:");
+    }
+
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).not.toMatch(/\b(?:src|href)=["']data:/i);
+    }
+  });
 });
