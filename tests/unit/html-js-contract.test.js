@@ -51,6 +51,16 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     expect(contactHtml).toMatch(/data-form-status/);
   });
 
+  test("contact page keeps exactly one data-contact-form (homepage keeps none)", () => {
+    // Presence-only hooks still pass if a second lead form is pasted onto
+    // contact (duplicate submits / conflicting recipients) or if the homepage
+    // gains a half-wired form that initContactForm binds without Netlify fields.
+    const contactForms = contactHtml.match(/\bdata-contact-form\b/g) || [];
+    const indexForms = indexHtml.match(/\bdata-contact-form\b/g) || [];
+    expect(contactForms).toHaveLength(1);
+    expect(indexForms).toHaveLength(0);
+  });
+
   test("includes the named fields buildMailtoUrl reads from FormData", () => {
     for (const name of ["name", "email", "phone", "service", "message"]) {
       expect(contactHtml).toMatch(new RegExp(`name="${name}"`));
@@ -76,6 +86,24 @@ describe("JS ↔ HTML contract (contact.html)", () => {
       );
     }
     expect(contactHtml).toMatch(/<input\b[^>]*type="email"[^>]*id="email"/i);
+  });
+
+  test("service select stays optional (no required) so unsure leads can still submit", () => {
+    // Name/phone/email/message required locks still pass if service gains
+    // required — visitors who are "Not sure yet" / skipping the catalog then
+    // cannot submit while option value↔label contracts remain green.
+    const selectOpen = contactHtml.match(/<select\b[^>]*\bid="service"[^>]*>/i);
+    expect(selectOpen).toBeTruthy();
+    expect(selectOpen[0]).not.toMatch(/\brequired\b/i);
+  });
+
+  test("honeypot bot-field stays optional (no required) so real leads can submit", () => {
+    // Lead-field required locks still pass if the empty visually-hidden honeypot
+    // gains required — native HTML5 validation then fails every human submit
+    // while Netlify honeypot attribute contracts stay green.
+    const botOpen = contactHtml.match(/<input\b[^>]*\bname="bot-field"[^>]*>/i);
+    expect(botOpen).toBeTruthy();
+    expect(botOpen[0]).not.toMatch(/\brequired\b/i);
   });
 
   test("name field stays type=text (not email/tel/hidden) for HTML5 name entry", () => {
@@ -106,6 +134,15 @@ describe("JS ↔ HTML contract (contact.html)", () => {
     const formOpen = contactHtml.match(/<form\b[^>]*data-contact-form[^>]*>/i);
     expect(formOpen).toBeTruthy();
     expect(formOpen[0]).not.toMatch(/\baction\s*=\s*["']https?:/i);
+  });
+
+  test("contact form omits action entirely (no relative/empty action drift)", () => {
+    // Absolute-URL forbid still passes with action="/thank-you" or action="" —
+    // those break Netlify POST-to-page + JS mailto dual path while https? checks
+    // stay green.
+    const formOpen = contactHtml.match(/<form\b[^>]*data-contact-form[^>]*>/i);
+    expect(formOpen).toBeTruthy();
+    expect(formOpen[0]).not.toMatch(/\baction\s*=/i);
   });
 
   test("pairs every lead-field label[for] with a matching control id", () => {
@@ -216,6 +253,22 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     );
   });
 
+  test("initContactForm still builds mailto via buildMailtoUrl + navigation.redirect", () => {
+    // FormData.get / status-copy locks still pass if submit inlines URI
+    // construction and skips sanitize/encode — lead fields then lose header
+    // defense and percent-encoding while field-name contracts stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const contactInit = mainJs.match(/function initContactForm\(\)\s*\{[\s\S]*?\n  \}\n/);
+    expect(contactInit).toBeTruthy();
+    const body = contactInit[0];
+
+    expect(body).toMatch(/getAttribute\(\s*["']data-recipient["']\s*\)\s*\|\|\s*["']["']/);
+    expect(body).toMatch(/buildMailtoUrl\s*\(\s*recipient\s*,/);
+    expect(body).toMatch(/navigation\.redirect\s*\(\s*mailtoUrl\s*\)/);
+    expect(body).not.toMatch(/window\.location\.href\s*=/);
+    expect(body).not.toMatch(/["']mailto:\s*\+/);
+  });
+
   test("active-nav and scroll-reveal keep the README selector + observer contracts", () => {
     // README documents these exact selectors/options. Softening them (e.g. observing
     // all sections, or dropping rootMargin) silently changes highlighting and reveal timing.
@@ -270,6 +323,27 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     }
   });
 
+  test("nav toggle keeps the exact Toggle navigation menu aria-label on both pages", () => {
+    // Non-empty aria-label still passes if the name softens to "Menu" / "Open" —
+    // AT then loses the documented control purpose while type=button and
+    // aria-expanded contracts stay green.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(
+        /<button\b[^>]*\bclass="[^"]*\bnav-toggle\b[^"]*"[^>]*\baria-label="Toggle navigation menu"/s
+      );
+    }
+  });
+
+  test("mailto subject template keeps New project inquiry from + website visitor fallback in source", () => {
+    // Runtime subject assertions still pass if the template is rebuilt from
+    // scattered strings — inbox filters then break when the source prefix or
+    // fallback token drifts while buildMailtoUrl unit tests stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).toContain(
+      '"New project inquiry from " + (name || "website visitor")'
+    );
+  });
+
   test("nav toggle starts collapsed with aria-expanded=false on both pages", () => {
     // initMobileNav toggles this attribute; a wrong initial value lies to AT users
     // before the first click and can desync the open/closed state.
@@ -303,6 +377,75 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     expect(formOpen[0]).not.toMatch(/\bnovalidate\b/i);
   });
 
+  test("contact form open tag keeps the exact Netlify+mailto attribute allowlist", () => {
+    // Piecewise forbids (no action / no novalidate / has data-netlify) still pass
+    // if target, enctype, or extra attrs appear and change POST/mailto behavior.
+    const formOpen = contactHtml.match(
+      /<form\b([\s\S]*?)data-contact-form([\s\S]*?)>/i
+    );
+    expect(formOpen).toBeTruthy();
+    const openTag = formOpen[0];
+    const attrNames = new Set();
+    for (const match of openTag.matchAll(
+      /\s([:@A-Za-z_][\w:.-]*)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/g
+    )) {
+      attrNames.add(match[1].toLowerCase());
+    }
+    expect([...attrNames].sort()).toEqual(
+      [
+        "data-contact-form",
+        "data-netlify",
+        "data-recipient",
+        "method",
+        "name",
+        "netlify-honeypot",
+      ].sort()
+    );
+  });
+
+  test("buildMailtoUrl keeps message trim-only (does not call sanitizeForHeader)", () => {
+    // Multiline/lone-CR behavior tests stay green if someone "cleans up" by
+    // routing message through sanitizeForHeader — project details then collapse
+    // to a single line while header-field sanitization locks remain green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const buildFn = mainJs.match(
+      /function buildMailtoUrl\(\s*recipient\s*,\s*fields\s*\)\s*\{[\s\S]*?\n  \}\n/
+    );
+    expect(buildFn).toBeTruthy();
+    const body = buildFn[0];
+
+    expect(body).toMatch(
+      /var\s+message\s*=\s*String\(\(fields\s*&&\s*fields\.message\)\s*\|\|\s*""\)\.trim\(\)/
+    );
+    expect(body).not.toMatch(/sanitizeForHeader\(\s*fields\s*&&\s*fields\.message/);
+    expect(body).not.toMatch(/sanitizeForHeader\(\s*fields\.message/);
+
+    for (const field of ["name", "email", "phone", "service"]) {
+      expect(body).toMatch(
+        new RegExp(`sanitizeForHeader\\(\\s*fields\\s*&&\\s*fields\\.${field}\\s*\\)`)
+      );
+    }
+  });
+
+  test("buildMailtoUrl joins triage body lines with LF only (not CRLF or other separators)", () => {
+    // Decoded-body happy-path asserts still pass if a "Windows mailto" edit swaps
+    // join("\n") for join("\r\n") or join("\\n") while carefully updating a few
+    // expectations — inbox triage then gains raw CR noise or literal \\n while
+    // label-order locks stay green. Lock the source seam beside the runtime body.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const buildFn = mainJs.match(
+      /function buildMailtoUrl\(\s*recipient\s*,\s*fields\s*\)\s*\{[\s\S]*?\n  \}\n/
+    );
+    expect(buildFn).toBeTruthy();
+    const body = buildFn[0];
+
+    expect(body).toMatch(/bodyLines\.join\(\s*"\\n"\s*\)/);
+    expect(body).not.toMatch(/bodyLines\.join\(\s*"\\r\\n"\s*\)/);
+    expect(body).not.toMatch(/bodyLines\.join\(\s*'\\n'\s*\)/);
+    expect(body).not.toMatch(/bodyLines\.join\(\s*`\\n`\s*\)/);
+    expect(body).not.toMatch(/bodyLines\.join\(\s*"[^"]*,[^"]*"\s*\)/);
+  });
+
   test("main.js script tags are not deferred or async (init runs after body hooks)", () => {
     // async/defer can race ahead of DOM parsing or reorder after body hooks.
     // Combined with end-of-body placement, a plain sync script is required.
@@ -312,5 +455,142 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
       expect(scriptTag[0]).not.toMatch(/\bdefer\b/i);
       expect(scriptTag[0]).not.toMatch(/\basync\b/i);
     }
+  });
+
+  test("initContactForm calls preventDefault before FormData / mailto / redirect work", () => {
+    // Presence-only preventDefault still passes if it moves after throwable
+    // FormData/buildMailtoUrl work — native method="POST" then races mailto /
+    // Netlify and can duplicate or drop leads while field-name locks stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const contactInit = mainJs.match(/function initContactForm\(\)\s*\{[\s\S]*?\n  \}\n/);
+    expect(contactInit).toBeTruthy();
+    const body = contactInit[0];
+
+    const preventIdx = body.search(/event\.preventDefault\s*\(\s*\)/);
+    const formDataIdx = body.search(/new\s+FormData\s*\(/);
+    const buildIdx = body.search(/buildMailtoUrl\s*\(/);
+    const redirectIdx = body.search(/navigation\.redirect\s*\(/);
+
+    expect(preventIdx).toBeGreaterThanOrEqual(0);
+    expect(formDataIdx).toBeGreaterThan(preventIdx);
+    expect(buildIdx).toBeGreaterThan(formDataIdx);
+    expect(redirectIdx).toBeGreaterThan(buildIdx);
+  });
+
+  test("initContactForm redirects before revealing form-status confirmation", () => {
+    // Redirect + status-copy presence locks still pass if status UI is reordered
+    // ahead of navigation.redirect — confirmation can flash while mailto never
+    // launches (or a later throw skips status) while seam contracts stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const contactInit = mainJs.match(/function initContactForm\(\)\s*\{[\s\S]*?\n  \}\n/);
+    expect(contactInit).toBeTruthy();
+    const body = contactInit[0];
+
+    const redirectIdx = body.search(/navigation\.redirect\s*\(\s*mailtoUrl\s*\)/);
+    const statusTextIdx = body.indexOf(
+      "Opening your email app to send this message…"
+    );
+    const statusVisibleIdx = body.search(
+      /statusEl\.classList\.add\(\s*["']is-visible["']\s*\)/
+    );
+
+    expect(redirectIdx).toBeGreaterThanOrEqual(0);
+    expect(statusTextIdx).toBeGreaterThan(redirectIdx);
+    expect(statusVisibleIdx).toBeGreaterThan(statusTextIdx);
+  });
+
+  test("buildMailtoUrl encodes subject and body with encodeURIComponent (not encodeURI)", () => {
+    // bodyLines.join("\\n") source locks still pass if encodeURIComponent is
+    // swapped for encodeURI or bare concat — &, ?, # in Kitchen & Bath / visitor
+    // names then truncate mailto query parsing while LF-join contracts stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const buildFn = mainJs.match(
+      /function buildMailtoUrl\(\s*recipient\s*,\s*fields\s*\)\s*\{[\s\S]*?\n  \}\n/
+    );
+    expect(buildFn).toBeTruthy();
+    const body = buildFn[0];
+
+    expect(body).toMatch(
+      /var\s+subject\s*=\s*encodeURIComponent\(\s*"New project inquiry from "\s*\+/
+    );
+    expect(body).toMatch(
+      /var\s+body\s*=\s*encodeURIComponent\(\s*bodyLines\.join\(\s*"\\n"\s*\)\s*\)/
+    );
+    expect(body).not.toMatch(/encodeURI\s*\(/);
+    expect(body).not.toMatch(
+      /subject\s*=\s*["']New project inquiry from ["']\s*\+/
+    );
+  });
+
+  test("window.location.href assignment lives only inside navigation.redirect", () => {
+    // initContactForm redirect-seam locks still pass if a second direct
+    // location.href write appears elsewhere — that path bypasses the testable
+    // navigation seam and can skip sanitize/encode while form contracts stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    // Strip block comments so docstrings mentioning the assignment do not count.
+    const codeOnly = mainJs.replace(/\/\*[\s\S]*?\*\//g, "");
+    const assignments = [...codeOnly.matchAll(/window\.location\.href\s*=/g)];
+    expect(assignments).toHaveLength(1);
+
+    const redirectFn = mainJs.match(
+      /redirect:\s*function\s*\(\s*url\s*\)\s*\{[\s\S]*?\n\s*\}/
+    );
+    expect(redirectFn).toBeTruthy();
+    expect(redirectFn[0]).toMatch(/window\.location\.href\s*=\s*url/);
+    expect(codeOnly).not.toMatch(
+      /initContactForm[\s\S]*window\.location\.href\s*=/
+    );
+  });
+
+  test("production form-status starts empty and without is-visible", () => {
+    // CSS display toggles + JS is-visible adds still pass if markup ships
+    // prefilled / pre-visible — visitors then see a false "Opening your email
+    // app…" confirmation before submit while reveal contracts stay green.
+    const statusOpen = contactHtml.match(
+      /<div\b([^>]*\bdata-form-status\b[^>]*)>([\s\S]*?)<\/div>/i
+    );
+    expect(statusOpen).toBeTruthy();
+    expect(statusOpen[1]).toMatch(/\bclass="[^"]*\bform-status\b[^"]*"/);
+    expect(statusOpen[1]).toMatch(/\brole="status"/);
+    expect(statusOpen[1]).not.toMatch(/\bis-visible\b/);
+    expect(statusOpen[2].trim()).toBe("");
+  });
+
+  test("main.js DOM writes stay on textContent (no insertAdjacentHTML/outerHTML)", () => {
+    // innerHTML/eval/document.write bans still pass if status/year paths switch
+    // to insertAdjacentHTML or outerHTML — form/year surfaces then become XSS
+    // sinks while the narrower ban and empty form-status contracts stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const codeOnly = mainJs.replace(/\/\*[\s\S]*?\*\//g, "");
+
+    expect(codeOnly).not.toMatch(/\.insertAdjacentHTML\b/);
+    expect(codeOnly).not.toMatch(/\.outerHTML\s*=/);
+    expect(codeOnly).not.toMatch(/\.innerHTML\b/);
+    expect(codeOnly).toMatch(/yearEl\.textContent\s*=\s*getYear\s*\(/);
+    expect(codeOnly).toMatch(
+      /statusEl\.textContent\s*=\s*["']Opening your email app to send this message…["']/
+    );
+  });
+
+  test("active-nav querySelector keeps id-concat seam beside CSS-safe section ids", () => {
+    // Homepage section-id /^[a-z0-9-]+$/ locks still pass if the unsafe concat
+    // seam '.nav-links a[href="#' + id + '"]' is swapped for CSS.escape /
+    // template changes that desync from the id policy — both look fine alone.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const activeFn = mainJs.match(
+      /function initActiveNavHighlight\(\)\s*\{[\s\S]*?\n  \}\n/
+    );
+    expect(activeFn).toBeTruthy();
+    expect(activeFn[0]).toMatch(
+      /querySelector\(\s*['"]\.nav-links a\[href=["']#["']\s*\+\s*id/
+    );
+
+    const mainHtml = indexHtml.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
+    expect(mainHtml).toBeTruthy();
+    const sectionIds = [
+      ...mainHtml.matchAll(/<section\b[^>]*\bid="([^"]+)"/gi),
+    ].map((match) => match[1]);
+    expect(sectionIds.length).toBeGreaterThan(0);
+    expect(sectionIds.every((id) => /^[a-z0-9-]+$/.test(id))).toBe(true);
   });
 });
