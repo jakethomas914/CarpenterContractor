@@ -593,4 +593,48 @@ describe("JS ↔ HTML contract (shared wiring)", () => {
     expect(sectionIds.length).toBeGreaterThan(0);
     expect(sectionIds.every((id) => /^[a-z0-9-]+$/.test(id))).toBe(true);
   });
+
+  test("lead form name attributes stay on the documented FormData allowlist", () => {
+    // Presence locks for name|email|phone|service|message still pass if hidden
+    // subject/body/cc/bcc fields appear — Netlify sprawl or future FormData
+    // iteration can then rewrite mailto query intent while required-name
+    // contracts stay green. Scope to control tags so the form's own
+    // name="contact" is not mistaken for a FormData key.
+    const form = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[\s\S]*?<\/form>/i
+    )?.[0];
+    expect(form).toBeTruthy();
+    const names = [
+      ...form.matchAll(
+        /<(?:input|select|textarea)\b[^>]*\bname="([^"]+)"[^>]*>/gi
+      ),
+    ].map((match) => match[1]);
+    expect([...new Set(names)].sort()).toEqual(
+      ["bot-field", "email", "form-name", "message", "name", "phone", "service"].sort()
+    );
+    expect(names.filter((name) => /^(subject|body|cc|bcc)$/i.test(name))).toEqual([]);
+  });
+
+  test("lead form input types stay on the text/tel/email/hidden allowlist", () => {
+    // type=file ban still passes with password/url/date/checkbox controls —
+    // wrong mobile keyboards, validation, or Netlify payloads then land while
+    // the file-only forbid stays green.
+    const form = contactHtml.match(
+      /<form\b[^>]*\bdata-contact-form\b[\s\S]*?<\/form>/i
+    )?.[0];
+    expect(form).toBeTruthy();
+    const inputTypes = [...form.matchAll(/<input\b([^>]*)>/gi)].map((match) => {
+      const type = match[1].match(/\btype=["']([^"']+)["']/i);
+      return type ? type[1].toLowerCase() : "text";
+    });
+    expect(inputTypes.length).toBeGreaterThan(0);
+    for (const type of inputTypes) {
+      expect(["text", "tel", "email", "hidden"]).toContain(type);
+    }
+    expect(form).toMatch(/<select\b[^>]*\bid="service"/i);
+    expect(form).toMatch(/<textarea\b[^>]*\bid="message"/i);
+    expect(form).not.toMatch(
+      /<input\b[^>]*\btype=["'](?:password|url|search|date|checkbox|radio|number|file)["']/i
+    );
+  });
 });

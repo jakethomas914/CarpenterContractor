@@ -8005,3 +8005,292 @@ describe("contact omits twitter cards beside intentional OG omit", () => {
     expect(contactHtml).not.toMatch(/property="twitter:/);
   });
 });
+
+describe("contact-form-card follow-up ↔ page-hero SLA dual honesty", () => {
+  test("form-card Greg follow-up coexists with page-hero one-business-day SLA", () => {
+    // Exact form-card lede + page-hero SLA locks still pass if the form card
+    // invents same-day / instant follow-up while the hero keeps the soft SLA —
+    // the conversion surface then overpromises beside the contact intro.
+    const formCard = contactHtml.match(
+      /class="contact-form-card"[^>]*>\s*<h3>[\s\S]*?<\/h3>\s*<p>\s*([\s\S]*?)\s*<\/p>/
+    );
+    expect(formCard).toBeTruthy();
+    const formLede = decodeBasicEntities(formCard[1]).replace(/\s+/g, " ").trim();
+    expect(formLede).toMatch(/Greg will follow up directly/i);
+    expect(formLede).not.toMatch(/same[- ]day|instant|guaranteed|24\s*\/?\s*7/i);
+
+    const heroBlock = contactHtml.match(
+      /class="page-hero"[\s\S]*?<div class="container">([\s\S]*?)<\/div>/
+    );
+    expect(heroBlock).toBeTruthy();
+    const heroLede = decodeBasicEntities(
+      heroBlock[1].match(/<p>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(heroLede).toMatch(/usually within one business day/i);
+    expect(heroLede).not.toMatch(/same[- ]day|instant|guaranteed|24\s*\/?\s*7/i);
+
+    const combined = `${formLede} ${heroLede}`;
+    expect(combined).not.toMatch(/same[- ]day|instant|guaranteed|24\s*\/?\s*7/i);
+  });
+});
+
+describe("hero One Job at a Time ↔ About fewer-projects dual honesty", () => {
+  test("capacity H1 phrase coexists with About fewer-projects-at-a-time copy", () => {
+    // Exact H1 + About paragraph locks still pass if one invents volume/scale
+    // while the other keeps capacity honesty — first-viewport vs About then
+    // disagree on how much work the sole operator takes on.
+    const h1 = decodeBasicEntities(
+      indexHtml.match(/<h1>([\s\S]*?)<\/h1>/)[1].replace(/<[^>]+>/g, " ")
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(h1).toMatch(/One Job at a Time/);
+    expect(h1).not.toMatch(/unlimited projects|as many jobs|high volume/i);
+
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?class="about-copy">([\s\S]*?)<ul class="value-list"/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutCopy = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutCopy).toMatch(/fewer projects at a time/i);
+    expect(aboutCopy).not.toMatch(/unlimited projects|as many jobs|high volume/i);
+  });
+});
+
+describe("value-list not-delegated ↔ trust No Subcontracted dual honesty", () => {
+  test("personal not-delegated value coexists with trust No Subcontracted Crews", () => {
+    // Exact value-list catalog + trust catalog still pass independently if
+    // About/value softens to team/crew language while trust stays sole-op —
+    // owner-model honesty then splits across adjacent About surfaces.
+    const valueList = indexHtml.match(/class="value-list"[\s\S]*?<\/ul>/);
+    expect(valueList).toBeTruthy();
+    const valueText = decodeBasicEntities(valueList[0].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(valueText).toMatch(/done personally, not delegated/i);
+    expect(valueText).not.toMatch(/delegated to|subcontracted team|our crews/i);
+
+    const trustClaims = collectMatches(
+      indexHtml,
+      /class="trust-item"[^>]*>[\s\S]*?<\/svg>\s*([\s\S]*?)\s*<\/div>/g
+    ).map((raw) =>
+      decodeBasicEntities(raw.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
+    );
+    expect(trustClaims).toContain("Owner-Operated — No Subcontracted Crews");
+    expect(
+      trustClaims.some((claim) => /delegated to|subcontracted team|our crews/i.test(claim))
+    ).toBe(false);
+  });
+});
+
+describe("about-signature ↔ hero-visual-signature Owner & Carpenter dual", () => {
+  test("About and hero signatures keep the same Owner & Carpenter role", () => {
+    // Separate about-signature + hero-visual-signature locks still pass if one
+    // renames the role (Owner & GC / Crew Lead) while the other stays Carpenter —
+    // first-viewport vs About identity then splits.
+    const about = indexHtml.match(
+      /class="about-signature"[^>]*>\s*<div>\s*<strong>\s*([\s\S]*?)\s*<\/strong>\s*<span>\s*([\s\S]*?)\s*<\/span>/
+    );
+    expect(about).toBeTruthy();
+    const aboutRole = decodeBasicEntities(about[2]).replace(/\s+/g, " ").trim();
+    expect(aboutRole).toMatch(/^Owner & Carpenter,/);
+
+    const heroSig = indexHtml.match(
+      /class="hero-visual-signature"[^>]*>[\s\S]*?<\/span>\s*([\s\S]*?)\s*<\/div>/
+    );
+    expect(heroSig).toBeTruthy();
+    const heroText = decodeBasicEntities(heroSig[1]).replace(/\s+/g, " ").trim();
+    expect(heroText).toMatch(/,\s*Owner & Carpenter$/);
+
+    const combined = `${aboutRole} ${heroText}`;
+    expect(combined).toMatch(/Owner & Carpenter/);
+    expect(combined).not.toMatch(/\b(?:Team|Crew|Manager)\b/);
+  });
+});
+
+describe("meta owned-and-operated ↔ hero/OG personally-operated dual honesty", () => {
+  test("SERP owned-and-operated coexists with hero and OG personally-operated", () => {
+    // Exact meta / OG / hero locks still pass if meta invents crew-scale while
+    // OG/hero stay personal (or reverse) — SERP vs share vs hero honesty then
+    // splits without a paired dual.
+    const metaDesc = decodeBasicEntities(
+      indexHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(metaDesc).toMatch(/owned and operated/i);
+    expect(metaDesc).toMatch(/one craftsman/i);
+
+    const heroLede = decodeBasicEntities(
+      indexHtml.match(/class="hero-lede"[^>]*>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(heroLede).toMatch(/personally operated/i);
+
+    const ogDesc = decodeBasicEntities(
+      indexHtml.match(/property="og:description"\s+content="([^"]+)"/)[1]
+    );
+    expect(ogDesc).toMatch(/personally operated/i);
+
+    const combined = `${metaDesc} ${heroLede} ${ogDesc}`;
+    expect(combined).not.toMatch(/our team|our crews|fully staffed/i);
+  });
+});
+
+describe("JSON-LD GeneralContractor ↔ chrome GC trade framing dual", () => {
+  test("schema GeneralContractor coexists with Carpentry & GC titles and tagline", () => {
+    // Exact @type + placeholder-tag + title locks still pass if schema drifts to
+    // LocalBusiness while chrome keeps GC framing (or reverse) — rich results
+    // vs visible trade identity then disagree.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data["@type"]).toBe("GeneralContractor");
+    expect(data["@type"]).not.toMatch(/LocalBusiness|HomeAndConstructionBusiness/);
+
+    const tags = collectMatches(indexHtml, /class="placeholder-tag">([^<]+)/g).map(
+      (raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim()
+    );
+    expect(tags).toContain("Carpentry & General Contracting");
+
+    const indexTitle = decodeBasicEntities(indexHtml.match(/<title>([^<]+)<\/title>/)[1]);
+    const contactTitle = decodeBasicEntities(
+      contactHtml.match(/<title>([^<]+)<\/title>/)[1]
+    );
+    expect(indexTitle).toMatch(/Carpenter & General Contractor/);
+    expect(contactTitle).toMatch(/SWFL Carpentry & GC/);
+  });
+});
+
+describe("JSON-LD addressCountry US ↔ Florida License / SWFL geo dual", () => {
+  test("schema US country coexists with Florida License and Serving SWFL chrome", () => {
+    // addressRegion FL↔license dual still passes if addressCountry drifts off US
+    // while FL/SWFL chrome stays — jurisdiction honesty then incomplete.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.address.addressCountry).toBe("US");
+    expect(data.address.addressCountry).not.toMatch(/CA|MX|GB|AU/i);
+    expect(data.address.addressRegion).toBe("FL");
+
+    for (const html of [indexHtml, contactHtml]) {
+      const footer = extractFooterBottom(html);
+      expect(footer).toContain("Florida License #: [add license number]");
+      expect(footer).not.toMatch(
+        /\b(?:California|Texas|New York|Georgia|Ontario)\s+License/i
+      );
+
+      const footerContact = html.match(
+        /<h4>Contact<\/h4>\s*<ul>([\s\S]*?)<\/ul>/i
+      )?.[1];
+      const items = [...footerContact.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].map(
+        (match) =>
+          decodeBasicEntities(match[1].replace(/<[^>]+>/g, " "))
+            .replace(/\s+/g, " ")
+            .trim()
+      );
+      expect(items).toContain("Serving Southwest Florida");
+    }
+  });
+});
+
+describe("form-note Call or text ↔ contact-info anytime dual honesty", () => {
+  test("form-note call-or-text invite coexists with contact-info anytime cue", () => {
+    // Exact form-note + anytime locks still pass if form-note drops call-or-text
+    // / invents email-only while the sidebar keeps anytime — phone fallback
+    // honesty then splits across the lead form and info card.
+    const formNote = contactHtml.match(
+      /<p\b[^>]*\bclass="[^"]*\bform-note\b[^"]*"[^>]*>([\s\S]*?)<\/p>/
+    );
+    expect(formNote).toBeTruthy();
+    const noteText = decodeBasicEntities(formNote[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(noteText).toMatch(/Call or text/);
+    expect(formNote[1]).toMatch(/href="tel:\+12394402416"/);
+    expect(noteText).not.toMatch(/email only|email us instead/i);
+
+    expect(contactHtml).toMatch(
+      /href="tel:\+12394402416"[\s\S]*?<small>\s*Call or text anytime\s*<\/small>/
+    );
+  });
+});
+
+describe("CI npm ci lockfile install seam", () => {
+  test("workflow installs with npm ci rather than npm install", () => {
+    // Node 22 + script-name duals still pass if the install step softens to
+    // npm install — lockfile integrity then stops gating CI while script duals
+    // stay green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(/^\s*-\s+name:\s*Install dependencies\s*$/m);
+    expect(ci).toMatch(/run:\s*npm ci\b/);
+    expect(ci).not.toMatch(/run:\s*npm install\b/);
+  });
+});
+
+describe("CI Playwright browsers ↔ playwright.config projects dual", () => {
+  test("CI chromium+webkit install matches config Chromium and WebKit projects", () => {
+    // CI string-locks `chromium webkit` install, but config can add Firefox or
+    // drop webkit/mobile-safari — e2e then fails or silently narrows while the
+    // CI install text stays green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(
+      /npx playwright install --with-deps chromium webkit\b/
+    );
+    expect(ci).not.toMatch(/playwright install[^\n]*firefox/);
+
+    const config = fs.readFileSync(path.join(root, "playwright.config.js"), "utf8");
+    expect(config).toMatch(/devices\["Desktop Chrome"\]/);
+    expect(config).toMatch(/devices\["iPhone 13"\]/);
+    expect(config).not.toMatch(/Desktop Firefox|firefox/i);
+    expect(config).not.toMatch(/devices\["Desktop Safari"\]/);
+
+    const projectNames = [...config.matchAll(/name:\s*["']([^"']+)["']/g)].map(
+      (match) => match[1]
+    );
+    expect(projectNames).toEqual(["chromium-desktop", "mobile-safari"]);
+  });
+});
+
+describe("package.json lint composition ↔ CI lint dual", () => {
+  test("scripts.lint still runs lint:js, lint:css, and lint:html together", () => {
+    // CI↔script-name dual still passes if lint shrinks to lint:js only — CSS /
+    // HTML regressions then skip CI while `npm run lint` remains truthy.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+
+    expect(pkg.scripts.lint).toMatch(/lint:js/);
+    expect(pkg.scripts.lint).toMatch(/lint:css/);
+    expect(pkg.scripts.lint).toMatch(/lint:html/);
+    expect(pkg.scripts.lint).toBe(
+      'npm run lint:js && npm run lint:css && npm run lint:html'
+    );
+    expect(ci).toMatch(/npm run lint\b/);
+  });
+});
+
+describe("HTML http-equiv allowlist forbids Report-Only and refresh", () => {
+  test("pages only declare Content-Security-Policy http-equiv metas", () => {
+    // Host header key-set exactness still passes if HTML gains a softer
+    // Content-Security-Policy-Report-Only or http-equiv=refresh — enforcement
+    // and navigation posture then weaken while host parity stays green.
+    for (const html of [indexHtml, contactHtml]) {
+      const httpEquivs = [
+        ...html.matchAll(/http-equiv=["']([^"']+)["']/gi),
+      ].map((match) => match[1]);
+      expect(httpEquivs.length).toBeGreaterThan(0);
+      expect(httpEquivs.every((value) => value === "Content-Security-Policy")).toBe(
+        true
+      );
+      expect(html).not.toMatch(/Content-Security-Policy-Report-Only/i);
+      expect(html).not.toMatch(/http-equiv=["']refresh["']/i);
+    }
+  });
+});
