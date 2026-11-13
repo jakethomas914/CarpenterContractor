@@ -8294,3 +8294,257 @@ describe("HTML http-equiv allowlist forbids Report-Only and refresh", () => {
     }
   });
 });
+
+describe("JSON-LD description ↔ Serving SWFL chrome dual honesty", () => {
+  test("schema throughout-SWFL blurb coexists with Proudly/footer Serving chrome", () => {
+    // Exact JSON-LD description + Serving duals still pass independently if
+    // schema invents nationwide scope while visible Serving stays SWFL (or
+    // reverse) — rich results vs chrome geo honesty then split.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.description).toBe(
+      "Carpentry and general contracting services throughout Southwest Florida."
+    );
+    expect(data.description).toMatch(/Southwest Florida/);
+    expect(data.description).not.toMatch(/nationwide|coast.?to.?coast|all 50 states/i);
+
+    const proudly = indexHtml.match(
+      /id="service-area"[\s\S]*?<h2>\s*([\s\S]*?)\s*<\/h2>/
+    )?.[1];
+    expect(decodeBasicEntities(proudly).replace(/\s+/g, " ").trim()).toBe(
+      "Proudly Serving Southwest Florida"
+    );
+
+    for (const html of [indexHtml, contactHtml]) {
+      const footerContact = html.match(
+        /<h4>Contact<\/h4>\s*<ul>([\s\S]*?)<\/ul>/i
+      )?.[1];
+      const items = [...footerContact.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].map(
+        (match) =>
+          decodeBasicEntities(match[1].replace(/<[^>]+>/g, " "))
+            .replace(/\s+/g, " ")
+            .trim()
+      );
+      expect(items).toContain("Serving Southwest Florida");
+    }
+  });
+});
+
+describe("contact meta free-quote ↔ form-card Request dual honesty", () => {
+  test("contact SERP free-quote invite coexists with form-card Request heading", () => {
+    // Exact contact meta + form-card H3 locks still pass if meta drops the free
+    // quote CTA while the card keeps Request (or reverse) — SERP vs conversion
+    // surface then disagree on the lead offer.
+    const description = decodeBasicEntities(
+      contactHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(description).toMatch(/free quote/i);
+    expect(description).not.toMatch(/paid consult|estimate fee|our team will/i);
+
+    const formCard = contactHtml.match(
+      /class="contact-form-card"[^>]*>\s*<h3>\s*([\s\S]*?)\s*<\/h3>/
+    );
+    expect(formCard).toBeTruthy();
+    const heading = decodeBasicEntities(formCard[1]).replace(/\s+/g, " ").trim();
+    expect(heading).toBe("Request a Free Quote");
+    expect(heading).not.toMatch(/paid|obligat|deposit/i);
+  });
+});
+
+describe("HTML forbids inline event-handler attributes", () => {
+  test("pages never declare on* handler attributes beside CSP script posture", () => {
+    // CSP script-src locks still pass if markup gains onclick/onerror/onload —
+    // inline handlers then run under 'unsafe-inline' on the homepage (or break
+    // contact's stricter script-src) while host CSP string locks stay green.
+    const handlerAttr =
+      /\sondblclick\s*=|\sonclick\s*=|\sonerror\s*=|\sonload\s*=|\sonsubmit\s*=|\sonmouseover\s*=|\sonfocus\s*=|\sonblur\s*=|\soninput\s*=|\sonchange\s*=|\sonkeydown\s*=|\sonkeyup\s*=/i;
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).not.toMatch(handlerAttr);
+      expect(html).not.toMatch(/\shref=["']javascript:/i);
+    }
+  });
+});
+
+describe("jest.config jsdom + testMatch discovery seam", () => {
+  test("Jest stays on jsdom and discovers unit+integration test files", () => {
+    // package.json `test:unit` path args still look right if jest.config flips
+    // to node or narrows testMatch — DOM fixtures then fail or silently skip
+    // while npm script text stays green.
+    const jestConfig = require(path.join(root, "jest.config.js"));
+    expect(jestConfig.testEnvironment).toBe("jsdom");
+    expect(jestConfig.testMatch).toEqual([
+      "<rootDir>/tests/unit/**/*.test.js",
+      "<rootDir>/tests/integration/**/*.test.js",
+    ]);
+    expect(jestConfig.collectCoverageFrom).toEqual(["js/**/*.js"]);
+
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.scripts["test:unit"]).toMatch(/tests\/unit/);
+    expect(pkg.scripts["test:unit"]).toMatch(/tests\/integration/);
+  });
+});
+
+describe("Playwright baseURL ↔ webServer port dual", () => {
+  test("e2e baseURL and webServer stay on loopback :4173 together", () => {
+    // Chromium/WebKit project locks still pass if baseURL drifts off the
+    // webServer port (or webServer command changes host) — e2e then flakes or
+    // hits the wrong process while project-name duals stay green.
+    // Parse source only: requiring @playwright/test under Jest/jsdom throws.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+
+    expect(configSource).toMatch(/baseURL:\s*"http:\/\/127\.0\.0\.1:4173"/);
+    expect(configSource).toMatch(
+      /url:\s*"http:\/\/127\.0\.0\.1:4173\/index\.html"/
+    );
+    expect(configSource).toMatch(
+      /command:\s*"python3 -m http\.server 4173"/
+    );
+    expect(configSource).not.toMatch(/baseURL:\s*"http:\/\/127\.0\.0\.1:8080"/);
+    expect(configSource).not.toMatch(/http\.server 8080/);
+
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    // Local `npm run serve` intentionally uses 8080 — lock the asymmetry so a
+    // "unify the ports" edit cannot silently break CI e2e or local preview.
+    expect(pkg.scripts.serve).toMatch(/http\.server\s+8080\b/);
+    expect(pkg.scripts.serve).not.toMatch(/4173/);
+  });
+});
+
+describe("html-validate no-inline-style ↔ CSP style-src dual", () => {
+  test("html-validate keeps no-inline-style error beside style-src without unsafe-inline", () => {
+    // Host/meta style-src locks still pass if html-validate softens no-inline-style
+    // — inline style= can then re-enter markup while CSP forbids unsafe-inline and
+    // CI lint:html stays green.
+    const htmlValidate = JSON.parse(
+      fs.readFileSync(path.join(root, ".htmlvalidate.json"), "utf8")
+    );
+    expect(htmlValidate.extends).toContain("html-validate:recommended");
+    expect(htmlValidate.rules["no-inline-style"]).toBe("error");
+
+    const headers = fs.readFileSync(path.join(root, "_headers"), "utf8");
+    const hostCsp = headers.match(/Content-Security-Policy:\s*(.+)/)[1].trim();
+    expect(hostCsp).toMatch(/style-src[^;]*'self'/);
+    expect(hostCsp).not.toMatch(/style-src[^;]*'unsafe-inline'/);
+
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).not.toMatch(/\sstyle\s*=\s*["']/i);
+    }
+  });
+});
+
+describe("stylelint extends standard config seam", () => {
+  test("stylelint still extends stylelint-config-standard", () => {
+    // lint:css script presence still passes if .stylelintrc drops its extends —
+    // CSS regressions then skip meaningful rules while npm run lint:css stays
+    // truthy.
+    const stylelint = JSON.parse(
+      fs.readFileSync(path.join(root, ".stylelintrc.json"), "utf8")
+    );
+    expect(stylelint.extends).toBe("stylelint-config-standard");
+
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.devDependencies["stylelint-config-standard"]).toBeTruthy();
+    expect(pkg.scripts["lint:css"]).toMatch(/stylelint/);
+  });
+});
+
+describe("eslint production JS no-undef seam", () => {
+  test("eslint still lints js/** with no-undef error under browser+commonjs globals", () => {
+    // lint:js script presence still passes if the js/** block loses no-undef or
+    // browser globals — typos in main.js then ship while `npm run lint:js` looks
+    // configured.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    expect(Array.isArray(eslintConfig)).toBe(true);
+
+    const jsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.some((file) => file.includes("js/"))
+    );
+    expect(jsBlock).toBeTruthy();
+    expect(jsBlock.files).toContain("js/**/*.js");
+    expect(jsBlock.rules["no-undef"]).toBe("error");
+    expect(jsBlock.languageOptions.sourceType).toBe("script");
+    expect(jsBlock.languageOptions.ecmaVersion).toBe(2019);
+  });
+});
+
+describe("gitignore keeps test artifact directories out of git", () => {
+  test(".gitignore still excludes coverage, playwright-report, and test-results", () => {
+    // CI artifact upload + local runs still pass if gitignore drops these paths
+    // — generated reports then pollute PRs while jest/playwright output dirs
+    // remain configured.
+    const gitignore = fs.readFileSync(path.join(root, ".gitignore"), "utf8");
+    for (const entry of ["coverage/", "playwright-report/", "test-results/", "node_modules/"]) {
+      expect(gitignore).toMatch(new RegExp(`^${entry.replace("/", "\\/")}$`, "m"));
+    }
+
+    const jestConfig = require(path.join(root, "jest.config.js"));
+    expect(jestConfig.coverageDirectory).toBe("<rootDir>/coverage");
+  });
+});
+
+describe("classic script tags (no type=module) ↔ main.js IIFE export seam", () => {
+  test("both pages load js/main.js as a classic script before </body>", () => {
+    // Script-src / pre-</body> locks still pass if type=module is added —
+    // the IIFE + conditional module.exports pattern then changes load timing /
+    // scope while init-wiring contracts stay green.
+    for (const html of [indexHtml, contactHtml]) {
+      const scripts = [...html.matchAll(/<script\b([^>]*)>/gi)].map((match) => match[1]);
+      const mainScripts = scripts.filter((attrs) => /\bsrc=["']js\/main\.js["']/.test(attrs));
+      expect(mainScripts.length).toBe(1);
+      expect(mainScripts[0]).not.toMatch(/\btype\s*=\s*["']module["']/i);
+      expect(mainScripts[0]).not.toMatch(/\btype\s*=\s*["']text\/javascript["']/i);
+      expect(html).toMatch(/<script\s+src="js\/main\.js"><\/script>\s*<\/body>/i);
+    }
+
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).toMatch(/^\s*\/\*[\s\S]*?\*\/\s*\(function\s*\(\s*\)\s*\{/m);
+    expect(mainJs).toMatch(/\(function\s*\(\s*\)\s*\{/);
+    expect(mainJs).toMatch(/typeof module !== "undefined" && module\.exports/);
+    expect(mainJs).not.toMatch(/\bexport\s+(?:default|function|const|let|class)\b/);
+  });
+});
+
+describe("HTML5 doctype on both pages", () => {
+  test("both documents declare a case-insensitive HTML5 doctype", () => {
+    // Parser / html-validate assumptions still pass if a legacy doctype or
+    // missing doctype sneaks in — quirks-mode layout then diverges while CSS
+    // token locks stay green.
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(/^<!DOCTYPE html>\s*<html\b/i);
+      expect(html).not.toMatch(/<!DOCTYPE html PUBLIC/i);
+    }
+  });
+});
+
+describe("contact page-hero invite ↔ form-card Greg follow-up dual", () => {
+  test("Get in Touch hero coexists with Greg will follow up form lede", () => {
+    // Exact page-hero + form-card locks still pass if the hero invents call-center
+    // intake while the form keeps personal Greg follow-up — contact conversion
+    // surfaces then disagree on who responds.
+    const heroBlock = contactHtml.match(
+      /class="page-hero"[\s\S]*?<div class="container">([\s\S]*?)<\/div>/
+    );
+    expect(heroBlock).toBeTruthy();
+    const heroText = decodeBasicEntities(heroBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(heroText).toMatch(/Get in Touch/);
+    expect(heroText).toMatch(/Tell Greg/);
+    expect(heroText).not.toMatch(/our team|dispatch|call center/i);
+
+    const formCard = contactHtml.match(
+      /class="contact-form-card"[^>]*>\s*<h3>[\s\S]*?<\/h3>\s*<p>\s*([\s\S]*?)\s*<\/p>/
+    );
+    expect(formCard).toBeTruthy();
+    const formLede = decodeBasicEntities(formCard[1]).replace(/\s+/g, " ").trim();
+    expect(formLede).toMatch(/Greg will follow up directly/i);
+    expect(formLede).not.toMatch(/our team|dispatch|call center/i);
+  });
+});
