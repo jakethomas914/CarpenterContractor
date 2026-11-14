@@ -8548,3 +8548,227 @@ describe("contact page-hero invite ↔ form-card Greg follow-up dual", () => {
     expect(formLede).not.toMatch(/our team|dispatch|call center/i);
   });
 });
+
+describe("CI Playwright report artifact retention dual", () => {
+  test("workflow uploads playwright-report on always() with 14-day retention", () => {
+    // e2e + gitignore playwright-report locks still pass if the upload step is
+    // dropped, path drifts, or retention collapses — failed CI then loses the
+    // only durable HTML report while local gitignore stays green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(/uses:\s*actions\/upload-artifact@v4/);
+    expect(ci).toMatch(/if:\s*always\(\)/);
+    expect(ci).toMatch(/name:\s*playwright-report/);
+    expect(ci).toMatch(/path:\s*playwright-report\//);
+    expect(ci).toMatch(/retention-days:\s*14\b/);
+    expect(ci).not.toMatch(/retention-days:\s*0\b/);
+
+    const gitignore = fs.readFileSync(path.join(root, ".gitignore"), "utf8");
+    expect(gitignore).toMatch(/^playwright-report\/$/m);
+  });
+});
+
+describe("CI checkout + setup-node cache dual", () => {
+  test("workflow pins checkout@v4 and setup-node@v4 with npm cache", () => {
+    // Node 22 string locks still pass if checkout/setup-node majors drift or
+    // npm cache is dropped — CI then slows or breaks install while version
+    // text stays green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(/uses:\s*actions\/checkout@v4\b/);
+    expect(ci).toMatch(/uses:\s*actions\/setup-node@v4\b/);
+    expect(ci).toMatch(/node-version:\s*22\b/);
+    expect(ci).toMatch(/cache:\s*npm\b/);
+    expect(ci).not.toMatch(/actions\/checkout@v3\b/);
+    expect(ci).not.toMatch(/actions\/setup-node@v3\b/);
+  });
+});
+
+describe("eslint tests/** rule-depth seam", () => {
+  test("tests block keeps eqeqeq + no-unused-vars under node/jest/browser globals", () => {
+    // Production js/** no-undef locks still pass if the tests/** block loses
+    // eqeqeq / jest globals or stops covering tests — fixture bugs then skip
+    // lint while lint:js appears configured.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const testsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) &&
+        block.files.some((file) => file.includes("tests/"))
+    );
+    expect(testsBlock).toBeTruthy();
+    expect(testsBlock.files).toContain("tests/**/*.js");
+    expect(testsBlock.languageOptions.ecmaVersion).toBe(2022);
+    expect(testsBlock.languageOptions.sourceType).toBe("commonjs");
+    expect(testsBlock.rules.eqeqeq).toEqual(["error", "smart"]);
+    expect(testsBlock.rules["no-unused-vars"]).toBe("warn");
+    // Intentionally no no-undef on tests — jest/browser globals cover fixtures.
+    expect(testsBlock.rules["no-undef"]).toBeUndefined();
+
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.scripts["lint:js"]).toBe("eslint js tests");
+  });
+});
+
+describe("Playwright CI hardening seams", () => {
+  test("config keeps forbidOnly, CI retries, retain-on-failure, and e2e testDir", () => {
+    // Project/port duals still pass if forbidOnly/retries softens or testDir
+    // drifts — .only can ship, flakes lose retries, or e2e discovery misses
+    // specs while chromium/webkit project names stay green.
+    // Parse source only: requiring @playwright/test under Jest/jsdom throws.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    expect(configSource).toMatch(/testDir:\s*["']\.\/tests\/e2e["']/);
+    expect(configSource).toMatch(/fullyParallel:\s*true/);
+    expect(configSource).toMatch(/forbidOnly:\s*!!process\.env\.CI/);
+    expect(configSource).toMatch(/retries:\s*process\.env\.CI\s*\?\s*2\s*:\s*0/);
+    expect(configSource).toMatch(/trace:\s*["']retain-on-failure["']/);
+    expect(configSource).toMatch(
+      /reuseExistingServer:\s*!process\.env\.CI/
+    );
+    expect(configSource).toMatch(/reporter:\s*\[\s*\[\s*["']list["']\s*\]\s*\]/);
+  });
+});
+
+describe("About no-office/no-dispatcher ↔ hero not-call-center dual honesty", () => {
+  test("About sole-op office denial coexists with hero not-call-center claim", () => {
+    // Exact About paragraph + exact hero-lede locks still pass independently if
+    // About invents office/dispatcher staffing while the hero keeps not-a-call-
+    // center (or reverse) — first-viewport vs About honesty then splits.
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?<div class="about-copy">([\s\S]*?)<\/div>/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutText = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutText).toMatch(/no office/i);
+    expect(aboutText).toMatch(/no dispatcher/i);
+    expect(aboutText).toMatch(/no rotating crew/i);
+    expect(aboutText).not.toMatch(/our office|dispatch desk|fully staffed/i);
+
+    const heroLede = decodeBasicEntities(
+      indexHtml.match(/class="hero-lede"[^>]*>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(heroLede).toMatch(/not a call center or a rotating crew/i);
+    expect(heroLede).not.toMatch(/our team|our crews|call center will/i);
+  });
+});
+
+describe("index meta service catalog ↔ OG SWFL share dual honesty", () => {
+  test("SERP remodel catalog coexists with OG throughout-SWFL share blurb", () => {
+    // Exact meta + exact OG locks still pass independently if meta drops the
+    // kitchen/bath/additions catalog while OG keeps SWFL (or reverse) — SERP vs
+    // link-preview honesty then disagree on scope of work vs geography.
+    const metaDesc = decodeBasicEntities(
+      indexHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(metaDesc).toMatch(/kitchen & bath remodels/i);
+    expect(metaDesc).toMatch(/additions/);
+    expect(metaDesc).toMatch(/repairs/);
+    expect(metaDesc).toMatch(/one craftsman, personally on every job/i);
+    expect(metaDesc).not.toMatch(/our crews|fully staffed|nationwide/i);
+
+    const ogDesc = decodeBasicEntities(
+      indexHtml.match(/property="og:description"\s+content="([^"]+)"/)[1]
+    );
+    expect(ogDesc).toMatch(/throughout Southwest Florida/i);
+    expect(ogDesc).toMatch(/personally operated by Greg Felton/i);
+    expect(ogDesc).not.toMatch(/our crews|fully staffed|nationwide/i);
+
+    // Intentional asymmetry: SERP blurb stays longer/catalog-heavy; share card
+    // stays short/geo — collapsing them silently loses one channel's signal.
+    expect(metaDesc).not.toBe(ogDesc);
+  });
+});
+
+describe("vercel.json schema URL seam", () => {
+  test("vercel.json keeps the openapi.vercel.sh schema for editor validation", () => {
+    // Host header parity still passes if $schema is dropped or points off-tree —
+    // editor/CI consumers then lose schema validation while header values stay
+    // identical across Netlify/Vercel.
+    const vercel = JSON.parse(
+      fs.readFileSync(path.join(root, "vercel.json"), "utf8")
+    );
+    expect(vercel.$schema).toBe("https://openapi.vercel.sh/vercel.json");
+    expect(Array.isArray(vercel.headers)).toBe(true);
+    expect(vercel.headers[0].source).toBe("/(.*)");
+  });
+});
+
+describe("html-validate intentional rule-off seam", () => {
+  test("keeps svg-focusable and no-trailing-whitespace intentionally off", () => {
+    // no-inline-style↔CSP dual still passes if these offs flip back on and start
+    // failing decorative SVG / whitespace fixtures — or if recommended extend
+    // is dropped while the two offs remain. Lock the deliberate posture.
+    const htmlValidate = JSON.parse(
+      fs.readFileSync(path.join(root, ".htmlvalidate.json"), "utf8")
+    );
+    expect(htmlValidate.extends).toContain("html-validate:recommended");
+    expect(htmlValidate.rules["no-inline-style"]).toBe("error");
+    expect(htmlValidate.rules["svg-focusable"]).toBe("off");
+    expect(htmlValidate.rules["no-trailing-whitespace"]).toBe("off");
+  });
+});
+
+describe("e2e axe-core ↔ package dependency dual", () => {
+  test("accessibility spec still requires @axe-core/playwright from package.json", () => {
+    // package.json zero-runtime / lint duals still pass if the axe dependency is
+    // dropped while the e2e import remains — CI e2e then fails late, or a11y
+    // coverage silently disappears if the spec is deleted too.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.devDependencies["@axe-core/playwright"]).toBeTruthy();
+
+    const axeSpec = fs.readFileSync(
+      path.join(root, "tests/e2e/accessibility.spec.js"),
+      "utf8"
+    );
+    expect(axeSpec).toMatch(/require\(["']@axe-core\/playwright["']\)/);
+    expect(axeSpec).toMatch(/withTags\(\s*\[["']wcag2a["']\s*,\s*["']wcag2aa["']\]/);
+    expect(axeSpec).toMatch(/emulateMedia\(\s*\{\s*reducedMotion:\s*["']reduce["']/);
+  });
+});
+
+describe("eslint ignore artifact dirs ↔ gitignore dual", () => {
+  test("eslint ignores coverage/playwright-report/test-results beside gitignore", () => {
+    // gitignore artifact locks still pass if eslint stops ignoring those dirs —
+    // generated reports then get linted (or lint noise) while git stays clean.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const ignoreBlock = eslintConfig.find((block) => Array.isArray(block.ignores));
+    expect(ignoreBlock).toBeTruthy();
+    for (const entry of [
+      "node_modules/**",
+      "playwright-report/**",
+      "test-results/**",
+      "coverage/**",
+    ]) {
+      expect(ignoreBlock.ignores).toContain(entry);
+    }
+
+    const gitignore = fs.readFileSync(path.join(root, ".gitignore"), "utf8");
+    for (const entry of ["coverage/", "playwright-report/", "test-results/", "node_modules/"]) {
+      expect(gitignore).toMatch(new RegExp(`^${entry.replace("/", "\\/")}$`, "m"));
+    }
+  });
+});
+
+describe("contact title SWFL ↔ contact meta SWFL dual honesty", () => {
+  test("contact <title> SWFL framing coexists with meta throughout-SWFL scope", () => {
+    // Exact contact title + meta locks still pass independently if the title
+    // invents nationwide GC framing while meta keeps SWFL (or reverse) — tab
+    // chrome vs SERP geo honesty then splits.
+    const title = decodeBasicEntities(
+      contactHtml.match(/<title>([^<]+)<\/title>/)[1]
+    );
+    expect(title).toMatch(/SWFL Carpentry & GC/);
+    expect(title).not.toMatch(/nationwide|coast.?to.?coast/i);
+
+    const description = decodeBasicEntities(
+      contactHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(description).toMatch(/throughout Southwest Florida/i);
+    expect(description).toMatch(/Greg Felton/);
+    expect(description).not.toMatch(/nationwide|our team will|call center/i);
+  });
+});
