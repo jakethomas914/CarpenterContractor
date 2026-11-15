@@ -8772,3 +8772,174 @@ describe("contact title SWFL ↔ contact meta SWFL dual honesty", () => {
     expect(description).not.toMatch(/nationwide|our team will|call center/i);
   });
 });
+
+describe("CI workflow trigger dual", () => {
+  test("CI still runs on push to main and on every pull_request", () => {
+    // Step/script duals still pass if `on:` drops pull_request or narrows push
+    // away from main — PR coverage then silently stops while lint/test steps
+    // look unchanged inside the job body.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(/on:\s*\n\s*push:\s*\n\s*branches:\s*\[main\]/);
+    expect(ci).toMatch(/pull_request:\s*$/m);
+    // No types filter that would drop synchronize / ready_for_review events.
+    expect(ci).not.toMatch(/pull_request:\s*\n\s*types:/);
+  });
+});
+
+describe("CI runner + job identity dual", () => {
+  test("workflow keeps lint-and-test on ubuntu-latest", () => {
+    // Trigger + script locks still pass if the job renames away from CI badges
+    // or moves off ubuntu-latest onto an unsupported runner — Playwright
+    // browser installs then break while step `run:` text stays green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(/jobs:\s*\n\s*lint-and-test:/);
+    expect(ci).toMatch(/runs-on:\s*ubuntu-latest\b/);
+  });
+});
+
+describe("Playwright webServer startup timeout seam", () => {
+  test("webServer keeps a 20s startup timeout beside the :4173 loopback dual", () => {
+    // Port/command duals still pass if timeout collapses or disappears —
+    // cold CI then flakes waiting for python's http.server while baseURL
+    // strings stay correct.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    expect(configSource).toMatch(/timeout:\s*20000\b/);
+    expect(configSource).toMatch(/command:\s*"python3 -m http\.server 4173"/);
+    expect(configSource).not.toMatch(/timeout:\s*0\b/);
+  });
+});
+
+describe("package.json private publish seam", () => {
+  test("package stays private with zero runtime dependencies", () => {
+    // Zero-runtime README duals still pass if `private` flips false — an
+    // accidental `npm publish` could then ship the marketing tree while
+    // dependency emptiness stays green.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.private).toBe(true);
+    expect(pkg.dependencies === undefined || Object.keys(pkg.dependencies).length === 0).toBe(
+      true
+    );
+    expect(Object.keys(pkg.devDependencies || {}).length).toBeGreaterThan(0);
+  });
+});
+
+describe("eslint js/** ES5 classic-script posture", () => {
+  test("js block keeps curly:all and allows var for the classic IIFE", () => {
+    // no-undef + sourceType:script locks still pass if curly softens or no-var
+    // flips on — main.js then fails lint or loses brace safety while the
+    // classic-script / Jest export seam stays green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const jsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.some((file) => file.includes("js/"))
+    );
+    expect(jsBlock).toBeTruthy();
+    expect(jsBlock.languageOptions.sourceType).toBe("script");
+    expect(jsBlock.languageOptions.ecmaVersion).toBe(2019);
+    expect(jsBlock.rules.curly).toEqual(["error", "all"]);
+    expect(jsBlock.rules["no-var"]).toBe("off");
+    expect(jsBlock.rules["prefer-const"]).toBe("off");
+    expect(jsBlock.rules["no-console"]).toBe("off");
+    expect(jsBlock.rules.eqeqeq).toEqual(["error", "smart"]);
+  });
+});
+
+describe("stylelint intentional rule catalog seam", () => {
+  test("keeps media-feature-range prefix and documented null offs", () => {
+    // extends:standard dual still passes if range-notation flips to modern or
+    // pattern rules re-enable — CSS then fails CI on intentional BEM/custom
+    // props / legacy media queries while the extends string stays green.
+    const stylelint = JSON.parse(
+      fs.readFileSync(path.join(root, ".stylelintrc.json"), "utf8")
+    );
+    expect(stylelint.extends).toBe("stylelint-config-standard");
+    expect(stylelint.rules["media-feature-range-notation"]).toBe("prefix");
+    for (const rule of [
+      "selector-class-pattern",
+      "custom-property-pattern",
+      "no-descending-specificity",
+      "declaration-block-no-redundant-longhand-properties",
+      "shorthand-property-no-redundant-values",
+      "custom-property-empty-line-before",
+      "value-keyword-case",
+    ]) {
+      expect(stylelint.rules[rule]).toBeNull();
+    }
+  });
+});
+
+describe("gitignore residual junk dual", () => {
+  test(".gitignore still excludes OS/log/lockfile backup junk", () => {
+    // Artifact-dir gitignore duals still pass if .DS_Store / *.log /
+    // package-lock.json.bak stop being ignored — noisy local files then pollute
+    // PRs while coverage/playwright-report ignores stay green.
+    const gitignore = fs.readFileSync(path.join(root, ".gitignore"), "utf8");
+    expect(gitignore).toMatch(/^package-lock\.json\.bak$/m);
+    expect(gitignore).toMatch(/^\.DS_Store$/m);
+    expect(gitignore).toMatch(/^\*\.log$/m);
+  });
+});
+
+describe("package helper script catalog dual", () => {
+  test("keeps lint:fix, coverage, and Playwright UI helper scripts", () => {
+    // Primary lint/test:unit/test:e2e duals still pass if helper scripts drift
+    // or disappear — local coverage / format / UI debug workflows then break
+    // while CI's main scripts stay green.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.scripts["lint:fix"]).toMatch(/eslint js tests --fix/);
+    expect(pkg.scripts["lint:fix"]).toMatch(/stylelint/);
+    expect(pkg.scripts["test:unit:coverage"]).toMatch(/--coverage/);
+    expect(pkg.scripts["test:e2e:ui"]).toMatch(/playwright test --ui/);
+  });
+});
+
+describe("jest verbose + rootDir seam", () => {
+  test("jest config keeps verbose output and repo rootDir", () => {
+    // testEnvironment/testMatch duals still pass if verbose/rootDir drift —
+    // CI logs lose per-test names or coverage paths resolve wrong while
+    // jsdom discovery stays green.
+    const jestConfig = require(path.join(root, "jest.config.js"));
+    expect(jestConfig.verbose).toBe(true);
+    expect(jestConfig.rootDir).toBe(path.join(root));
+    expect(jestConfig.coverageDirectory).toBe("<rootDir>/coverage");
+  });
+});
+
+describe("hero-fact Custom/remodels ↔ meta remodel catalog dual honesty", () => {
+  test("first-viewport Custom/remodels coexists with SERP kitchen/bath remodel scope", () => {
+    // hero-facts catalog + meta service-catalog locks still pass independently
+    // if the Custom fact softens to "consulting only" while meta keeps kitchen/
+    // bath remodels (or reverse) — first-viewport trade framing vs SERP then
+    // disagree on whether remodel work is in scope.
+    const facts = [
+      ...indexHtml.matchAll(
+        /class="hero-fact"[^>]*>\s*<strong>\s*([\s\S]*?)\s*<\/strong>\s*<span>\s*([\s\S]*?)\s*<\/span>/g
+      ),
+    ].map((match) => ({
+      value: decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim(),
+      label: decodeBasicEntities(match[2]).replace(/\s+/g, " ").trim(),
+    }));
+    const custom = facts.find((fact) => fact.value === "Custom");
+    expect(custom).toBeTruthy();
+    expect(custom.label).toBe("Carpentry & remodels");
+    expect(custom.label).not.toMatch(/consulting only|design only|referral/i);
+
+    const metaDesc = decodeBasicEntities(
+      indexHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(metaDesc).toMatch(/kitchen & bath remodels/i);
+    expect(metaDesc).toMatch(/additions/);
+    expect(metaDesc).toMatch(/repairs/);
+    expect(metaDesc).not.toMatch(/consulting only|design only|no remodels/i);
+
+    const servicesHeading = decodeBasicEntities(
+      indexHtml.match(/id="services"[\s\S]*?<h2>([\s\S]*?)<\/h2>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(servicesHeading).toMatch(/Carpentry & General Contracting Services/);
+  });
+});

@@ -108,6 +108,51 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(vercel["Permissions-Policy"]).toBe(netlify["Permissions-Policy"]);
   });
 
+  test("Permissions-Policy feature catalog stays camera/mic/geo/payment all disabled", () => {
+    // Exact string equality still passes if a future softer matcher only checks
+    // substrings like "camera=" while allowlists widen to (self) or usb=* is
+    // appended. Parsed feature→allowlist equality keeps the sensitive API
+    // surface closed on both hosts.
+    function parsePermissionsPolicy(value) {
+      const features = {};
+      for (const part of String(value).split(",")) {
+        const trimmed = part.trim();
+        if (!trimmed) {
+          continue;
+        }
+        const match = trimmed.match(/^([a-z0-9-]+)=\(([^)]*)\)$/i);
+        expect(match).toBeTruthy();
+        features[match[1].toLowerCase()] = match[2].trim();
+      }
+      return features;
+    }
+
+    const expected = {
+      camera: "",
+      microphone: "",
+      geolocation: "",
+      payment: "",
+    };
+    expect(parsePermissionsPolicy(netlify["Permissions-Policy"])).toEqual(expected);
+    expect(parsePermissionsPolicy(vercel["Permissions-Policy"])).toEqual(expected);
+  });
+
+  test("HSTS directive catalog keeps max-age, includeSubDomains, and preload", () => {
+    // Exact HSTS string equality still passes if a softer contains-check later
+    // accepts max-age=0 or drops preload while "63072000" text remains nearby.
+    // Tokenizing the semicolon list locks the preload / subdomain posture.
+    function parseHsts(value) {
+      return String(value)
+        .split(";")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+
+    const expected = ["max-age=63072000", "includeSubDomains", "preload"];
+    expect(parseHsts(netlify["Strict-Transport-Security"])).toEqual(expected);
+    expect(parseHsts(vercel["Strict-Transport-Security"])).toEqual(expected);
+  });
+
   test("locks Referrer-Policy to strict-origin-when-cross-origin on both hosts", () => {
     // Parity alone can pass if both hosts drift to unsafe-url or no-referrer
     // (breaking analytics/cross-origin attribution or over-sharing full URLs).
