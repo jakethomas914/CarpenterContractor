@@ -8943,3 +8943,243 @@ describe("hero-fact Custom/remodels ↔ meta remodel catalog dual honesty", () =
     expect(servicesHeading).toMatch(/Carpentry & General Contracting Services/);
   });
 });
+
+describe("CI workflow display name seam", () => {
+  test("workflow keeps the top-level name CI for badges and run lists", () => {
+    // Trigger/runner duals still pass if `name:` drifts or disappears — GitHub
+    // badges and Actions run titles then desync from docs while job steps stay
+    // green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(/^name:\s*CI\s*$/m);
+    expect(ci).not.toMatch(/^name:\s*$/m);
+  });
+});
+
+describe("CI named step catalog dual", () => {
+  test("workflow keeps the ordered lint → unit → e2e → audit step names", () => {
+    // Individual step `run:` duals still pass if names reorder, drop, or rename
+    // — status checks and docs that key off step titles then drift while the
+    // shell commands remain green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const stepNames = [...ci.matchAll(/^\s+-\s+name:\s*(.+)\s*$/gm)].map((match) =>
+      match[1].trim()
+    );
+    expect(stepNames).toEqual([
+      "Install dependencies",
+      "Lint (JS, CSS, HTML)",
+      "Unit + integration tests (Jest)",
+      "Install Playwright browsers",
+      "End-to-end + accessibility tests (Playwright)",
+      "Audit dev dependencies for known vulnerabilities",
+    ]);
+  });
+});
+
+describe("eslint playwright.config.js languageOptions seam", () => {
+  test("playwright.config.js keeps its own commonjs + node globals block", () => {
+    // js/** and tests/** eslint duals still pass if the playwright.config.js
+    // block disappears — config then lint-fails on Node globals / CommonJS or
+    // gets wrong browser globals while other blocks stay green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const pwBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.includes("playwright.config.js")
+    );
+    expect(pwBlock).toBeTruthy();
+    expect(pwBlock.files).toEqual(["playwright.config.js"]);
+    expect(pwBlock.languageOptions.sourceType).toBe("commonjs");
+    expect(pwBlock.languageOptions.ecmaVersion).toBe(2022);
+    expect(pwBlock.languageOptions.globals).toBeTruthy();
+    expect(Object.prototype.hasOwnProperty.call(pwBlock.languageOptions.globals, "__dirname")).toBe(
+      true
+    );
+    expect(Object.prototype.hasOwnProperty.call(pwBlock.languageOptions.globals, "Buffer")).toBe(
+      true
+    );
+    expect(Object.prototype.hasOwnProperty.call(pwBlock.languageOptions.globals, "process")).toBe(
+      true
+    );
+    // Intentionally no extra rules — languageOptions-only block.
+    expect(pwBlock.rules).toBeUndefined();
+  });
+});
+
+describe("footer brand remodel blurb ↔ meta remodel catalog dual honesty", () => {
+  test("footer Custom carpentry/remodels/repairs coexists with SERP kitchen/bath catalog", () => {
+    // Exact footer blurb + exact meta locks still pass independently if the
+    // footer softens to "consulting only" while meta keeps kitchen/bath
+    // remodels (or reverse) — chrome vs SERP trade scope then disagree.
+    for (const html of [indexHtml, contactHtml]) {
+      const raw = html.match(/class="footer-brand"[\s\S]*?<p>([\s\S]*?)<\/p>/)?.[1];
+      expect(raw).toBeTruthy();
+      const blurb = decodeBasicEntities(raw).replace(/\s+/g, " ").trim();
+      expect(blurb).toMatch(/Custom carpentry, remodels, and repairs/i);
+      expect(blurb).toMatch(/done personally by Greg Felton/i);
+      expect(blurb).not.toMatch(/consulting only|design only|referral only|no remodels/i);
+    }
+
+    const metaDesc = decodeBasicEntities(
+      indexHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(metaDesc).toMatch(/Custom carpentry/i);
+    expect(metaDesc).toMatch(/kitchen & bath remodels/i);
+    expect(metaDesc).toMatch(/additions/);
+    expect(metaDesc).toMatch(/repairs/);
+    expect(metaDesc).not.toMatch(/consulting only|design only|no remodels/i);
+  });
+});
+
+describe("JSON-LD description trade ↔ placeholder-tag dual honesty", () => {
+  test("schema carpentry+GC description coexists with header Carpentry & GC tagline", () => {
+    // Exact JSON-LD description + exact placeholder-tag locks still pass
+    // independently if schema softens to "handyman referral" while the header
+    // keeps Carpentry & General Contracting (or reverse) — rich results vs
+    // chrome trade framing then split.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.description).toMatch(/Carpentry and general contracting/i);
+    expect(data.description).toMatch(/Southwest Florida/);
+    expect(data.description).not.toMatch(/handyman referral|staffing agency|nationwide/i);
+
+    const tags = collectMatches(indexHtml, /class="placeholder-tag">([^<]+)/g).map((raw) =>
+      decodeBasicEntities(raw).replace(/\s+/g, " ").trim()
+    );
+    expect(tags).toContain("Carpentry & General Contracting");
+    expect(tags.some((tag) => /handyman|referral|staffing/i.test(tag))).toBe(false);
+  });
+});
+
+describe("package.json identity + test composition seam", () => {
+  test("package keeps carpenter-contractor-site name and unit-then-e2e test script", () => {
+    // private/zero-runtime duals still pass if `name` drifts or `test` drops
+    // e2e — local `npm test` then skips Playwright while helper scripts stay
+    // green.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.name).toBe("carpenter-contractor-site");
+    expect(pkg.scripts.test).toBe("npm run test:unit && npm run test:e2e");
+    expect(pkg.scripts["test:unit"]).toMatch(/jest tests\/unit tests\/integration/);
+    expect(pkg.scripts["test:e2e"]).toMatch(/playwright test/);
+  });
+});
+
+describe("hero Built by Hand ↔ About hands-on craftsmanship dual honesty", () => {
+  test("first-viewport Built by Hand coexists with About hands-on craftsmanship claim", () => {
+    // Exact hero h1 + exact About value-list locks still pass independently if
+    // the hero softens to "managed crews" while About keeps hands-on (or
+    // reverse) — first-viewport voice vs About craft honesty then disagree.
+    const h1 = indexHtml.match(/<h1>([\s\S]*?)<\/h1>/)?.[1];
+    expect(h1).toBeTruthy();
+    expect(h1).toMatch(/Built by Hand, One Job at a Time/);
+    expect(h1).not.toMatch(/managed crews|fully staffed|volume production/i);
+
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?<ul class="value-list">([\s\S]*?)<\/ul>/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutText = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutText).toMatch(/Careful, hands-on craftsmanship/i);
+    expect(aboutText).toMatch(/done personally, not delegated/i);
+    expect(aboutText).not.toMatch(/managed crews|subcontracted finish|volume production/i);
+  });
+});
+
+describe("JSON-LD description ↔ OG share-blurb asymmetry dual", () => {
+  test("schema trade+geo blurb stays distinct from OG personally-operated share card", () => {
+    // Exact JSON-LD description + exact OG locks still pass independently if
+    // they collapse into one string — SERP schema then loses short trade+geo
+    // framing or the share card loses personally-operated founder signal.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.description).toBe(
+      "Carpentry and general contracting services throughout Southwest Florida."
+    );
+
+    const ogDesc = decodeBasicEntities(
+      indexHtml.match(/property="og:description"\s+content="([^"]+)"/)[1]
+    );
+    expect(ogDesc).toMatch(/Custom carpentry and general contracting throughout Southwest Florida/i);
+    expect(ogDesc).toMatch(/personally operated by Greg Felton/i);
+    expect(ogDesc).not.toBe(data.description);
+    expect(data.description).not.toMatch(/Greg Felton/);
+    expect(ogDesc).not.toMatch(/our crews|fully staffed|nationwide/i);
+  });
+});
+
+describe("package.json devDependency tooling catalog dual", () => {
+  test("keeps the exact lint/test tooling set with no runtime deps", () => {
+    // private:true + zero-runtime duals still pass if a runtime dep sneaks in
+    // or a lint/test tool is dropped — deploy weight grows or CI tooling gaps
+    // while `private` stays green.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.dependencies === undefined || Object.keys(pkg.dependencies).length === 0).toBe(
+      true
+    );
+    expect(Object.keys(pkg.devDependencies).sort()).toEqual([
+      "@axe-core/playwright",
+      "@playwright/test",
+      "eslint",
+      "globals",
+      "html-validate",
+      "jest",
+      "jest-environment-jsdom",
+      "stylelint",
+      "stylelint-config-standard",
+    ]);
+  });
+});
+
+describe("contact Let's Talk eyebrow ↔ form Greg follow-up dual honesty", () => {
+  test("page-hero Let's Talk invite coexists with form-card Greg follow-up lede", () => {
+    // Exact page-hero eyebrow + form-card lede locks still pass independently if
+    // the hero invents "instant chat / AI desk" while the form keeps Greg
+    // follow-up (or reverse) — contact conversion honesty then splits.
+    const heroBlock = contactHtml.match(
+      /class="page-hero"[\s\S]*?<div class="container">([\s\S]*?)<\/div>/
+    );
+    expect(heroBlock).toBeTruthy();
+    const eyebrow = decodeBasicEntities(
+      heroBlock[1].match(/class="eyebrow">\s*([\s\S]*?)\s*<\/span>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(eyebrow).toBe("Let's Talk");
+    expect(eyebrow).not.toMatch(/instant chat|AI desk|live agent/i);
+
+    const formCard = contactHtml.match(
+      /class="contact-form-card"[^>]*>([\s\S]*?)<form\b/
+    );
+    expect(formCard).toBeTruthy();
+    const formLede = decodeBasicEntities(
+      formCard[1].match(/<p>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(formLede).toMatch(/Greg will follow up directly/i);
+    expect(formLede).not.toMatch(/instant chat|AI desk|automated reply|ticket system/i);
+  });
+});
+
+describe("CI audit step ↔ inline npm audit seam", () => {
+  test("workflow audits high-severity issues inline without a package script", () => {
+    // Step-name catalog + package helper duals still pass if audit softens to
+    // moderate/low or moves behind a missing package script — CI then stops
+    // gating high vulns while other steps stay green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(
+      /name:\s*Audit dev dependencies for known vulnerabilities\s*\n\s*run:\s*npm audit --audit-level=high\b/
+    );
+    expect(ci).not.toMatch(/npm audit --audit-level=(low|moderate|critical)\b/);
+
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.scripts.audit).toBeUndefined();
+    expect(Object.keys(pkg.scripts).some((key) => /^audit\b/i.test(key))).toBe(false);
+  });
+});
