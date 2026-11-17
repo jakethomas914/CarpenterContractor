@@ -371,6 +371,46 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
     }
   });
 
+  test("CSP forbids report-uri / report-to reporting endpoints", () => {
+    // Exact CSP strings + six-key host allowlists still pass if someone updates
+    // every copy together to add report-uri/report-to — browsers then POST
+    // violation reports to a third party (or a broken endpoint) while parity
+    // stays green. Explicit absence keeps the static site closed.
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      const directives = parseCspDirectives(csp);
+      expect(directives["report-uri"]).toBeUndefined();
+      expect(directives["report-to"]).toBeUndefined();
+      expect(csp).not.toMatch(/\breport-uri\b/i);
+      expect(csp).not.toMatch(/\breport-to\b/i);
+    }
+  });
+
+  test("CSP forbids upgrade-insecure-requests and block-all-mixed-content", () => {
+    // Exact CSP strings still pass if every copy gains these together — local
+    // `python3 -m http.server` / Playwright :4173 then break (or mixed assets
+    // get blocked) while host↔meta parity stays green. HSTS already covers
+    // HTTPS on production hosts.
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      const directives = parseCspDirectives(csp);
+      expect(directives["upgrade-insecure-requests"]).toBeUndefined();
+      expect(directives["block-all-mixed-content"]).toBeUndefined();
+      expect(csp).not.toMatch(/\bupgrade-insecure-requests\b/i);
+      expect(csp).not.toMatch(/\bblock-all-mixed-content\b/i);
+    }
+  });
+
+  test("main.js forbids storage and service-worker APIs on the static site", () => {
+    // Network-API bans still pass if main.js grows localStorage / sessionStorage
+    // / serviceWorker registration — the marketing site then gains client-side
+    // persistence or a SW lifecycle while CSP connect-src stays 'self'.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).not.toMatch(/\blocalStorage\b/);
+    expect(mainJs).not.toMatch(/\bsessionStorage\b/);
+    expect(mainJs).not.toMatch(/\bindexedDB\b/);
+    expect(mainJs).not.toMatch(/\bserviceWorker\b/);
+    expect(mainJs).not.toMatch(/\bnavigator\.storage\b/);
+  });
+
   test("HTML forbids base/iframe/object/embed markup that CSP only soft-denies", () => {
     // object-src 'none' / base-uri 'self' still pass if markup introduces a
     // <base> hijack or plugin/iframe embed while host directive maps stay

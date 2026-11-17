@@ -9183,3 +9183,206 @@ describe("CI audit step ↔ inline npm audit seam", () => {
     expect(Object.keys(pkg.scripts).some((key) => /^audit\b/i.test(key))).toBe(false);
   });
 });
+
+describe("CI uses: action pin catalog dual", () => {
+  test("workflow keeps the ordered checkout → setup-node → upload-artifact pins", () => {
+    // Individual @v4 string locks still pass if a fourth action sneaks in, pins
+    // reorder, or upload-artifact is dropped while checkout/setup-node stay —
+    // CI then gains unreviewed marketplace code or loses failure artifacts.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const uses = [...ci.matchAll(/^\s+-\s+uses:\s*(\S+)\s*$/gm)].map((match) => match[1]);
+    expect(uses).toEqual([
+      "actions/checkout@v4",
+      "actions/setup-node@v4",
+      "actions/upload-artifact@v4",
+    ]);
+    for (const pin of uses) {
+      expect(pin.startsWith("actions/")).toBe(true);
+      expect(pin).not.toMatch(/@v3\b/);
+    }
+  });
+});
+
+describe("package.json top-level field allowlist seam", () => {
+  test("package keeps the documented key set and exact 1.0.0 version", () => {
+    // private/name/devDependency duals still pass if engines/type/main/bin or
+    // other publish fields sprawl — tooling then grows surprising constraints
+    // while the known keys stay green.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(Object.keys(pkg).sort()).toEqual([
+      "description",
+      "devDependencies",
+      "name",
+      "private",
+      "scripts",
+      "version",
+    ]);
+    expect(pkg.version).toBe("1.0.0");
+    expect(pkg).not.toHaveProperty("engines");
+    expect(pkg).not.toHaveProperty("type");
+    expect(pkg).not.toHaveProperty("main");
+    expect(pkg).not.toHaveProperty("dependencies");
+  });
+});
+
+describe("eslint globals package ↔ require dual", () => {
+  test("eslint.config.js still requires the globals package from devDependencies", () => {
+    // eslint languageOptions duals still pass if `globals` is dropped from
+    // package.json while eslint.config.js keeps require("globals") — lint then
+    // fails at load time, or browser/node globals silently vanish if the
+    // require is inlined away.
+    const eslintSource = fs.readFileSync(path.join(root, "eslint.config.js"), "utf8");
+    expect(eslintSource).toMatch(/require\(\s*["']globals["']\s*\)/);
+    expect(eslintSource).toMatch(/\bglobals\.browser\b/);
+    expect(eslintSource).toMatch(/\bglobals\.node\b/);
+    expect(eslintSource).toMatch(/\bglobals\.jest\b/);
+    expect(eslintSource).toMatch(/\bglobals\.commonjs\b/);
+
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.devDependencies.globals).toBeTruthy();
+  });
+});
+
+describe("package description SWFL carpentry ↔ JSON-LD description dual", () => {
+  test("npm description keeps SWFL carpentry+GC framing beside schema description", () => {
+    // Exact JSON-LD description + zero-runtime description fragment locks still
+    // pass independently if package.json softens to "agency portfolio" while
+    // schema keeps SWFL carpentry (or reverse) — tooling metadata vs rich
+    // results then disagree on what the site is.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.description).toMatch(/Southwest Florida carpentry and general contracting/i);
+    expect(pkg.description).toMatch(/No runtime dependencies/i);
+    expect(pkg.description).toMatch(/dev-only/i);
+    expect(pkg.description).not.toMatch(/agency portfolio|SaaS|mobile app/i);
+
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.description).toMatch(/Carpentry and general contracting/i);
+    expect(data.description).toMatch(/Southwest Florida/);
+    expect(data.description).not.toMatch(/agency portfolio|SaaS|nationwide/i);
+  });
+});
+
+describe("cta-band Greg follow-up ↔ contact page-hero Greg SLA dual honesty", () => {
+  test("homepage cta-band personal Greg quote coexists with contact SLA promise", () => {
+    // Exact cta-band lede + exact contact page-hero lede locks still pass
+    // independently if the band invents "our team responds" while contact keeps
+    // personal Greg + one-business-day SLA (or reverse) — end-of-page vs contact
+    // conversion honesty then splits.
+    const ctaBlock = indexHtml.match(
+      /class="cta-band"[\s\S]*?<div class="container">([\s\S]*?)<div class="cta-actions"/
+    );
+    expect(ctaBlock).toBeTruthy();
+    const ctaLede = decodeBasicEntities(
+      ctaBlock[1].match(/<p>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(ctaLede).toMatch(/Greg will get back to you personally/i);
+    expect(ctaLede).toMatch(/free quote/i);
+    expect(ctaLede).not.toMatch(/our team|dispatch|call center|ticket system/i);
+
+    const heroBlock = contactHtml.match(
+      /class="page-hero"[\s\S]*?<div class="container">([\s\S]*?)<\/div>/
+    );
+    expect(heroBlock).toBeTruthy();
+    const heroLede = decodeBasicEntities(
+      heroBlock[1].match(/<p>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(heroLede).toMatch(/Tell Greg/i);
+    expect(heroLede).toMatch(/get back to you personally/i);
+    expect(heroLede).toMatch(/one business day/i);
+    expect(heroLede).toMatch(/free quote/i);
+    expect(heroLede).not.toMatch(/our team|dispatch|call center|ticket system/i);
+  });
+});
+
+describe("HTML http-equiv allowlist stays CSP-only", () => {
+  test("both pages only declare Content-Security-Policy via http-equiv", () => {
+    // CSP meta presence locks still pass if pages gain refresh / X-UA-Compatible
+    // / Set-Cookie / Content-Type http-equiv — browsers then honor surprising
+    // meta headers while the CSP string itself stays green.
+    for (const html of [indexHtml, contactHtml]) {
+      const equivs = [...html.matchAll(/http-equiv\s*=\s*["']([^"']+)["']/gi)].map(
+        (match) => match[1]
+      );
+      expect(equivs).toEqual(["Content-Security-Policy"]);
+      expect(html).not.toMatch(/http-equiv\s*=\s*["']refresh["']/i);
+      expect(html).not.toMatch(/http-equiv\s*=\s*["']X-UA-Compatible["']/i);
+      expect(html).not.toMatch(/http-equiv\s*=\s*["']Set-Cookie["']/i);
+    }
+  });
+});
+
+describe("jest.config.js top-level key allowlist seam", () => {
+  test("jest config keeps the documented key set without silent sprawl", () => {
+    // verbose/rootDir/testEnvironment duals still pass if setupFiles /
+    // transform / moduleNameMapper sprawl — Jest then gains surprising loaders
+    // while the known seams stay green.
+    const jestConfig = require(path.join(root, "jest.config.js"));
+    expect(Object.keys(jestConfig).sort()).toEqual([
+      "collectCoverageFrom",
+      "coverageDirectory",
+      "rootDir",
+      "testEnvironment",
+      "testMatch",
+      "verbose",
+    ]);
+    expect(jestConfig.testEnvironment).toBe("jsdom");
+    expect(jestConfig).not.toHaveProperty("setupFiles");
+    expect(jestConfig).not.toHaveProperty("transform");
+    expect(jestConfig).not.toHaveProperty("moduleNameMapper");
+  });
+});
+
+describe("footer Owner-operated ↔ hero owned-and-personally-operated dual honesty", () => {
+  test("footer owner-operated blurb coexists with hero personally-operated claim", () => {
+    // Exact footer blurb + exact hero-lede locks still pass independently if the
+    // footer invents "family of companies" staffing while the hero keeps
+    // personally operated (or reverse) — chrome vs first-viewport honesty then
+    // disagree on who does the work.
+    for (const html of [indexHtml, contactHtml]) {
+      const raw = html.match(/class="footer-brand"[\s\S]*?<p>([\s\S]*?)<\/p>/)?.[1];
+      expect(raw).toBeTruthy();
+      const blurb = decodeBasicEntities(raw).replace(/\s+/g, " ").trim();
+      expect(blurb).toMatch(/Owner-operated carpentry and general contracting/i);
+      expect(blurb).toMatch(/done personally by Greg Felton/i);
+      expect(blurb).not.toMatch(/family of companies|our crews|franchise/i);
+    }
+
+    const heroLede = decodeBasicEntities(
+      indexHtml.match(/class="hero-lede"[^>]*>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(heroLede).toMatch(/owned and personally operated by Greg Felton/i);
+    expect(heroLede).not.toMatch(/family of companies|our crews|franchise/i);
+  });
+});
+
+describe("index title SWFL Carpenter ↔ JSON-LD GeneralContractor dual honesty", () => {
+  test("tab title SWFL carpenter framing coexists with schema GeneralContractor type", () => {
+    // Exact title string + exact @type locks still pass independently if the
+    // title softens to "handyman referral" while schema keeps GeneralContractor
+    // (or reverse) — tab chrome vs rich results then disagree on trade identity.
+    const title = decodeBasicEntities(
+      indexHtml.match(/<title>([^<]+)<\/title>/)[1]
+    );
+    expect(title).toMatch(/Southwest Florida Carpenter & General Contractor/i);
+    expect(title).not.toMatch(/handyman referral|staffing|nationwide/i);
+
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data["@type"]).toBe("GeneralContractor");
+    expect(data.description).toMatch(/Southwest Florida/);
+    expect(data["@type"]).not.toMatch(/HomeAndConstructionBusiness|EmploymentAgency/i);
+  });
+});
