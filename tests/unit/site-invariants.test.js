@@ -9386,3 +9386,272 @@ describe("index title SWFL Carpenter ↔ JSON-LD GeneralContractor dual honesty"
     expect(data["@type"]).not.toMatch(/HomeAndConstructionBusiness|EmploymentAgency/i);
   });
 });
+
+describe("package.json scripts key allowlist seam", () => {
+  test("scripts keep the documented lint/test/serve catalog without lifecycle sprawl", () => {
+    // Per-script exactness + audit-key absence still pass if preinstall/prepare/
+    // postinstall or extra helper scripts sprawl — CI/deploy then gains silent
+    // lifecycle hooks while known script strings stay green.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(Object.keys(pkg.scripts).sort()).toEqual([
+      "lint",
+      "lint:css",
+      "lint:fix",
+      "lint:html",
+      "lint:js",
+      "serve",
+      "test",
+      "test:e2e",
+      "test:e2e:ui",
+      "test:unit",
+      "test:unit:coverage",
+    ]);
+    expect(pkg.scripts).not.toHaveProperty("preinstall");
+    expect(pkg.scripts).not.toHaveProperty("prepare");
+    expect(pkg.scripts).not.toHaveProperty("postinstall");
+    expect(pkg.scripts).not.toHaveProperty("prepublishOnly");
+  });
+});
+
+describe("playwright.config.js top-level key allowlist seam", () => {
+  test("defineConfig keeps the documented key set without silent sprawl", () => {
+    // Per-field duals (baseURL/timeout/forbidOnly/retries) still pass if
+    // globalSetup/workers/timeout/grep sprawl — e2e then flakes or narrows while
+    // the known seams stay green. Parse source; do not require() under jsdom.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const body = configSource.match(/defineConfig\(\{([\s\S]*)\}\)\s*;?\s*$/);
+    expect(body).toBeTruthy();
+    const keys = [...body[1].matchAll(/^\s{2}([A-Za-z0-9_]+)\s*:/gm)].map(
+      (match) => match[1]
+    );
+    expect(keys.sort()).toEqual([
+      "forbidOnly",
+      "fullyParallel",
+      "projects",
+      "reporter",
+      "retries",
+      "testDir",
+      "use",
+      "webServer",
+    ]);
+    expect(configSource).not.toMatch(/\bglobalSetup\b/);
+    expect(configSource).not.toMatch(/\bglobalTeardown\b/);
+    expect(configSource).not.toMatch(/^\s{2}workers\s*:/m);
+  });
+});
+
+describe("vercel.json top-level key allowlist seam", () => {
+  test("vercel.json stays schema+headers only (no routing/env sprawl)", () => {
+    // $schema URL + header-value parity still pass if rewrites/redirects/
+    // cleanUrls/env sprawl — static deploy then gains surprising routing while
+    // host header maps stay green.
+    const vercelConfig = JSON.parse(
+      fs.readFileSync(path.join(root, "vercel.json"), "utf8")
+    );
+    expect(Object.keys(vercelConfig).sort()).toEqual(["$schema", "headers"]);
+    expect(vercelConfig).not.toHaveProperty("rewrites");
+    expect(vercelConfig).not.toHaveProperty("redirects");
+    expect(vercelConfig).not.toHaveProperty("cleanUrls");
+    expect(vercelConfig).not.toHaveProperty("env");
+    expect(vercelConfig).not.toHaveProperty("builds");
+  });
+});
+
+describe("JSON-LD description ↔ index meta description asymmetry dual", () => {
+  test("schema trade+geo blurb stays distinct from SERP owner-operated meta", () => {
+    // Exact JSON-LD description + exact meta description locks still pass
+    // independently if they collapse into one string — rich results then lose
+    // short trade+geo framing or the SERP snippet loses Greg / one-craftsman
+    // honesty (same class as the JSON-LD↔OG asymmetry dual).
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.description).toBe(
+      "Carpentry and general contracting services throughout Southwest Florida."
+    );
+    expect(data.description).not.toMatch(/Greg Felton|one craftsman/i);
+
+    const metaDesc = decodeBasicEntities(
+      indexHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(metaDesc).toMatch(/owned and operated by Greg Felton/i);
+    expect(metaDesc).toMatch(/one craftsman/i);
+    expect(metaDesc).toMatch(/personally on every job/i);
+    expect(metaDesc).not.toBe(data.description);
+    expect(metaDesc).not.toMatch(/our crews|fully staffed|nationwide/i);
+  });
+});
+
+describe("JSON-LD description ↔ hero-lede personally-operated asymmetry dual", () => {
+  test("schema omits Greg while first-viewport lede keeps personally-operated claim", () => {
+    // Exact JSON-LD description + exact hero-lede locks still pass independently
+    // if schema invents Greg/crew claims or the lede softens to dispatch language
+    // — crawlable schema vs first-viewport conversion honesty then diverge while
+    // OG asymmetry stays green.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.description).toMatch(/Southwest Florida/);
+    expect(data.description).not.toMatch(/Greg Felton|our crews|nationwide/i);
+
+    const heroLede = decodeBasicEntities(
+      indexHtml.match(/class="hero-lede"[^>]*>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(heroLede).toMatch(/owned and personally operated by Greg Felton/i);
+    expect(heroLede).toMatch(/not a call center or a rotating crew/i);
+    expect(heroLede).not.toMatch(/our crews|fully staffed|nationwide/i);
+    expect(heroLede).not.toBe(data.description);
+  });
+});
+
+describe("JSON-LD email ↔ contact Placeholder honesty dual", () => {
+  test("schema email stays info@example.com beside the Placeholder honesty cue", () => {
+    // Exact email + exact Placeholder locks still pass independently if schema
+    // "finishes" to a live address while the cue drops (or reverse) — rich
+    // results then look launch-ready while the contact surface still admits the
+    // placeholder, or the honesty cue vanishes while schema stays unfinished.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.email).toBe("info@example.com");
+
+    const emailRow = contactHtml.match(
+      /href="mailto:info@example\.com"[\s\S]*?<small>([\s\S]*?)<\/small>/
+    );
+    expect(emailRow).toBeTruthy();
+    expect(decodeBasicEntities(emailRow[1]).replace(/\s+/g, " ").trim()).toBe(
+      "Placeholder — update with real business email"
+    );
+  });
+});
+
+describe("JSON-LD founder stays a plain Greg Felton string", () => {
+  test("founder remains a string identity, not a Person object", () => {
+    // Exact founder === "Greg Felton" still passes if founder becomes
+    // { "@type": "Person", "name": "Greg Felton" } — string duals and rich-result
+    // shape then break while toContain/toBe on nested name can still look green
+    // after a careless rewrite.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(typeof data.founder).toBe("string");
+    expect(data.founder).toBe("Greg Felton");
+    expect(data.founder).not.toEqual(expect.any(Object));
+  });
+});
+
+describe("CI workflow forbids permissions / dispatch / concurrency sprawl", () => {
+  test("ci.yml stays a single lint-and-test job without token or skip sprawl", () => {
+    // Ordered step catalog + trigger duals still pass if permissions widen,
+    // workflow_dispatch appears, concurrency cancels runs, or continue-on-error
+    // softens audit/e2e — CI then gains elevated tokens or skipped gates while
+    // named steps stay green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    expect(ci).toMatch(/jobs:\s*\n\s*lint-and-test:/);
+    expect(ci).not.toMatch(/^\s*permissions\s*:/m);
+    expect(ci).not.toMatch(/\bworkflow_dispatch\b/);
+    expect(ci).not.toMatch(/^\s*concurrency\s*:/m);
+    expect(ci).not.toMatch(/\bcontinue-on-error\s*:/);
+    const jobsBlock = ci.match(/^jobs:\s*\n([\s\S]*)$/m);
+    expect(jobsBlock).toBeTruthy();
+    const jobs = [...jobsBlock[1].matchAll(/^\s{2}([A-Za-z0-9_-]+)\s*:/gm)].map(
+      (match) => match[1]
+    );
+    expect(jobs).toEqual(["lint-and-test"]);
+  });
+});
+
+describe("eslint flat-config files catalog allowlist", () => {
+  test("eslint keeps exactly the js / tests / playwright.config file blocks", () => {
+    // Per-block rule duals still pass if a fourth files glob appears or one of
+    // the three shrinks — lint posture then silently changes while curly/no-undef
+    // seams stay green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    expect(Array.isArray(eslintConfig)).toBe(true);
+    expect(eslintConfig).toHaveLength(4);
+
+    const ignoreBlock = eslintConfig.find((block) => Array.isArray(block.ignores));
+    expect(ignoreBlock).toBeTruthy();
+    expect(ignoreBlock.files).toBeUndefined();
+
+    const fileBlocks = eslintConfig
+      .filter((block) => Array.isArray(block.files))
+      .map((block) => block.files);
+    expect(fileBlocks).toEqual([
+      ["js/**/*.js"],
+      ["tests/**/*.js"],
+      ["playwright.config.js"],
+    ]);
+  });
+});
+
+describe("html-validate top-level + rules key allowlist seam", () => {
+  test("html-validate keeps extends+rules with the documented three-rule set", () => {
+    // Named rule offs (svg-focusable / no-trailing-whitespace) still pass if
+    // extra rules or top-level keys sprawl — lint:html then fails on new checks
+    // or re-enables intentional offs while the known offs stay green.
+    const htmlValidate = JSON.parse(
+      fs.readFileSync(path.join(root, ".htmlvalidate.json"), "utf8")
+    );
+    expect(Object.keys(htmlValidate).sort()).toEqual(["extends", "rules"]);
+    expect(Object.keys(htmlValidate.rules).sort()).toEqual([
+      "no-inline-style",
+      "no-trailing-whitespace",
+      "svg-focusable",
+    ]);
+    expect(htmlValidate.rules["no-inline-style"]).toBe("error");
+    expect(htmlValidate.rules["no-trailing-whitespace"]).toBe("off");
+    expect(htmlValidate.rules["svg-focusable"]).toBe("off");
+  });
+});
+
+describe("contact meta Greg invite ↔ JSON-LD founder dual honesty", () => {
+  test("contact SERP invite keeps Greg beside schema founder Greg Felton", () => {
+    // Exact contact meta + exact founder locks still pass independently if the
+    // SERP blurb softens to "our team" while schema keeps Greg Felton (or reverse)
+    // — contact conversion honesty vs rich-result founder then disagree on who
+    // answers leads.
+    const description = decodeBasicEntities(
+      contactHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(description).toMatch(/Get in touch with Greg Felton/i);
+    expect(description).toMatch(/free quote/i);
+    expect(description).not.toMatch(/our team|dispatch|call center|ticket system/i);
+
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.founder).toBe("Greg Felton");
+    expect(typeof data.founder).toBe("string");
+  });
+});
+
+describe("stylelint top-level key allowlist seam", () => {
+  test("stylelintrc stays extends+rules only without silent sprawl", () => {
+    // Intentional null-off catalog still passes if plugins/overrides/customSyntax
+    // sprawl — CSS lint then gains surprising processors while named offs stay
+    // green.
+    const stylelint = JSON.parse(
+      fs.readFileSync(path.join(root, ".stylelintrc.json"), "utf8")
+    );
+    expect(Object.keys(stylelint).sort()).toEqual(["extends", "rules"]);
+    expect(stylelint).not.toHaveProperty("plugins");
+    expect(stylelint).not.toHaveProperty("overrides");
+    expect(stylelint).not.toHaveProperty("customSyntax");
+  });
+});

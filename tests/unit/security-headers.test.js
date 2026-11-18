@@ -411,6 +411,18 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
     expect(mainJs).not.toMatch(/\bnavigator\.storage\b/);
   });
 
+  test("main.js forbids cookie / postMessage / SharedWorker channel sprawl", () => {
+    // Storage/serviceWorker bans still pass if main.js grows document.cookie,
+    // window.postMessage, or SharedWorker wiring — the static marketing site
+    // then gains persistence or cross-context channels while CSP connect-src
+    // and storage bans stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).not.toMatch(/\bdocument\.cookie\b/);
+    expect(mainJs).not.toMatch(/\bpostMessage\b/);
+    expect(mainJs).not.toMatch(/\bSharedWorker\b/);
+    expect(mainJs).not.toMatch(/\bBroadcastChannel\b/);
+  });
+
   test("HTML forbids base/iframe/object/embed markup that CSP only soft-denies", () => {
     // object-src 'none' / base-uri 'self' still pass if markup introduces a
     // <base> hijack or plugin/iframe embed while host directive maps stay
