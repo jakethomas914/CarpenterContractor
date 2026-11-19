@@ -9655,3 +9655,199 @@ describe("stylelint top-level key allowlist seam", () => {
     expect(stylelint).not.toHaveProperty("customSyntax");
   });
 });
+
+describe("eslint ignores exact catalog allowlist", () => {
+  test("eslint ignore block stays the documented four artifact globs only", () => {
+    // toContain checks for coverage/playwright-report still pass if ignores grow
+    // to swallow js/** or tests/** — lint then silently skips production source
+    // while the known artifact entries stay green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const ignoreBlock = eslintConfig.find((block) => Array.isArray(block.ignores));
+    expect(ignoreBlock).toBeTruthy();
+    expect(ignoreBlock.ignores).toEqual([
+      "node_modules/**",
+      "playwright-report/**",
+      "test-results/**",
+      "coverage/**",
+    ]);
+    expect(ignoreBlock.ignores.join("\n")).not.toMatch(/\bjs\//);
+    expect(ignoreBlock.ignores.join("\n")).not.toMatch(/\btests\//);
+  });
+});
+
+describe("stylelint rules key allowlist seam", () => {
+  test("stylelint keeps exactly the documented prefix + null-off rule set", () => {
+    // Named null-off + media-feature-range duals still pass if extra rules or
+    // unexpected severity keys sprawl — CSS lint then gains surprising fails or
+    // silent re-enables while the known offs stay green.
+    const stylelint = JSON.parse(
+      fs.readFileSync(path.join(root, ".stylelintrc.json"), "utf8")
+    );
+    expect(Object.keys(stylelint.rules).sort()).toEqual(
+      [
+        "custom-property-empty-line-before",
+        "custom-property-pattern",
+        "declaration-block-no-redundant-longhand-properties",
+        "media-feature-range-notation",
+        "no-descending-specificity",
+        "selector-class-pattern",
+        "shorthand-property-no-redundant-values",
+        "value-keyword-case",
+      ].sort()
+    );
+    expect(stylelint.rules["media-feature-range-notation"]).toBe("prefix");
+  });
+});
+
+describe("html-validate extends exact catalog seam", () => {
+  test("html-validate keeps exactly the recommended preset and no extras", () => {
+    // toContain("html-validate:recommended") still passes if a second preset or
+    // plugin extends entry appears — lint:html then gains surprising checks while
+    // the known recommended string stays green.
+    const htmlValidate = JSON.parse(
+      fs.readFileSync(path.join(root, ".htmlvalidate.json"), "utf8")
+    );
+    expect(htmlValidate.extends).toEqual(["html-validate:recommended"]);
+  });
+});
+
+describe("package.json scripts exact value catalog", () => {
+  test("every script keeps its documented command string", () => {
+    // Scripts key allowlist still passes if a known script's command softens
+    // (drops integration from test:unit, skips lint:html from lint, moves serve
+    // onto :4173) — CI/local workflows then diverge while key presence stays green.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg.scripts).toEqual({
+      "lint:js": "eslint js tests",
+      "lint:css": 'stylelint "css/**/*.css"',
+      "lint:html": "html-validate index.html contact.html",
+      lint: "npm run lint:js && npm run lint:css && npm run lint:html",
+      "lint:fix": 'eslint js tests --fix && stylelint "css/**/*.css" --fix',
+      "test:unit": "jest tests/unit tests/integration",
+      "test:unit:coverage": "jest tests/unit tests/integration --coverage",
+      "test:e2e": "playwright test",
+      "test:e2e:ui": "playwright test --ui",
+      test: "npm run test:unit && npm run test:e2e",
+      serve: "python3 -m http.server 8080",
+    });
+  });
+});
+
+describe("gitignore exact body seam", () => {
+  test(".gitignore keeps the exact documented ignore body", () => {
+    // Per-entry presence duals still pass if ignore rows reorder, extras appear
+    // (silently dropping tracked paths later), or a required artifact dir vanishes
+    // while another remains — PR noise / missing ignore then regress while
+    // individual toMatch lines stay green.
+    const gitignore = fs.readFileSync(path.join(root, ".gitignore"), "utf8");
+    expect(gitignore.replace(/\r\n/g, "\n").trim()).toBe(
+      [
+        "node_modules/",
+        "package-lock.json.bak",
+        "coverage/",
+        "playwright-report/",
+        "test-results/",
+        ".DS_Store",
+        "*.log",
+      ].join("\n")
+    );
+  });
+});
+
+describe("About one-person ↔ meta one-craftsman dual honesty", () => {
+  test("About one-person approach coexists with SERP one-craftsman claim", () => {
+    // Exact About paragraph + exact meta description locks still pass
+    // independently if About invents crew-scale volume language while SERP keeps
+    // "one craftsman" (or reverse) — About honesty vs SERP conversion framing
+    // then disagree on staffing model.
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?<div class="about-copy">([\s\S]*?)<\/div>/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutText = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutText).toMatch(/one-person approach/i);
+    expect(aboutText).toMatch(/sole operator/i);
+    expect(aboutText).not.toMatch(/our crews|fully staffed|high volume/i);
+
+    const metaDesc = decodeBasicEntities(
+      indexHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(metaDesc).toMatch(/one craftsman, personally on every job/i);
+    expect(metaDesc).not.toMatch(/our crews|fully staffed|nationwide/i);
+  });
+});
+
+describe("contact canonical origin ↔ JSON-LD url origin dual", () => {
+  test("contact canonical stays on the same origin as JSON-LD homepage url", () => {
+    // Exact contact canonical + exact JSON-LD url locks still pass independently
+    // if contact drifts to a staging host while schema keeps www.example.com (or
+    // reverse) — crawlers then see split origins across contact SERP vs rich
+    // results while pairwise exact strings stay green on each side alone.
+    const contactCanonical = contactHtml.match(
+      /rel="canonical"\s+href="([^"]+)"/
+    )?.[1];
+    expect(contactCanonical).toBeTruthy();
+
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.url).toBeTruthy();
+
+    expect(new URL(contactCanonical).origin).toBe(new URL(data.url).origin);
+    expect(new URL(contactCanonical).pathname).toBe("/contact.html");
+    expect(new URL(data.url).pathname).toBe("/");
+  });
+});
+
+describe("robots Sitemap origin ↔ JSON-LD url origin dual", () => {
+  test("robots Sitemap host stays aligned with JSON-LD homepage url origin", () => {
+    // Exact robots body + exact JSON-LD url locks still pass independently if
+    // robots points Sitemap at a staging host while schema keeps the launch
+    // origin (or reverse) — crawlers then fetch the wrong sitemap while each
+    // exact string check stays green alone.
+    const sitemapLine = robotsTxt.match(/^\s*Sitemap:\s*(\S+)/im)?.[1];
+    expect(sitemapLine).toBeTruthy();
+
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.url).toBeTruthy();
+
+    expect(new URL(sitemapLine).origin).toBe(new URL(data.url).origin);
+    expect(new URL(sitemapLine).pathname).toBe("/sitemap.xml");
+  });
+});
+
+describe("CI retention-days ↔ upload-artifact path dual", () => {
+  test("playwright-report artifact keeps retention-days 14 beside path", () => {
+    // upload-artifact uses: pin + path/playwright-report locks still pass if
+    // retention-days drops to 1 or vanishes — failure HTML then expires before
+    // review while the artifact name/path stay green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const uploadBlock = ci.match(
+      /uses:\s*actions\/upload-artifact@v4\s*\n\s*if:\s*always\(\)\s*\n\s*with:\s*\n([\s\S]*?)(?=\n\S|\n*$)/
+    );
+    expect(uploadBlock).toBeTruthy();
+    expect(uploadBlock[1]).toMatch(/name:\s*playwright-report/);
+    expect(uploadBlock[1]).toMatch(/path:\s*playwright-report\//);
+    expect(uploadBlock[1]).toMatch(/retention-days:\s*14\b/);
+  });
+});
+
+describe("jest collectCoverageFrom exact seam", () => {
+  test("coverage collection stays js/**/*.js only (no tests/node_modules sprawl)", () => {
+    // coverageDirectory + testMatch duals still pass if collectCoverageFrom grows
+    // to tests/** or shrinks away from js/** — coverage reports then mislead or
+    // miss production while verbose/rootDir seams stay green.
+    const jestConfig = require(path.join(root, "jest.config.js"));
+    expect(jestConfig.collectCoverageFrom).toEqual(["js/**/*.js"]);
+    expect(jestConfig.collectCoverageFrom.join("\n")).not.toMatch(/\btests\//);
+    expect(jestConfig.collectCoverageFrom.join("\n")).not.toMatch(/node_modules/);
+  });
+});

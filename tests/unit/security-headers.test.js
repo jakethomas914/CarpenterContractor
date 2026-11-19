@@ -423,6 +423,20 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
     expect(mainJs).not.toMatch(/\bBroadcastChannel\b/);
   });
 
+  test("main.js forbids Worker / new Function / history / dynamic script injection", () => {
+    // Cookie/postMessage/SharedWorker bans still pass if main.js grows dedicated
+    // Worker threads, new Function eval-equivalents, history.pushState/replaceState
+    // soft navigation, or createElement("script") injection — the static site then
+    // gains executable channels while channel-name bans stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const codeOnly = mainJs.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(codeOnly).not.toMatch(/\bnew\s+Worker\b/);
+    expect(codeOnly).not.toMatch(/\bnew\s+Function\b/);
+    expect(codeOnly).not.toMatch(/\bhistory\.(?:push|replace)State\b/);
+    expect(codeOnly).not.toMatch(/createElement\s*\(\s*["']script["']/i);
+    expect(codeOnly).not.toMatch(/\bimportScripts\s*\(/);
+  });
+
   test("HTML forbids base/iframe/object/embed markup that CSP only soft-denies", () => {
     // object-src 'none' / base-uri 'self' still pass if markup introduces a
     // <base> hijack or plugin/iframe embed while host directive maps stay
