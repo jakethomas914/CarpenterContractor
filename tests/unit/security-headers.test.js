@@ -485,4 +485,75 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
       expect(html).not.toMatch(/\b(?:src|href)=["']data:/i);
     }
   });
+
+  test("host CSP directive-name allowlist stays the documented ten only", () => {
+    // Exact CSP string equality still passes if a future softer matcher only
+    // checks named directive values while an unknown fetch directive is
+    // inserted — parsed name allowlists fail closed on silent CSP sprawl.
+    const host = parseCspDirectives(hostCsp);
+    expect(Object.keys(host).sort()).toEqual(
+      [
+        "base-uri",
+        "connect-src",
+        "default-src",
+        "font-src",
+        "form-action",
+        "frame-ancestors",
+        "img-src",
+        "object-src",
+        "script-src",
+        "style-src",
+      ].sort()
+    );
+    expect(host["frame-ancestors"]).toBe("'none'");
+    expect(host["report-uri"]).toBeUndefined();
+    expect(host["worker-src"]).toBeUndefined();
+  });
+
+  test("index meta CSP directive-name allowlist omits frame-ancestors only", () => {
+    // Host name allowlist + index exact string still pass independently if index
+    // gains frame-ancestors (invalid/ignored in meta) or drops a shared fetch
+    // directive while the host stays locked — four-way maps then drift while
+    // each exact string alone stays green.
+    const index = parseCspDirectives(indexCsp);
+    expect(Object.keys(index).sort()).toEqual(
+      [
+        "base-uri",
+        "connect-src",
+        "default-src",
+        "font-src",
+        "form-action",
+        "img-src",
+        "object-src",
+        "script-src",
+        "style-src",
+      ].sort()
+    );
+    expect(index["frame-ancestors"]).toBeUndefined();
+    expect(index["script-src"]).toBe("'self' 'unsafe-inline'");
+  });
+
+  test("contact meta CSP directive-name allowlist stays self-only script-src set", () => {
+    // Contact exact CSP string + per-directive value locks still pass if contact
+    // gains frame-ancestors / report-uri or drops form-action while host stays
+    // locked — contact enforcement then softens or sprawls while named values
+    // on remaining keys stay green.
+    const contact = parseCspDirectives(contactCsp);
+    expect(Object.keys(contact).sort()).toEqual(
+      [
+        "base-uri",
+        "connect-src",
+        "default-src",
+        "font-src",
+        "form-action",
+        "img-src",
+        "object-src",
+        "script-src",
+        "style-src",
+      ].sort()
+    );
+    expect(contact["frame-ancestors"]).toBeUndefined();
+    expect(contact["script-src"]).toBe("'self'");
+    expect(contact["script-src"]).not.toMatch(/'unsafe-inline'/);
+  });
 });

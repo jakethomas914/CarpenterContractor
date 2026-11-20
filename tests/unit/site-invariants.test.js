@@ -9851,3 +9851,225 @@ describe("jest collectCoverageFrom exact seam", () => {
     expect(jestConfig.collectCoverageFrom.join("\n")).not.toMatch(/node_modules/);
   });
 });
+
+describe("eslint js/** rules exact key allowlist", () => {
+  test("production js block keeps exactly the documented seven-rule set", () => {
+    // Named rule-value duals (curly/no-var/eqeqeq/…) still pass if extra rules
+    // sprawl or a required key vanishes while others remain — lint:js then gains
+    // surprising fails or loses classic-script posture while known values stay
+    // green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const jsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.some((file) => file.includes("js/"))
+    );
+    expect(jsBlock).toBeTruthy();
+    expect(Object.keys(jsBlock.rules).sort()).toEqual(
+      [
+        "curly",
+        "eqeqeq",
+        "no-console",
+        "no-undef",
+        "no-unused-vars",
+        "no-var",
+        "prefer-const",
+      ].sort()
+    );
+    expect(jsBlock.rules["no-undef"]).toBe("error");
+    expect(jsBlock.rules.curly).toEqual(["error", "all"]);
+    expect(jsBlock.rules["no-var"]).toBe("off");
+  });
+});
+
+describe("eslint tests/** rules exact key allowlist", () => {
+  test("tests block keeps exactly eqeqeq + no-unused-vars (no no-undef sprawl)", () => {
+    // Individual eqeqeq / no-unused-vars value locks still pass if tests/** gains
+    // no-undef or extra stylistic rules — fixtures then fail under intentional
+    // jest/browser globals, or lint noise grows, while the two known values stay
+    // green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const testsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) &&
+        block.files.some((file) => file.includes("tests/"))
+    );
+    expect(testsBlock).toBeTruthy();
+    expect(Object.keys(testsBlock.rules).sort()).toEqual(
+      ["eqeqeq", "no-unused-vars"].sort()
+    );
+    expect(testsBlock.rules["no-undef"]).toBeUndefined();
+    expect(testsBlock.rules.eqeqeq).toEqual(["error", "smart"]);
+    expect(testsBlock.rules["no-unused-vars"]).toBe("warn");
+  });
+});
+
+describe("Playwright projects exact name↔device catalog", () => {
+  test("projects stay ordered chromium-desktop→Desktop Chrome and mobile-safari→iPhone 13", () => {
+    // Project-name allowlists + device toMatch duals still pass if names and
+    // devices are swapped (chromium-desktop → iPhone 13) or a third project is
+    // inserted between them — CI then runs the wrong viewport matrix while
+    // individual name/device strings stay green.
+    // Parse source only: requiring @playwright/test under Jest/jsdom throws.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const projectBlocks = [
+      ...configSource.matchAll(
+        /\{\s*name:\s*["']([^"']+)["']\s*,\s*use:\s*\{\s*\.\.\.devices\["([^"]+)"\]\s*\}\s*,?\s*\}/g
+      ),
+    ].map((match) => ({ name: match[1], device: match[2] }));
+    expect(projectBlocks).toEqual([
+      { name: "chromium-desktop", device: "Desktop Chrome" },
+      { name: "mobile-safari", device: "iPhone 13" },
+    ]);
+    expect(configSource).not.toMatch(/Desktop Firefox|Pixel 5|iPad/i);
+  });
+});
+
+describe("Playwright webServer timeout exact seam", () => {
+  test("webServer keeps a 20000ms boot timeout on the :4173 python server", () => {
+    // baseURL/port duals still pass if timeout collapses to a too-short value
+    // or vanishes — CI e2e then flakes on slow python http.server boot while
+    // project/port locks stay green.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const webServerBlock = configSource.match(
+      /webServer:\s*\{([\s\S]*?)\n\s*\},/
+    );
+    expect(webServerBlock).toBeTruthy();
+    expect(webServerBlock[1]).toMatch(/timeout:\s*20000\b/);
+    expect(webServerBlock[1]).not.toMatch(/timeout:\s*(?:0|1|100|1000)\b/);
+    expect(webServerBlock[1]).toMatch(/command:\s*["']python3 -m http\.server 4173["']/);
+  });
+});
+
+describe("eslint flat-config block cardinality seam", () => {
+  test("eslint.config.js stays exactly four blocks (ignores + js + tests + playwright)", () => {
+    // Per-block files/rules duals still pass if a fifth silent block appears
+    // (or one of the four collapses) — lint posture then changes while each
+    // remaining block's known values stay green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    expect(Array.isArray(eslintConfig)).toBe(true);
+    expect(eslintConfig).toHaveLength(4);
+
+    const ignoreBlock = eslintConfig.find((block) => Array.isArray(block.ignores));
+    const jsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.some((file) => file.includes("js/"))
+    );
+    const testsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) &&
+        block.files.some((file) => file.includes("tests/"))
+    );
+    const pwBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.includes("playwright.config.js")
+    );
+    expect(ignoreBlock).toBeTruthy();
+    expect(jsBlock).toBeTruthy();
+    expect(testsBlock).toBeTruthy();
+    expect(pwBlock).toBeTruthy();
+    expect(pwBlock.rules).toBeUndefined();
+  });
+});
+
+describe("jest.config.js exact object seam", () => {
+  test("jest keeps the exact documented six-field config object", () => {
+    // Top-level key allowlists + per-field duals still pass if a value softens
+    // while keys remain (jsdom → node, testMatch drops integration, verbose
+    // false) — discovery/coverage then regress while key presence stays green.
+    const jestConfig = require(path.join(root, "jest.config.js"));
+    expect(jestConfig).toEqual({
+      rootDir: path.join(root),
+      testEnvironment: "jsdom",
+      testMatch: [
+        "<rootDir>/tests/unit/**/*.test.js",
+        "<rootDir>/tests/integration/**/*.test.js",
+      ],
+      collectCoverageFrom: ["js/**/*.js"],
+      coverageDirectory: "<rootDir>/coverage",
+      verbose: true,
+    });
+  });
+});
+
+describe("About talk-to-Greg ↔ contact Call-or-text dual honesty", () => {
+  test("About when-you-call-talk-to-Greg coexists with contact Call-or-text chrome", () => {
+    // Exact About sole-operator paragraph + exact form-note/anytime locks still
+    // pass independently if About invents a receptionist intake while contact
+    // keeps Call-or-text (or reverse) — owner-reachability honesty then splits
+    // across About vs lead-capture chrome.
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?<div class="about-copy">([\s\S]*?)<\/div>/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutText = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutText).toMatch(/when you call, you talk to Greg/i);
+    expect(aboutText).toMatch(/Greg is the one doing it/i);
+    expect(aboutText).not.toMatch(/receptionist|front desk|intake team|our operators/i);
+
+    const formNote = contactHtml.match(
+      /<p\b[^>]*\bclass="[^"]*\bform-note\b[^"]*"[^>]*>([\s\S]*?)<\/p>/
+    );
+    expect(formNote).toBeTruthy();
+    const noteText = decodeBasicEntities(formNote[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(noteText).toMatch(/Call or text/);
+    expect(formNote[1]).toMatch(/href="tel:\+12394402416"/);
+
+    expect(contactHtml).toMatch(
+      /href="tel:\+12394402416"[\s\S]*?<small>\s*Call or text anytime\s*<\/small>/
+    );
+  });
+});
+
+describe("index title Carpenter ↔ contact title Carpentry dual honesty", () => {
+  test("homepage Carpenter SERP cue coexists with contact Carpentry & GC framing", () => {
+    // Exact index title + exact contact title locks still pass independently if
+    // one page softens trade framing to "handyman" / "referral" while the other
+    // keeps carpenter/carpentry — SERP tabs then disagree on the trade while
+    // each page's exact string stays green alone.
+    const indexTitle = decodeBasicEntities(
+      indexHtml.match(/<title>([^<]+)<\/title>/i)[1]
+    ).replace(/\s+/g, " ").trim();
+    const contactTitle = decodeBasicEntities(
+      contactHtml.match(/<title>([^<]+)<\/title>/i)[1]
+    ).replace(/\s+/g, " ").trim();
+
+    expect(indexTitle).toBe(
+      "Southwest Florida Carpenter & General Contractor | [Business Name]"
+    );
+    expect(indexTitle).toMatch(/Carpenter & General Contractor/);
+    expect(indexTitle).not.toMatch(/handyman|referral|staffing/i);
+
+    expect(contactTitle).toBe(
+      "Contact Us | [Business Name] — SWFL Carpentry & GC"
+    );
+    expect(contactTitle).toMatch(/SWFL Carpentry & GC/);
+    expect(contactTitle).not.toMatch(/handyman|referral|staffing/i);
+  });
+});
+
+describe("package.json forbids type:module beside classic script tags", () => {
+  test("package stays CommonJS (no type:module) with classic js/main.js loads", () => {
+    // Classic <script src> + IIFE export locks still pass if package.json gains
+    // "type":"module" — Node tooling then treats .js as ESM while browsers keep
+    // classic scripts, and Jest/eslint CommonJS assumptions break while HTML
+    // script contracts stay green.
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(pkg).not.toHaveProperty("type");
+    expect(pkg.type).toBeUndefined();
+
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).toMatch(/<script\s+src="js\/main\.js"><\/script>\s*<\/body>/i);
+      expect(html).not.toMatch(/<script\b[^>]*\btype\s*=\s*["']module["']/i);
+    }
+  });
+});
