@@ -10073,3 +10073,194 @@ describe("package.json forbids type:module beside classic script tags", () => {
     }
   });
 });
+
+describe("eslint js/** languageOptions.globals browser+commonjs presence", () => {
+  test("js block keeps document/window beside module/exports/require globals", () => {
+    // sourceType:script + no-undef error locks still pass if browser or commonjs
+    // globals are dropped from languageOptions — lint:js then false-positives on
+    // DOM APIs or on the Jest `module.exports` seam while rule values stay green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const jsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.some((file) => file.includes("js/"))
+    );
+    expect(jsBlock).toBeTruthy();
+    const { globals: jsGlobals } = jsBlock.languageOptions;
+    expect(jsGlobals).toBeTruthy();
+    for (const name of ["document", "window", "module", "exports", "require"]) {
+      expect(Object.prototype.hasOwnProperty.call(jsGlobals, name)).toBe(true);
+    }
+  });
+});
+
+describe("eslint tests/** languageOptions.globals node+jest+browser presence", () => {
+  test("tests block keeps describe/expect/jest beside process and document", () => {
+    // tests/** rules allowlist (no no-undef) still passes if jest/node/browser
+    // globals are dropped — fixtures then lose intentional globals coverage while
+    // eqeqeq/no-unused-vars stay green, inviting a future no-undef reintroduction.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const testsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) &&
+        block.files.some((file) => file.includes("tests/"))
+    );
+    expect(testsBlock).toBeTruthy();
+    const { globals: testGlobals } = testsBlock.languageOptions;
+    expect(testGlobals).toBeTruthy();
+    for (const name of ["describe", "expect", "jest", "process", "document"]) {
+      expect(Object.prototype.hasOwnProperty.call(testGlobals, name)).toBe(true);
+    }
+  });
+});
+
+describe("eslint languageOptions key allowlists", () => {
+  test("js / tests / playwright blocks keep exactly ecmaVersion+sourceType+globals", () => {
+    // Per-field sourceType/ecmaVersion duals still pass if parserOptions,
+    // parser, or extra languageOptions keys sprawl — lint posture then changes
+    // while known field values stay green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const expectedKeys = ["ecmaVersion", "globals", "sourceType"].sort();
+
+    const jsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.some((file) => file.includes("js/"))
+    );
+    const testsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) &&
+        block.files.some((file) => file.includes("tests/"))
+    );
+    const pwBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.includes("playwright.config.js")
+    );
+
+    expect(Object.keys(jsBlock.languageOptions).sort()).toEqual(expectedKeys);
+    expect(Object.keys(testsBlock.languageOptions).sort()).toEqual(expectedKeys);
+    expect(Object.keys(pwBlock.languageOptions).sort()).toEqual(expectedKeys);
+  });
+});
+
+describe("CI on: exact trigger body seam", () => {
+  test("workflow on: stays push-to-main plus unfiltered pull_request only", () => {
+    // Partial push/pull_request regex duals still pass if paths:/tags: filters,
+    // workflow_call, or extra events appear beside the known lines — PR/main
+    // coverage then silently narrows while the two positive matches stay green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const onBlock = ci.match(/^on:\n([\s\S]*?)\njobs:/m);
+    expect(onBlock).toBeTruthy();
+    expect(onBlock[1]).toBe(
+      ["  push:", "    branches: [main]", "  pull_request:", ""].join("\n")
+    );
+    expect(onBlock[1]).not.toMatch(/\bpaths\s*:/);
+    expect(onBlock[1]).not.toMatch(/\btags\s*:/);
+    expect(onBlock[1]).not.toMatch(/\btypes\s*:/);
+    expect(onBlock[1]).not.toMatch(/\bworkflow_dispatch\b/);
+    expect(onBlock[1]).not.toMatch(/\bschedule\b/);
+  });
+});
+
+describe("Playwright top-level use key allowlist", () => {
+  test("top-level use stays baseURL + trace only (no viewport/locale sprawl)", () => {
+    // baseURL/trace value duals still pass if top-level use grows viewport,
+    // locale, colorScheme, or storageState — every project then inherits
+    // surprising defaults while project name↔device catalogs stay green.
+    // Parse source only: requiring @playwright/test under Jest/jsdom throws.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const useBlock = configSource.match(
+      /\n\s*use:\s*\{([\s\S]*?)\n\s*\},/
+    );
+    expect(useBlock).toBeTruthy();
+    const keys = [
+      ...useBlock[1].matchAll(/^\s*([A-Za-z0-9_]+)\s*:/gm),
+    ].map((match) => match[1]);
+    expect(keys).toEqual(["baseURL", "trace"]);
+    expect(useBlock[1]).toMatch(/baseURL:\s*"http:\/\/127\.0\.0\.1:4173"/);
+    expect(useBlock[1]).toMatch(/trace:\s*["']retain-on-failure["']/);
+    expect(useBlock[1]).not.toMatch(/\bviewport\b|\blocale\b|\bcolorScheme\b|\bstorageState\b/);
+  });
+});
+
+describe("html-validate rules exact object seam", () => {
+  test("html-validate keeps the exact three-rule severity map", () => {
+    // Rules key allowlist + named severity duals still pass if a value softens
+    // while keys remain (no-inline-style → warn) — lint:html then stops failing
+    // inline style= while key presence stays green.
+    const htmlValidate = JSON.parse(
+      fs.readFileSync(path.join(root, ".htmlvalidate.json"), "utf8")
+    );
+    expect(htmlValidate.rules).toEqual({
+      "no-inline-style": "error",
+      "no-trailing-whitespace": "off",
+      "svg-focusable": "off",
+    });
+  });
+});
+
+describe("stylelint rules exact object seam", () => {
+  test("stylelint keeps the exact documented rule value map", () => {
+    // Rules key allowlist + media-feature-range-notation dual still pass if a
+    // null-off flips back on or prefix softens while keys remain — lint:css then
+    // gains noise or accepts modern range notation while key presence stays green.
+    const stylelint = JSON.parse(
+      fs.readFileSync(path.join(root, ".stylelintrc.json"), "utf8")
+    );
+    expect(stylelint.rules).toEqual({
+      "selector-class-pattern": null,
+      "custom-property-pattern": null,
+      "no-descending-specificity": null,
+      "declaration-block-no-redundant-longhand-properties": null,
+      "shorthand-property-no-redundant-values": null,
+      "custom-property-empty-line-before": null,
+      "value-keyword-case": null,
+      "media-feature-range-notation": "prefix",
+    });
+  });
+});
+
+describe("value-list Direct communication ↔ contact page-hero personally dual", () => {
+  test("About Greg-personally trust bullet coexists with contact personally SLA", () => {
+    // Exact value-list catalog + exact contact page-hero locks still pass
+    // independently if About invents middlemen/crew intake while contact keeps
+    // "he'll get back to you personally" (or reverse) — owner-reachability then
+    // splits across About trust bullets vs lead-capture hero chrome.
+    const valueList = indexHtml.match(/class="value-list">([\s\S]*?)<\/ul>/);
+    expect(valueList).toBeTruthy();
+    const valueText = decodeBasicEntities(valueList[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(valueText).toMatch(/Direct communication/);
+    expect(valueText).toMatch(/You work with Greg personally/);
+    expect(valueText).toMatch(/no middlemen, no runaround/);
+    expect(valueText).not.toMatch(/account manager|intake team|dispatch desk/i);
+
+    const pageHero = contactHtml.match(
+      /class="page-hero"[\s\S]*?<p>\s*([\s\S]*?)\s*<\/p>/
+    );
+    expect(pageHero).toBeTruthy();
+    const heroText = decodeBasicEntities(pageHero[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(heroText).toMatch(/Tell Greg a bit about your project/);
+    expect(heroText).toMatch(/get back to you personally/);
+    expect(heroText).toMatch(/usually within one business day/);
+    expect(heroText).not.toMatch(/our team will|a coordinator|call center/i);
+  });
+});
+
+describe("main.js forbids EventSource / geolocation / Notification sprawl", () => {
+  test("main.js stays free of push/geo/SSE channels beside existing network bans", () => {
+    // fetch/XHR/WebSocket/beacon bans still pass if main.js grows EventSource,
+    // geolocation, or Notification permission prompts — the static site then
+    // gains push/geo/SSE channels while connect-src 'self' stays green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const codeOnly = mainJs.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(codeOnly).not.toMatch(/\bEventSource\b/);
+    expect(codeOnly).not.toMatch(/\bnavigator\.geolocation\b/);
+    expect(codeOnly).not.toMatch(/\bNotification\b/);
+    expect(codeOnly).not.toMatch(/\bPushManager\b/);
+  });
+});

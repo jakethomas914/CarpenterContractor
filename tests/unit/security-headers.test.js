@@ -85,6 +85,49 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(Object.keys(vercel).sort()).toEqual(expected);
   });
 
+  test("host header entry order stays the documented six-key sequence on both hosts", () => {
+    // Sorted key-set equality still passes if Netlify and Vercel reorder the
+    // same six keys differently, or if a review-time insert/remove leaves a
+    // different documented sequence — ordered catalogs keep both hosts'
+    // hardened surface identical end-to-end and fail closed on silent reorder.
+    const expectedOrder = [
+      "X-Frame-Options",
+      "X-Content-Type-Options",
+      "Referrer-Policy",
+      "Permissions-Policy",
+      "Strict-Transport-Security",
+      "Content-Security-Policy",
+    ];
+
+    const vercelConfig = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"));
+    const vercelRoute = (vercelConfig.headers || []).find((entry) => entry.source === "/(.*)");
+    expect(vercelRoute).toBeTruthy();
+    expect(vercelRoute.headers.map((header) => header.key)).toEqual(expectedOrder);
+    expect(vercelRoute.headers).toEqual(
+      expectedOrder.map((key) => ({ key, value: vercel[key] }))
+    );
+
+    const netlifyRaw = fs.readFileSync(path.join(root, "_headers"), "utf8");
+    const netlifyOrdered = [];
+    let inCatchAll = false;
+    for (const line of netlifyRaw.split("\n")) {
+      if (/^\/\*\s*$/.test(line)) {
+        inCatchAll = true;
+        continue;
+      }
+      if (inCatchAll) {
+        if (/^\S/.test(line)) {
+          break;
+        }
+        const match = line.match(/^\s+([A-Za-z0-9-]+):\s*(.+)\s*$/);
+        if (match) {
+          netlifyOrdered.push(match[1]);
+        }
+      }
+    }
+    expect(netlifyOrdered).toEqual(expectedOrder);
+  });
+
   test("CSP allows mailto form-action used by the contact form", () => {
     expect(netlify["Content-Security-Policy"]).toMatch(/form-action[^;]*mailto:/);
     expect(vercel["Content-Security-Policy"]).toMatch(/form-action[^;]*mailto:/);
