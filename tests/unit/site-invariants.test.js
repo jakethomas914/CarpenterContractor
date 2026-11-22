@@ -10264,3 +10264,218 @@ describe("main.js forbids EventSource / geolocation / Notification sprawl", () =
     expect(codeOnly).not.toMatch(/\bPushManager\b/);
   });
 });
+
+describe("Playwright webServer key allowlist seam", () => {
+  test("webServer stays command+url+reuseExistingServer+timeout only", () => {
+    // Per-field duals (command/url/timeout/reuseExistingServer) still pass if
+    // webServer grows cwd/env/stdout/stderr/ignoreHTTPSErrors — e2e boot then
+    // inherits surprising process env while known values stay green.
+    // Parse source only: requiring @playwright/test under Jest/jsdom throws.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const webServerBlock = configSource.match(
+      /webServer:\s*\{([\s\S]*?)\n\s*\},/
+    );
+    expect(webServerBlock).toBeTruthy();
+    const keys = [
+      ...webServerBlock[1].matchAll(/^\s*([A-Za-z0-9_]+)\s*:/gm),
+    ].map((match) => match[1]);
+    expect(keys.sort()).toEqual(
+      ["command", "reuseExistingServer", "timeout", "url"].sort()
+    );
+    expect(webServerBlock[1]).toMatch(
+      /command:\s*["']python3 -m http\.server 4173["']/
+    );
+    expect(webServerBlock[1]).toMatch(
+      /url:\s*["']http:\/\/127\.0\.0\.1:4173\/index\.html["']/
+    );
+    expect(webServerBlock[1]).toMatch(/reuseExistingServer:\s*!process\.env\.CI/);
+    expect(webServerBlock[1]).toMatch(/timeout:\s*20000\b/);
+    expect(webServerBlock[1]).not.toMatch(/^\s*cwd\s*:/m);
+    expect(webServerBlock[1]).not.toMatch(/^\s*env\s*:/m);
+    expect(webServerBlock[1]).not.toMatch(/^\s*stdout\s*:/m);
+    expect(webServerBlock[1]).not.toMatch(/^\s*stderr\s*:/m);
+    expect(webServerBlock[1]).not.toMatch(/^\s*ignoreHTTPSErrors\s*:/m);
+  });
+});
+
+describe("eslint ignore-block key allowlist seam", () => {
+  test("ignore block stays ignores-only (no files/rules sprawl)", () => {
+    // Exact ignores catalog still passes if the ignore block also gains files,
+    // rules, or languageOptions — lint then silently re-scopes artifacts or
+    // applies rules to ignored globs while the four-glob list stays green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const ignoreBlock = eslintConfig.find((block) => Array.isArray(block.ignores));
+    expect(ignoreBlock).toBeTruthy();
+    expect(Object.keys(ignoreBlock).sort()).toEqual(["ignores"]);
+    expect(ignoreBlock).not.toHaveProperty("files");
+    expect(ignoreBlock).not.toHaveProperty("rules");
+    expect(ignoreBlock).not.toHaveProperty("languageOptions");
+    expect(eslintConfig[0]).toBe(ignoreBlock);
+  });
+});
+
+describe("CI setup-node with: exact object seam", () => {
+  test("setup-node with: stays node-version 22 + cache npm only", () => {
+    // node-version/cache regex duals still pass if with: grows registry-url,
+    // scope, always-auth, or check-latest — CI install then changes auth/cache
+    // posture while the two known keys stay green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const setupBlock = ci.match(
+      /uses:\s*actions\/setup-node@v4\s*\n\s*with:\s*\n([\s\S]*?)(?=\n\s*-\s|\n\S|\n*$)/
+    );
+    expect(setupBlock).toBeTruthy();
+    const keys = [
+      ...setupBlock[1].matchAll(/^\s{2,}([A-Za-z0-9_-]+)\s*:/gm),
+    ].map((match) => match[1]);
+    expect(keys).toEqual(["node-version", "cache"]);
+    expect(setupBlock[1]).toMatch(/node-version:\s*22\b/);
+    expect(setupBlock[1]).toMatch(/cache:\s*npm\b/);
+    expect(setupBlock[1]).not.toMatch(
+      /\bregistry-url\b|\bscope\b|\balways-auth\b|\bcheck-latest\b|\btoken\b/
+    );
+  });
+});
+
+describe("CI upload-artifact with: exact key allowlist", () => {
+  test("upload-artifact with: stays name+path+retention-days only", () => {
+    // Named retention/path duals still pass if with: grows compression-level,
+    // if-no-files-found:ignore, or overwrite — failure artifacts then vanish or
+    // bloat while retention-days 14 stays green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const uploadBlock = ci.match(
+      /uses:\s*actions\/upload-artifact@v4\s*\n\s*if:\s*always\(\)\s*\n\s*with:\s*\n([\s\S]*?)(?=\n\S|\n*$)/
+    );
+    expect(uploadBlock).toBeTruthy();
+    const keys = [
+      ...uploadBlock[1].matchAll(/^\s{2,}([A-Za-z0-9_-]+)\s*:/gm),
+    ].map((match) => match[1]);
+    expect(keys).toEqual(["name", "path", "retention-days"]);
+    expect(uploadBlock[1]).toMatch(/name:\s*playwright-report\b/);
+    expect(uploadBlock[1]).toMatch(/path:\s*playwright-report\//);
+    expect(uploadBlock[1]).toMatch(/retention-days:\s*14\b/);
+    expect(uploadBlock[1]).not.toMatch(
+      /\bcompression-level\b|\bif-no-files-found\b|\boverwrite\b|\binclude-hidden-files\b/
+    );
+  });
+});
+
+describe("CI ordered run: command catalog seam", () => {
+  test("workflow keeps the exact ordered npm/playwright shell catalog", () => {
+    // Named step catalog + individual run: regex duals still pass if commands
+    // reorder, softens (npm i, audit --omit=dev), or a silent extra run sneaks
+    // in — CI then changes install/lint/test posture while step titles stay green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const runs = [...ci.matchAll(/^\s+run:\s*(.+)\s*$/gm)].map((match) =>
+      match[1].trim()
+    );
+    expect(runs).toEqual([
+      "npm ci",
+      "npm run lint",
+      "npm run test:unit",
+      "npx playwright install --with-deps chromium webkit",
+      "npm run test:e2e",
+      "npm audit --audit-level=high",
+    ]);
+    expect(runs).not.toContain("npm install");
+    expect(runs.join("\n")).not.toMatch(/npm i\b/);
+  });
+});
+
+describe("testimonial owner-direct ↔ About sole-operator dual honesty", () => {
+  test("sample owner-direct quote coexists with About sole-operator model", () => {
+    // Exact testimonial catalog + exact About sole-operator locks still pass
+    // independently if testimonials invent crew/manager intake while About
+    // keeps sole operator (or reverse) — social proof then contradicts the
+    // owner-model honesty while each exact string stays green alone.
+    const cards = [
+      ...indexHtml.matchAll(
+        /class="testimonial-card"[\s\S]*?<p>([\s\S]*?)<\/p>[\s\S]*?class="testimonial-author"/g
+      ),
+    ].map((match) =>
+      decodeBasicEntities(match[1].replace(/<[^>]+>/g, " "))
+        .replace(/\s+/g, " ")
+        .trim()
+    );
+    expect(cards.length).toBeGreaterThan(0);
+    expect(
+      cards.some((quote) =>
+        /working directly with the owner from quote to final walkthrough/i.test(quote)
+      )
+    ).toBe(true);
+    expect(
+      cards.some((quote) =>
+        /our project manager|account executive|dispatch desk|rotating crew/i.test(quote)
+      )
+    ).toBe(false);
+
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?<div class="about-copy">([\s\S]*?)<\/div>/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutText = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutText).toMatch(/sole operator/i);
+    expect(aboutText).toMatch(/one-person approach/i);
+    expect(aboutText).not.toMatch(/our crews|project managers|account team/i);
+  });
+});
+
+describe("gallery Greg-showcase ↔ About Meet-Greg dual honesty", () => {
+  test("gallery Greg-will-showcase lede coexists with About Meet Greg owner copy", () => {
+    // Exact gallery honesty lede + exact About heading locks still pass
+    // independently if Gallery invents a portfolio team while About keeps
+    // Meet Greg / sole operator (or reverse) — showcase attribution then
+    // splits from owner identity while each page section stays green alone.
+    const gallerySection = indexHtml.match(
+      /id="gallery"[\s\S]*?<div class="section-heading[\s\S]*?<p>([\s\S]*?)<\/p>/
+    );
+    expect(gallerySection).toBeTruthy();
+    const galleryLede = decodeBasicEntities(
+      gallerySection[1].replace(/<[^>]+>/g, " ")
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(galleryLede).toMatch(/Greg will showcase/i);
+    expect(galleryLede).not.toMatch(/our photographers|marketing team|stock gallery/i);
+
+    const aboutHeading = indexHtml.match(/id="about"[\s\S]*?<h2>([\s\S]*?)<\/h2>/);
+    expect(aboutHeading).toBeTruthy();
+    const headingText = decodeBasicEntities(
+      aboutHeading[1].replace(/<[^>]+>/g, " ")
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(headingText).toMatch(/^Meet\s+Greg(\s+Felton)?$/i);
+
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?<div class="about-copy">([\s\S]*?)<\/div>/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutText = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutText).toMatch(/Greg Felton is the owner and sole operator/i);
+    expect(aboutText).not.toMatch(/our gallery team|portfolio department/i);
+  });
+});
+
+describe("main.js forbids WebRTC / WebAssembly / SharedArrayBuffer sprawl", () => {
+  test("main.js stays free of peer/media/wasm channels beside push/geo bans", () => {
+    // EventSource/Notification/geolocation bans still pass if main.js grows
+    // RTCPeerConnection, mediaDevices.getUserMedia, WebAssembly, or
+    // SharedArrayBuffer — the static marketing site then gains peer/media/wasm
+    // channels while connect-src 'self' and push/geo bans stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const codeOnly = mainJs.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(codeOnly).not.toMatch(/\bRTCPeerConnection\b/);
+    expect(codeOnly).not.toMatch(/\bmediaDevices\b/);
+    expect(codeOnly).not.toMatch(/\bgetUserMedia\b/);
+    expect(codeOnly).not.toMatch(/\bWebAssembly\b/);
+    expect(codeOnly).not.toMatch(/\bSharedArrayBuffer\b/);
+    expect(codeOnly).not.toMatch(/\bAtomics\b/);
+  });
+});
