@@ -10479,3 +10479,254 @@ describe("main.js forbids WebRTC / WebAssembly / SharedArrayBuffer sprawl", () =
     expect(codeOnly).not.toMatch(/\bAtomics\b/);
   });
 });
+
+describe("Playwright projects block key allowlist seam", () => {
+  test("each project stays name+use only (no testMatch/viewport sprawl)", () => {
+    // Name↔device catalog duals still pass if a project gains testMatch, grep,
+    // retries, or nested viewport/locale overrides — the e2e matrix then
+    // silently narrows or forks while ordered name/device pairs stay green.
+    // Parse source only: requiring @playwright/test under Jest/jsdom throws.
+    // Match whole project objects (do not slice projects:[…] — devices["…"]
+    // closing brackets would truncate a non-greedy array capture).
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const projectObjects = [
+      ...configSource.matchAll(
+        /\{\s*name:\s*["']([^"']+)["']\s*,\s*use:\s*\{\s*\.\.\.devices\["([^"]+)"\]\s*\}\s*,?\s*\}/g
+      ),
+    ];
+    expect(projectObjects).toHaveLength(2);
+    expect(
+      projectObjects.map((match) => ({ name: match[1], device: match[2] }))
+    ).toEqual([
+      { name: "chromium-desktop", device: "Desktop Chrome" },
+      { name: "mobile-safari", device: "iPhone 13" },
+    ]);
+    for (const match of projectObjects) {
+      const body = match[0];
+      const topLevelKeys = [
+        ...body.matchAll(/^\s*([A-Za-z0-9_]+)\s*:/gm),
+      ].map((keyMatch) => keyMatch[1]);
+      expect(topLevelKeys.sort()).toEqual(["name", "use"]);
+      expect(body).not.toMatch(/\btestMatch\b|\bgrep\b|\bretries\b|\btimeout\b/);
+      expect(body).not.toMatch(/\bviewport\b|\blocale\b|\bgeolocation\b/);
+    }
+  });
+});
+
+describe("CI lint-and-test job key allowlist seam", () => {
+  test("lint-and-test stays runs-on + steps only", () => {
+    // Job identity + runs-on ubuntu-latest duals still pass if the job gains
+    // permissions, env, defaults, timeout-minutes, or container — CI then
+    // widens tokens / changes runtime while the job name stays green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    // Single-job workflow: take everything after lint-and-test:. Do not use a
+    // multiline `$` lookahead to stop the body — `/m` makes `$` match EOL and
+    // truncates after `runs-on`.
+    const jobsSection = ci.match(/^jobs:\n([\s\S]*)$/m);
+    expect(jobsSection).toBeTruthy();
+    const jobBlock = jobsSection[1].match(/^ {2}lint-and-test:\n([\s\S]*)$/m);
+    expect(jobBlock).toBeTruthy();
+    const keys = [...jobBlock[1].matchAll(/^ {4}([A-Za-z0-9_-]+)\s*:/gm)].map(
+      (match) => match[1]
+    );
+    expect(keys.sort()).toEqual(["runs-on", "steps"]);
+    expect(jobBlock[1]).toMatch(/^ {4}runs-on:\s*ubuntu-latest\b/m);
+    expect(jobBlock[1]).toMatch(/^ {4}steps:\s*$/m);
+    expect(jobBlock[1]).not.toMatch(
+      /^\s{4}(?:permissions|env|defaults|container|timeout-minutes|strategy|concurrency)\s*:/m
+    );
+  });
+});
+
+describe("eslint file-block key allowlist seam", () => {
+  test("js / tests / playwright blocks keep only documented top-level keys", () => {
+    // Per-block languageOptions + rules duals still pass if a files block gains
+    // plugins, settings, processor, or linterOptions — lint posture then changes
+    // while known rule/globals values stay green. Playwright stays rules-free.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const jsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.some((file) => file.includes("js/"))
+    );
+    const testsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) &&
+        block.files.some((file) => file.includes("tests/"))
+    );
+    const pwBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.includes("playwright.config.js")
+    );
+
+    expect(Object.keys(jsBlock).sort()).toEqual([
+      "files",
+      "languageOptions",
+      "rules",
+    ]);
+    expect(Object.keys(testsBlock).sort()).toEqual([
+      "files",
+      "languageOptions",
+      "rules",
+    ]);
+    expect(Object.keys(pwBlock).sort()).toEqual(["files", "languageOptions"]);
+    expect(pwBlock).not.toHaveProperty("rules");
+    expect(pwBlock).not.toHaveProperty("plugins");
+    expect(jsBlock).not.toHaveProperty("plugins");
+    expect(testsBlock).not.toHaveProperty("plugins");
+    expect(jsBlock).not.toHaveProperty("settings");
+    expect(testsBlock).not.toHaveProperty("settings");
+    expect(pwBlock).not.toHaveProperty("settings");
+  });
+});
+
+describe("CI checkout forbids with: credential sprawl", () => {
+  test("actions/checkout@v4 stays bare (no persist-credentials / token with:)", () => {
+    // Action pin catalog duals still pass if checkout gains with: token,
+    // persist-credentials, or ssh-key — the workflow then keeps a writable
+    // credential longer than needed while uses: pins stay green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const checkoutStep = ci.match(
+      /- uses:\s*actions\/checkout@v4\n([\s\S]*?)(?=\n\s*-\s|\n\S|\n*$)/
+    );
+    expect(checkoutStep).toBeTruthy();
+    expect(checkoutStep[1]).not.toMatch(/^\s*with\s*:/m);
+    expect(checkoutStep[1]).not.toMatch(
+      /\bpersist-credentials\b|\btoken\b|\bssh-key\b|\bsubmodules\b/
+    );
+    expect(ci).toMatch(
+      /- uses:\s*actions\/checkout@v4\n\n\s+- uses:\s*actions\/setup-node@v4/
+    );
+  });
+});
+
+describe("form Greg follow-up ↔ About talk-to-Greg dual honesty", () => {
+  test("contact form follow-up-directly coexists with About talk-to-Greg claim", () => {
+    // Exact form-card lede + exact About sole-operator locks still pass
+    // independently if the form invents dispatch/account-manager intake while
+    // About keeps talk-to-Greg (or reverse) — lead IA then contradicts owner
+    // honesty while each exact string stays green alone.
+    const formCard = contactHtml.match(
+      /class="contact-form-card"[\s\S]*?<h3>[\s\S]*?<\/h3>\s*<p>([\s\S]*?)<\/p>/
+    );
+    expect(formCard).toBeTruthy();
+    const formLede = decodeBasicEntities(formCard[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(formLede).toMatch(/Greg will follow up directly/i);
+    expect(formLede).not.toMatch(
+      /our team will|account manager|dispatch desk|scheduling desk/i
+    );
+
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?<div class="about-copy">([\s\S]*?)<\/div>/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutText = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutText).toMatch(/when you call, you talk to Greg/i);
+    expect(aboutText).toMatch(/sole operator/i);
+    expect(aboutText).not.toMatch(/our intake team|account executives/i);
+  });
+});
+
+describe("hero craftsman-shows-up ↔ About Greg-doing-it dual honesty", () => {
+  test("first-viewport craftsman-who-shows-up coexists with About Greg-doing-it", () => {
+    // Exact hero-lede + exact About paragraph locks still pass independently if
+    // the hero softens to "our craftsmen show up" while About keeps Greg-is-the-
+    // one-doing-it (or reverse) — first-viewport vs About labor honesty then
+    // splits while each catalog string stays green alone.
+    const heroLede = decodeBasicEntities(
+      indexHtml.match(/class="hero-lede"[^>]*>\s*([\s\S]*?)\s*<\/p>/)[1]
+    )
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(heroLede).toMatch(
+      /hiring the craftsman who shows up, does the work, and stands behind it/i
+    );
+    expect(heroLede).not.toMatch(/our craftsmen|our crew shows up|subcontractors/i);
+
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?<div class="about-copy">([\s\S]*?)<\/div>/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutText = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutText).toMatch(/when the work happens, Greg is the one doing it/i);
+    expect(aboutText).not.toMatch(/our installers|crew lead|project supervisor/i);
+  });
+});
+
+describe("value-list Clear pricing ↔ contact free-quote dual honesty", () => {
+  test("About Clear pricing trust bullet coexists with contact free-quote promise", () => {
+    // Exact value-list catalog + exact contact page-hero free-quote locks still
+    // pass independently if About invents hidden fees while contact keeps free
+    // quote (or reverse) — trust vs conversion honesty then disagree while each
+    // surface stays green alone.
+    const listBlock = indexHtml.match(/class="value-list"[\s\S]*?<\/ul>/);
+    expect(listBlock).toBeTruthy();
+    const valueItems = [
+      ...listBlock[0].matchAll(
+        /<strong>\s*([\s\S]*?)\s*<\/strong>\s*<span>\s*([\s\S]*?)\s*<\/span>/g
+      ),
+    ].map((match) => ({
+      title: decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim(),
+      body: decodeBasicEntities(match[2]).replace(/\s+/g, " ").trim(),
+    }));
+    const pricing = valueItems.find((item) =>
+      /Respect for your home/i.test(item.title)
+    );
+    expect(pricing).toBeTruthy();
+    expect(pricing.body).toMatch(/Clear pricing and a clean job site/i);
+    expect(pricing.body).not.toMatch(/hidden fees|financing required|deposit first/i);
+
+    const contactHero = contactHtml.match(
+      /class="page-hero"[\s\S]*?<p>([\s\S]*?)<\/p>/
+    );
+    expect(contactHero).toBeTruthy();
+    const heroText = decodeBasicEntities(contactHero[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(heroText).toMatch(/free quote/i);
+    expect(heroText).not.toMatch(/paid estimate|consultation fee|site-visit fee/i);
+  });
+});
+
+describe("area-map reasonable-drive ↔ JSON-LD areaServed dual honesty", () => {
+  test("service-area drive invite coexists with schema seven-town SWFL catalog", () => {
+    // Exact area-map lede + exact JSON-LD areaServed locks still pass
+    // independently if the map card invents statewide/nationwide range while
+    // schema keeps the seven-town SWFL list (or reverse) — conversion geography
+    // then overclaims vs crawlable service area while each lock stays green.
+    const mapCard = indexHtml.match(
+      /class="area-map-card"[\s\S]*?<h3>[\s\S]*?<\/h3>\s*<p>([\s\S]*?)<\/p>/
+    );
+    expect(mapCard).toBeTruthy();
+    const mapLede = decodeBasicEntities(mapCard[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(mapLede).toMatch(/reasonable drive in Southwest Florida/i);
+    expect(mapLede).not.toMatch(/statewide|nationwide|anywhere in Florida|out of state/i);
+
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.areaServed).toEqual([
+      "Naples",
+      "Fort Myers",
+      "Bonita Springs",
+      "Estero",
+      "Cape Coral",
+      "Marco Island",
+      "Sanibel",
+    ]);
+    expect(data.description).toMatch(/Southwest Florida/i);
+    expect(data.description).not.toMatch(/statewide|nationwide/i);
+  });
+});
