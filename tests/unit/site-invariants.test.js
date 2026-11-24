@@ -10730,3 +10730,195 @@ describe("area-map reasonable-drive ↔ JSON-LD areaServed dual honesty", () => 
     expect(data.description).not.toMatch(/statewide|nationwide/i);
   });
 });
+
+describe("CI step if: exclusivity allowlist seam", () => {
+  test("only upload-artifact keeps if: always(); every other step is unconditional", () => {
+    // Presence of `if: always()` beside upload-artifact still passes if lint,
+    // unit, e2e, or audit steps gain `if: success()` / path filters — those
+    // gates then soft-skip while the artifact always() lock stays green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    // Collect every step-level `if:` (2+ space indent under steps). Workflow-
+    // level keys are already allowlisted separately; this locks exclusivity.
+    const stepIfs = [...ci.matchAll(/^\s{2,}if:\s*(.+)\s*$/gm)].map((match) =>
+      match[1].trim()
+    );
+    expect(stepIfs).toEqual(["always()"]);
+    expect(ci).toMatch(
+      /uses:\s*actions\/upload-artifact@v4\s*\n\s*if:\s*always\(\)/
+    );
+    expect(ci).not.toMatch(/^\s+if:\s*success\(\)/m);
+    expect(ci).not.toMatch(/^\s+if:\s*failure\(\)/m);
+  });
+});
+
+describe("CI workflow top-level key allowlist seam", () => {
+  test("ci.yml stays name + on + jobs only (no workflow env/defaults/permissions)", () => {
+    // Job-key allowlist + permissions-ban duals still pass if workflow-level
+    // env, defaults, run-name, or permissions appear — every job then inherits
+    // surprising tokens/runtime while lint-and-test keys stay green.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const keys = [...ci.matchAll(/^([A-Za-z0-9_-]+)\s*:/gm)].map(
+      (match) => match[1]
+    );
+    expect(keys.sort()).toEqual(["jobs", "name", "on"]);
+    expect(ci).not.toMatch(/^env\s*:/m);
+    expect(ci).not.toMatch(/^defaults\s*:/m);
+    expect(ci).not.toMatch(/^run-name\s*:/m);
+    expect(ci).not.toMatch(/^permissions\s*:/m);
+    expect(ci).not.toMatch(/^concurrency\s*:/m);
+  });
+});
+
+describe("Playwright project use nested key allowlist seam", () => {
+  test("each project use stays devices-spread only (no viewport/locale/channel)", () => {
+    // Project top-level name+use allowlist still passes if use: gains viewport,
+    // locale, channel, or storageState beside the devices spread — the e2e
+    // matrix then forks silently while ordered name/device pairs stay green.
+    // Parse source only: requiring @playwright/test under Jest/jsdom throws.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const useBodies = [
+      ...configSource.matchAll(
+        /\{\s*name:\s*["'][^"']+["']\s*,\s*use:\s*\{([\s\S]*?)\}\s*,?\s*\}/g
+      ),
+    ].map((match) => match[1]);
+    expect(useBodies).toHaveLength(2);
+    for (const body of useBodies) {
+      const nestedKeys = [
+        ...body.matchAll(/^\s*([A-Za-z0-9_]+)\s*:/gm),
+      ].map((match) => match[1]);
+      expect(nestedKeys).toEqual([]);
+      expect(body).toMatch(/\.\.\.devices\["[^"]+"\]/);
+      expect(body).not.toMatch(
+        /\bviewport\b|\blocale\b|\bchannel\b|\bstorageState\b|\bgeolocation\b|\bcolorScheme\b/
+      );
+    }
+  });
+});
+
+describe("JSON-LD url ↔ sitemap homepage loc exact dual", () => {
+  test("schema url equals the first sitemap <loc> and homepage canonical", () => {
+    // Origin-only duals + url↔canonical still pass if sitemap loc drifts to
+    // /index.html or a trailing-slash mismatch while origins match — crawlers
+    // then see competing homepage URLs while origin locks stay green.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    const locs = [...sitemapXml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/g)].map(
+      (match) => match[1].trim()
+    );
+    expect(locs.length).toBeGreaterThan(0);
+    const homepageLoc = locs[0];
+    const canonical = indexHtml.match(/rel="canonical"\s+href="([^"]+)"/)?.[1];
+    expect(canonical).toBeTruthy();
+    expect(data.url).toBe(homepageLoc);
+    expect(data.url).toBe(canonical);
+    expect(homepageLoc).toBe("https://www.example.com/");
+    expect(homepageLoc).not.toMatch(/index\.html$/);
+  });
+});
+
+describe("JSON-LD name ↔ package.json name intentional asymmetry", () => {
+  test("schema keeps [Business Name] while npm package stays carpenter-contractor-site", () => {
+    // Exact JSON-LD name + exact package name locks still pass independently if
+    // someone "harmonizes" schema into the npm slug (or reverse) — rich results
+    // then publish a repo token while each catalog stays green alone.
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+    expect(data.name).toBe("[Business Name]");
+    expect(pkg.name).toBe("carpenter-contractor-site");
+    expect(data.name).not.toBe(pkg.name);
+    expect(data.name).not.toMatch(/carpenter-contractor-site/i);
+    expect(pkg.name).not.toMatch(/\[Business Name\]|Greg Felton/i);
+  });
+});
+
+describe("eslint js/** rules exact object map seam", () => {
+  test("production js block keeps the exact seven-rule severity/options map", () => {
+    // Key allowlist + scattered value duals still pass if one severity softens
+    // (no-unused-vars→off, no-undef→warn) while keys remain — classic-script
+    // lint posture then weakens while the key catalog stays green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const jsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.some((file) => file.includes("js/"))
+    );
+    expect(jsBlock).toBeTruthy();
+    expect(jsBlock.rules).toEqual({
+      "no-unused-vars": "warn",
+      "no-undef": "error",
+      eqeqeq: ["error", "smart"],
+      "no-var": "off",
+      "prefer-const": "off",
+      curly: ["error", "all"],
+      "no-console": "off",
+    });
+  });
+});
+
+describe("Playwright require destructure allowlist seam", () => {
+  test("config keeps defineConfig + devices only from @playwright/test", () => {
+    // Top-level key allowlist + device catalog still pass if the require grows
+    // unused browser helpers or drops devices — projects then cannot spread
+    // device presets while name/device string locks stay green.
+    // Parse source only: requiring @playwright/test under Jest/jsdom throws.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const destructure = configSource.match(
+      /const\s*\{\s*([^}]+)\s*\}\s*=\s*require\(["']@playwright\/test["']\)/
+    );
+    expect(destructure).toBeTruthy();
+    const bindings = destructure[1]
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .sort();
+    expect(bindings).toEqual(["defineConfig", "devices"]);
+    expect(configSource).not.toMatch(
+      /\b(?:firefox|webkit|chromium|expect|test)\b\s*(?:,|})/
+    );
+    expect(configSource).not.toMatch(
+      /require\(["']@playwright\/test["']\)\.(?:firefox|webkit|chromium)/
+    );
+  });
+});
+
+describe("testimonial-author FL suffix ↔ JSON-LD addressRegion dual", () => {
+  test("every sample author city keeps , FL beside schema addressRegion FL", () => {
+    // Exact City, FL catalog + exact addressRegion locks still pass
+    // independently if authors drop/change the state suffix while schema stays
+    // FL (or reverse) — Client Feedback geography then disagrees with crawlable
+    // region while each exact string stays green alone.
+    const cities = collectMatches(
+      indexHtml,
+      /class="testimonial-author"[^>]*>[\s\S]*?<span>([^<]+)<\/span>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+    expect(cities).toEqual([
+      "Naples, FL",
+      "Fort Myers, FL",
+      "Bonita Springs, FL",
+    ]);
+    for (const city of cities) {
+      expect(city).toMatch(/, FL$/);
+      expect(city).not.toMatch(/, (?:CA|TX|NY|GA|NC)$/);
+    }
+
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.address.addressRegion).toBe("FL");
+    expect(data.address.addressRegion).not.toMatch(/CA|TX|NY|GA/i);
+  });
+});
