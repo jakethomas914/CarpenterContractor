@@ -10922,3 +10922,237 @@ describe("testimonial-author FL suffix ↔ JSON-LD addressRegion dual", () => {
     expect(data.address.addressRegion).not.toMatch(/CA|TX|NY|GA/i);
   });
 });
+
+describe("eslint tests/** rules exact object map seam", () => {
+  test("tests block keeps the exact two-rule severity/options map", () => {
+    // Key allowlist + scattered value duals still pass if one severity softens
+    // (eqeqeq→warn, no-unused-vars→off) or options drop while keys remain —
+    // fixture lint posture then weakens while the key catalog stays green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const testsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) &&
+        block.files.some((file) => file.includes("tests/"))
+    );
+    expect(testsBlock).toBeTruthy();
+    expect(testsBlock.rules).toEqual({
+      "no-unused-vars": "warn",
+      eqeqeq: ["error", "smart"],
+    });
+    expect(testsBlock.rules["no-undef"]).toBeUndefined();
+  });
+});
+
+describe("CI named step ↔ run command pairing seam", () => {
+  test("each named CI step stays locked to its exact shell command", () => {
+    // Separate step-name catalog + ordered run: catalog still pass if a title
+    // is swapped onto the wrong command (e.g. "Unit + integration tests" →
+    // `npm run lint`) — status-check labels then lie about what ran while both
+    // catalogs stay green alone.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const namedSteps = [
+      ...ci.matchAll(
+        /^\s+-\s+name:\s*(.+)\s*\n\s+run:\s*(.+)\s*$/gm
+      ),
+    ].map((match) => ({ name: match[1].trim(), run: match[2].trim() }));
+    expect(namedSteps).toEqual([
+      { name: "Install dependencies", run: "npm ci" },
+      { name: "Lint (JS, CSS, HTML)", run: "npm run lint" },
+      {
+        name: "Unit + integration tests (Jest)",
+        run: "npm run test:unit",
+      },
+      {
+        name: "Install Playwright browsers",
+        run: "npx playwright install --with-deps chromium webkit",
+      },
+      {
+        name: "End-to-end + accessibility tests (Playwright)",
+        run: "npm run test:e2e",
+      },
+      {
+        name: "Audit dev dependencies for known vulnerabilities",
+        run: "npm audit --audit-level=high",
+      },
+    ]);
+    expect(namedSteps).toHaveLength(6);
+  });
+});
+
+describe("stylelint exact document cross-lock seam", () => {
+  test("stylelintrc stays the exact extends+rules document", () => {
+    // Separate extends string + rules object locks still pass if one side is
+    // edited while the other stays put (extends drops while rules remain, or
+    // reverse) — lint:css then changes preset/posture while each half stays
+    // green alone.
+    const stylelint = JSON.parse(
+      fs.readFileSync(path.join(root, ".stylelintrc.json"), "utf8")
+    );
+    expect(stylelint).toEqual({
+      extends: "stylelint-config-standard",
+      rules: {
+        "selector-class-pattern": null,
+        "custom-property-pattern": null,
+        "no-descending-specificity": null,
+        "declaration-block-no-redundant-longhand-properties": null,
+        "shorthand-property-no-redundant-values": null,
+        "custom-property-empty-line-before": null,
+        "value-keyword-case": null,
+        "media-feature-range-notation": "prefix",
+      },
+    });
+  });
+});
+
+describe("html-validate exact document cross-lock seam", () => {
+  test("html-validate stays the exact extends+rules document", () => {
+    // Separate extends catalog + rules object locks still pass if one side
+    // drifts while the other stays (recommended preset dropped while
+    // no-inline-style remains error, or reverse) — lint:html then changes
+    // severity/preset while each half stays green alone.
+    const htmlValidate = JSON.parse(
+      fs.readFileSync(path.join(root, ".htmlvalidate.json"), "utf8")
+    );
+    expect(htmlValidate).toEqual({
+      extends: ["html-validate:recommended"],
+      rules: {
+        "no-inline-style": "error",
+        "no-trailing-whitespace": "off",
+        "svg-focusable": "off",
+      },
+    });
+  });
+});
+
+describe("Playwright webServer readiness URL ↔ on-disk homepage dual", () => {
+  test("webServer.url path resolves to index.html and shares origin with baseURL", () => {
+    // Port/command duals + url string regex still pass if readiness drifts to
+    // /contact.html or a missing path while :4173 stays — e2e then boots
+    // against the wrong page (or a 404) while project/port locks stay green.
+    // Parse source only: requiring @playwright/test under Jest/jsdom throws.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const baseURL = configSource.match(/baseURL:\s*["']([^"']+)["']/)?.[1];
+    const readinessURL = configSource.match(
+      /webServer:\s*\{[\s\S]*?\burl:\s*["']([^"']+)["']/
+    )?.[1];
+    expect(baseURL).toBe("http://127.0.0.1:4173");
+    expect(readinessURL).toBe("http://127.0.0.1:4173/index.html");
+
+    const readiness = new URL(readinessURL);
+    const base = new URL(baseURL);
+    expect(readiness.origin).toBe(base.origin);
+    expect(readiness.pathname).toBe("/index.html");
+    expect(base.pathname).toBe("/");
+
+    const localPage = readiness.pathname.replace(/^\//, "");
+    expect(localPage).toBe("index.html");
+    expect(fs.existsSync(path.join(root, localPage))).toBe(true);
+    expect(readinessURL).not.toMatch(/contact\.html/);
+  });
+});
+
+describe("contact title SWFL Carpentry & GC ↔ JSON-LD GeneralContractor dual", () => {
+  test("contact tab title trade framing coexists with schema GeneralContractor type", () => {
+    // Exact contact <title> + exact @type locks still pass independently if the
+    // title softens to "handyman referral" / drops GC while schema keeps
+    // GeneralContractor (or reverse) — contact SERP/tab labels then disagree
+    // with crawlable trade type while each exact string stays green alone.
+    const title = contactHtml
+      .match(/<title>([^<]+)<\/title>/)?.[1]
+      ?.replace(/&amp;/g, "&");
+    expect(title).toBe("Contact Us | [Business Name] — SWFL Carpentry & GC");
+    expect(title).toMatch(/SWFL Carpentry & GC/);
+    expect(title).not.toMatch(/handyman referral|design only|consulting only/i);
+
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data["@type"]).toBe("GeneralContractor");
+    expect(data["@type"]).not.toMatch(
+      /HomeAndConstructionBusiness|EmploymentAgency|LocalBusiness/i
+    );
+  });
+});
+
+describe("hero-facts 1-on-1 ↔ About single point of contact dual honesty", () => {
+  test("first-viewport 1-on-1 Direct with the owner coexists with About single point of contact", () => {
+    // Exact hero-facts catalog + exact About paragraph locks still pass
+    // independently if the fact invents multi-contact intake while About keeps
+    // "single point of contact" (or reverse) — first-viewport owner-access
+    // claims then contradict the sole-operator model while each string stays
+    // green alone.
+    const facts = [
+      ...indexHtml.matchAll(
+        /class="hero-fact"[^>]*>\s*<strong>\s*([\s\S]*?)\s*<\/strong>\s*<span>\s*([\s\S]*?)\s*<\/span>/g
+      ),
+    ].map((match) => ({
+      value: decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim(),
+      label: decodeBasicEntities(match[2]).replace(/\s+/g, " ").trim(),
+    }));
+    expect(facts[0]).toEqual({
+      value: "1-on-1",
+      label: "Direct with the owner",
+    });
+    expect(
+      facts.some(
+        (fact) =>
+          /account manager|dispatch desk|rotating contact|call center/i.test(
+            fact.value
+          ) ||
+          /account manager|dispatch desk|rotating contact|call center/i.test(
+            fact.label
+          )
+      )
+    ).toBe(false);
+
+    const aboutBlock = indexHtml.match(
+      /id="about"[\s\S]*?<div class="about-copy">([\s\S]*?)<\/div>/
+    );
+    expect(aboutBlock).toBeTruthy();
+    const aboutText = decodeBasicEntities(aboutBlock[1].replace(/<[^>]+>/g, " "))
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(aboutText).toMatch(/single point of contact/i);
+    expect(aboutText).toMatch(/sole operator|one-person approach/i);
+    expect(aboutText).not.toMatch(
+      /multiple points of contact|account managers|dispatch desk/i
+    );
+  });
+});
+
+describe("eslint js↔tests sourceType intentional asymmetry", () => {
+  test("production js stays script while tests stay commonjs", () => {
+    // Individual sourceType locks still pass if both blocks are "harmonized"
+    // to the same module system (js→commonjs or tests→script) — classic-script
+    // browser posture or Jest CommonJS fixtures then break while each alone
+    // stays green if edited together incorrectly; locking the asymmetry catches
+    // that cross-block drift.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const jsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.some((file) => file.includes("js/"))
+    );
+    const testsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) &&
+        block.files.some((file) => file.includes("tests/"))
+    );
+    expect(jsBlock).toBeTruthy();
+    expect(testsBlock).toBeTruthy();
+    expect(jsBlock.languageOptions.sourceType).toBe("script");
+    expect(testsBlock.languageOptions.sourceType).toBe("commonjs");
+    expect(jsBlock.languageOptions.sourceType).not.toBe(
+      testsBlock.languageOptions.sourceType
+    );
+    expect(jsBlock.languageOptions.ecmaVersion).toBe(2019);
+    expect(testsBlock.languageOptions.ecmaVersion).toBe(2022);
+    expect(jsBlock.languageOptions.ecmaVersion).not.toBe(
+      testsBlock.languageOptions.ecmaVersion
+    );
+  });
+});
