@@ -11156,3 +11156,279 @@ describe("eslint js↔tests sourceType intentional asymmetry", () => {
     );
   });
 });
+
+describe("favicon path geometry ↔ brand-mark intentional asymmetry", () => {
+  test("favicon carpenter-cut paths stay distinct from inline brand-mark paths", () => {
+    // Brand-mark chrome path parity + favicon fill/stroke token locks still pass
+    // if the tab icon is accidentally rewritten to the larger brand-mark path set
+    // (or reverse) — 16–32px favicon then muddies while header/footer marks stay
+    // sharp (or chrome marks shrink) while each color/parity lock stays green alone.
+    const brandMarkPaths = [
+      "M16 32L28 20",
+      "M26 16.5L31.5 22",
+      "M29.5 13.5L34.5 18.5",
+      "M13.5 34.5L16.5 31.5",
+    ];
+    const faviconPaths = [
+      "M14 34L28 20",
+      "M26 15.5L33 22.5",
+      "M30.5 11.5L37 18",
+      "M11.5 36.5L15 33",
+    ];
+
+    const faviconSvg = fs.readFileSync(
+      path.join(root, "assets/favicon.svg"),
+      "utf8"
+    );
+    const favPaths = collectMatches(faviconSvg, /\bd="([^"]+)"/g);
+    expect(favPaths).toEqual(faviconPaths);
+    expect(favPaths).not.toEqual(brandMarkPaths);
+    expect(faviconSvg).toMatch(/\bviewBox="0 0 48 48"/);
+    expect(faviconSvg).toMatch(/\bstroke-width="3\.4"/);
+    expect(faviconSvg).toMatch(/<rect\b[^>]*\brx="10"/);
+
+    const brandSvgs = [
+      ...indexHtml.matchAll(
+        /<svg\b[^>]*\bclass="[^"]*\bbrand-mark\b[^"]*"[^>]*>([\s\S]*?)<\/svg>/gi
+      ),
+    ];
+    expect(brandSvgs.length).toBeGreaterThanOrEqual(1);
+    const chromePaths = collectMatches(brandSvgs[0][1], /\bd="([^"]+)"/g);
+    expect(chromePaths).toEqual(brandMarkPaths);
+    expect(chromePaths).not.toEqual(favPaths);
+  });
+});
+
+describe("Playwright reporter exact nested array allowlist", () => {
+  test("reporter stays exactly [[\"list\"]] with no multi-reporter sprawl", () => {
+    // Top-level key allowlist + CI hardening regex still pass if reporter grows
+    // html/json/junit/dot alongside list, or collapses to the string form "list"
+    // — CI logs then lose the intentional single list reporter (or gain heavy
+    // HTML report generation) while key catalogs stay green. Parse source only.
+    // Constrain the sprawl check to the reporter literal alone — a file-wide
+    // `[\s\S]*html` match false-positives on webServer readiness `index.html`.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const reporterLiteral = configSource.match(
+      /reporter:\s*(\[[\s\S]*?\])\s*,/
+    )?.[1];
+    expect(reporterLiteral).toBeTruthy();
+    // Normalize whitespace so formatting churn does not hide shape drift.
+    const normalized = reporterLiteral.replace(/\s+/g, "");
+    expect(normalized).toBe('[["list"]]');
+    expect(configSource).not.toMatch(/reporter:\s*["']list["']/);
+    expect(normalized).not.toMatch(/html|json|junit|dot|line|github/);
+  });
+});
+
+describe("eslint tests/** languageOptions.globals curated exact map", () => {
+  test("tests globals keep exact Jest/Node/DOM writability for fixture-critical keys", () => {
+    // Presence-only checks (describe/expect/jest/process/document) still pass if
+    // a key flips writable→missing or jest globals soften while the five names
+    // remain — fixtures then lose intentional readonly posture (or invite a
+    // no-undef reintroduction) while presence stays green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const testsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) &&
+        block.files.some((file) => file.includes("tests/"))
+    );
+    expect(testsBlock).toBeTruthy();
+    const { globals: testGlobals } = testsBlock.languageOptions;
+    expect(testGlobals).toBeTruthy();
+
+    const expected = {
+      describe: false,
+      expect: false,
+      jest: false,
+      test: false,
+      it: false,
+      beforeEach: false,
+      afterEach: false,
+      beforeAll: false,
+      afterAll: false,
+      process: false,
+      Buffer: false,
+      __dirname: false,
+      __filename: false,
+      require: false,
+      module: false,
+      // commonjs `exports` stays writable across the node+jest+browser merge.
+      exports: true,
+      document: false,
+      window: false,
+      navigator: false,
+      FormData: false,
+      IntersectionObserver: false,
+      HTMLElement: false,
+      localStorage: false,
+    };
+    for (const [name, writable] of Object.entries(expected)) {
+      expect(Object.prototype.hasOwnProperty.call(testGlobals, name)).toBe(true);
+      expect(testGlobals[name]).toBe(writable);
+    }
+  });
+});
+
+describe("CI uses:-only steps ordered with: presence dual", () => {
+  test("checkout stays bare while setup-node and upload-artifact keep with:", () => {
+    // Ordered uses: pin catalog + bare-checkout credential ban still pass if
+    // setup-node loses its with: (Node version/cache vanish) or checkout gains
+    // with: while upload keeps with: — CI then drifts credential/cache posture
+    // while the three pin strings stay green alone.
+    // Do not use a `/m` `$` end-of-step lookahead — `$` matches EOL and truncates
+    // the upload-artifact body before `with:` (same trap as CI job body capture).
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    // Match steps that *lead* with `uses:` (uses-only). Do not treat nested
+    // `with: name:` (artifact name) as a step-level `name:` — that false-positives
+    // on upload-artifact while the uses-leading shape is what this dual locks.
+    const usesSteps = [
+      ...ci.matchAll(/^\s+-\s+uses:\s*(\S+)((?:\n(?!\s+-\s).*)*)/gm),
+    ].map((match) => ({
+      uses: match[1],
+      hasWith: /^\s+with\s*:/m.test(match[2]),
+      hasIf: /^\s+if\s*:/m.test(match[2]),
+    }));
+
+    expect(usesSteps).toEqual([
+      {
+        uses: "actions/checkout@v4",
+        hasWith: false,
+        hasIf: false,
+      },
+      {
+        uses: "actions/setup-node@v4",
+        hasWith: true,
+        hasIf: false,
+      },
+      {
+        uses: "actions/upload-artifact@v4",
+        hasWith: true,
+        hasIf: true,
+      },
+    ]);
+  });
+});
+
+describe("contact meta free-quote ↔ JSON-LD description intentional asymmetry", () => {
+  test("contact SERP free-quote invite stays distinct from schema trade+geo blurb", () => {
+    // Exact contact meta free-quote string + exact JSON-LD description locks still
+    // pass independently if they collapse into one blurb — contact SERP then loses
+    // the Greg free-quote CTA or rich results invent a free-quote claim that schema
+    // never owned (same class as JSON-LD↔index-meta asymmetry).
+    const description = decodeBasicEntities(
+      contactHtml.match(/name="description"\s+content="([^"]+)"/)[1]
+    );
+    expect(description).toBe(
+      "Get in touch with Greg Felton at [Business Name] for a free quote on carpentry and general contracting work throughout Southwest Florida."
+    );
+    expect(description).toMatch(/free quote/i);
+    expect(description).toMatch(/Greg Felton/i);
+
+    const data = JSON.parse(
+      indexHtml.match(
+        /<script type="application\/ld\+json">([\s\S]*?)<\/script>/
+      )[1]
+    );
+    expect(data.description).toBe(
+      "Carpentry and general contracting services throughout Southwest Florida."
+    );
+    expect(data.description).not.toMatch(/free quote|Greg Felton/i);
+    expect(description).not.toBe(data.description);
+  });
+});
+
+describe("eslint js/** languageOptions.globals curated exact map", () => {
+  test("js globals keep exact browser+commonjs writability for DOM and module seams", () => {
+    // Presence-only document/window/module/exports/require checks still pass if
+    // writability flips (exports→readonly) or IntersectionObserver vanishes while
+    // the five names remain — lint:js then false-positives on the Jest export
+    // seam or on DOM APIs main.js relies on while presence stays green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const jsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.some((file) => file.includes("js/"))
+    );
+    expect(jsBlock).toBeTruthy();
+    const { globals: jsGlobals } = jsBlock.languageOptions;
+    expect(jsGlobals).toBeTruthy();
+
+    const expected = {
+      document: false,
+      window: false,
+      navigator: false,
+      FormData: false,
+      IntersectionObserver: false,
+      HTMLElement: false,
+      module: false,
+      require: false,
+      exports: true,
+    };
+    for (const [name, writable] of Object.entries(expected)) {
+      expect(Object.prototype.hasOwnProperty.call(jsGlobals, name)).toBe(true);
+      expect(jsGlobals[name]).toBe(writable);
+    }
+  });
+});
+
+describe("eslint js↔tests globals package-spread intentional asymmetry", () => {
+  test("js spreads browser+commonjs while tests spread node+jest+browser", () => {
+    // Per-block presence catalogs still pass if both blocks are "harmonized" to
+    // the same globals spread (tests lose jest, or js gains jest) — classic-script
+    // lint then false-positives on DOM or fixtures lose Jest globals while each
+    // presence check stays green alone. Lock the source-level spread asymmetry.
+    // Extract ordered `...globals.<name>` spreads (comments between spreads are OK).
+    const eslintSource = fs.readFileSync(
+      path.join(root, "eslint.config.js"),
+      "utf8"
+    );
+
+    function globalsSpreadsForFiles(filesGlob) {
+      const escaped = filesGlob.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const block = eslintSource.match(
+        new RegExp(
+          `files:\\s*\\["${escaped}"\\][\\s\\S]*?globals:\\s*\\{([\\s\\S]*?)\\n\\s*\\}`
+        )
+      )?.[1];
+      expect(block).toBeTruthy();
+      return [...block.matchAll(/\.\.\.globals\.([A-Za-z0-9_]+)/g)].map(
+        (match) => match[1]
+      );
+    }
+
+    const jsSpreads = globalsSpreadsForFiles("js/**/*.js");
+    const testsSpreads = globalsSpreadsForFiles("tests/**/*.js");
+
+    expect(jsSpreads).toEqual(["browser", "commonjs"]);
+    expect(jsSpreads).not.toContain("jest");
+    expect(jsSpreads).not.toContain("node");
+
+    expect(testsSpreads).toEqual(["node", "jest", "browser"]);
+    expect(testsSpreads).not.toContain("commonjs");
+    expect(jsSpreads).not.toEqual(testsSpreads);
+  });
+});
+
+describe("eslint tests/** globals spread source catalog seam", () => {
+  test("tests block keeps the exact node → jest → browser spread order", () => {
+    // Curated writability maps still pass if spreads reorder (browser before jest)
+    // or a spread is dropped while leftover keys from another package remain —
+    // fixture globals then silently lose Jest or Node names while exact maps for
+    // surviving keys stay green. Lock the source catalog order.
+    const eslintSource = fs.readFileSync(
+      path.join(root, "eslint.config.js"),
+      "utf8"
+    );
+    const testsGlobals = eslintSource.match(
+      /files:\s*\[["']tests\/\*\*\/\*\.js["']\][\s\S]*?globals:\s*\{([\s\S]*?)\n\s*\}/
+    )?.[1];
+    expect(testsGlobals).toBeTruthy();
+    const spreads = [
+      ...testsGlobals.matchAll(/\.\.\.globals\.([A-Za-z0-9_]+)/g),
+    ].map((match) => match[1]);
+    expect(spreads).toEqual(["node", "jest", "browser"]);
+    expect(spreads).toHaveLength(3);
+  });
+});
