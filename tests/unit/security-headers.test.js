@@ -76,6 +76,58 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(vercel[key]).toBe(netlify[key]);
   });
 
+  test("host header key sets stay exactly the documented six (no silent sprawl)", () => {
+    // Required-key presence still passes if either host grows CORS / NEL /
+    // Report-To / Access-Control-* while the shared six stay equal. Exact
+    // allowlists keep the hardened surface closed on both Netlify and Vercel.
+    const expected = [...requiredKeys].sort();
+    expect(Object.keys(netlify).sort()).toEqual(expected);
+    expect(Object.keys(vercel).sort()).toEqual(expected);
+  });
+
+  test("host header entry order stays the documented six-key sequence on both hosts", () => {
+    // Sorted key-set equality still passes if Netlify and Vercel reorder the
+    // same six keys differently, or if a review-time insert/remove leaves a
+    // different documented sequence — ordered catalogs keep both hosts'
+    // hardened surface identical end-to-end and fail closed on silent reorder.
+    const expectedOrder = [
+      "X-Frame-Options",
+      "X-Content-Type-Options",
+      "Referrer-Policy",
+      "Permissions-Policy",
+      "Strict-Transport-Security",
+      "Content-Security-Policy",
+    ];
+
+    const vercelConfig = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"));
+    const vercelRoute = (vercelConfig.headers || []).find((entry) => entry.source === "/(.*)");
+    expect(vercelRoute).toBeTruthy();
+    expect(vercelRoute.headers.map((header) => header.key)).toEqual(expectedOrder);
+    expect(vercelRoute.headers).toEqual(
+      expectedOrder.map((key) => ({ key, value: vercel[key] }))
+    );
+
+    const netlifyRaw = fs.readFileSync(path.join(root, "_headers"), "utf8");
+    const netlifyOrdered = [];
+    let inCatchAll = false;
+    for (const line of netlifyRaw.split("\n")) {
+      if (/^\/\*\s*$/.test(line)) {
+        inCatchAll = true;
+        continue;
+      }
+      if (inCatchAll) {
+        if (/^\S/.test(line)) {
+          break;
+        }
+        const match = line.match(/^\s+([A-Za-z0-9-]+):\s*(.+)\s*$/);
+        if (match) {
+          netlifyOrdered.push(match[1]);
+        }
+      }
+    }
+    expect(netlifyOrdered).toEqual(expectedOrder);
+  });
+
   test("CSP allows mailto form-action used by the contact form", () => {
     expect(netlify["Content-Security-Policy"]).toMatch(/form-action[^;]*mailto:/);
     expect(vercel["Content-Security-Policy"]).toMatch(/form-action[^;]*mailto:/);
@@ -97,6 +149,51 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(vercel["X-Content-Type-Options"]).toBe(netlify["X-Content-Type-Options"]);
     expect(vercel["Strict-Transport-Security"]).toBe(netlify["Strict-Transport-Security"]);
     expect(vercel["Permissions-Policy"]).toBe(netlify["Permissions-Policy"]);
+  });
+
+  test("Permissions-Policy feature catalog stays camera/mic/geo/payment all disabled", () => {
+    // Exact string equality still passes if a future softer matcher only checks
+    // substrings like "camera=" while allowlists widen to (self) or usb=* is
+    // appended. Parsed feature→allowlist equality keeps the sensitive API
+    // surface closed on both hosts.
+    function parsePermissionsPolicy(value) {
+      const features = {};
+      for (const part of String(value).split(",")) {
+        const trimmed = part.trim();
+        if (!trimmed) {
+          continue;
+        }
+        const match = trimmed.match(/^([a-z0-9-]+)=\(([^)]*)\)$/i);
+        expect(match).toBeTruthy();
+        features[match[1].toLowerCase()] = match[2].trim();
+      }
+      return features;
+    }
+
+    const expected = {
+      camera: "",
+      microphone: "",
+      geolocation: "",
+      payment: "",
+    };
+    expect(parsePermissionsPolicy(netlify["Permissions-Policy"])).toEqual(expected);
+    expect(parsePermissionsPolicy(vercel["Permissions-Policy"])).toEqual(expected);
+  });
+
+  test("HSTS directive catalog keeps max-age, includeSubDomains, and preload", () => {
+    // Exact HSTS string equality still passes if a softer contains-check later
+    // accepts max-age=0 or drops preload while "63072000" text remains nearby.
+    // Tokenizing the semicolon list locks the preload / subdomain posture.
+    function parseHsts(value) {
+      return String(value)
+        .split(";")
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+
+    const expected = ["max-age=63072000", "includeSubDomains", "preload"];
+    expect(parseHsts(netlify["Strict-Transport-Security"])).toEqual(expected);
+    expect(parseHsts(vercel["Strict-Transport-Security"])).toEqual(expected);
   });
 
   test("locks Referrer-Policy to strict-origin-when-cross-origin on both hosts", () => {
@@ -168,6 +265,31 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     const sources = (vercelConfig.headers || []).map((entry) => entry.source);
     expect(sources).toContain("/(.*)");
   });
+
+  test("host header scopes stay a single catch-all on each host (no weaker siblings)", () => {
+    // Presence of /* or /(.*) still passes if extra narrower routes attach a
+    // softer CSP/HSTS to contact.html or assets. Exact cardinality keeps one
+    // site-wide hardened block per host.
+    const netlifyRaw = fs.readFileSync(path.join(root, "_headers"), "utf8");
+    const netlifyPaths = netlifyRaw
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.startsWith("/") && !line.includes(":"));
+    expect(netlifyPaths).toEqual(["/*"]);
+
+    const vercelConfig = JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"));
+    expect((vercelConfig.headers || []).map((entry) => entry.source)).toEqual(["/(.*)"]);
+  });
+
+  test("locks the exact host Content-Security-Policy string (no inserted directives)", () => {
+    // Per-directive equality still passes if unknown fetch directives are added
+    // in an order our named locks ignore — exact string equality catches silent
+    // CSP sprawl while Netlify↔Vercel parity on the shared key set stays green.
+    const expected =
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:; frame-ancestors 'none';";
+    expect(netlify["Content-Security-Policy"]).toBe(expected);
+    expect(vercel["Content-Security-Policy"]).toBe(expected);
+  });
 });
 
 describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
@@ -207,6 +329,24 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
     expect(contact["script-src"]).toBe("'self'");
     expect(contact["script-src"]).not.toMatch(/https?:/);
     expect(contact["script-src"]).not.toMatch(/'unsafe-inline'/);
+  });
+
+  test("locks the exact contact meta Content-Security-Policy string (script-src self-only)", () => {
+    // Per-directive allowlist checks still pass if unknown fetch directives are
+    // inserted on contact only — exact string equality catches silent CSP sprawl
+    // while keeping script-src 'self' (no unsafe-inline) for the no-JSON-LD page.
+    expect(contactCsp).toBe(
+      "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:;"
+    );
+  });
+
+  test("locks the exact index meta Content-Security-Policy string (unsafe-inline for JSON-LD)", () => {
+    // Host↔index directive-map equality still passes if both sides reorder or
+    // insert the same unknown fetch directive — exact string equality catches
+    // homepage CSP sprawl while keeping script-src 'unsafe-inline' for JSON-LD.
+    expect(indexCsp).toBe(
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:;"
+    );
   });
 
   test("contact meta CSP matches host allowlists for non-script fetch directives", () => {
@@ -257,5 +397,206 @@ describe("CSP four-way sync (HTML meta ↔ host headers)", () => {
         }
       }
     }
+  });
+
+  test("main.js forbids network APIs while CSP connect-src stays 'self'", () => {
+    // connect-src 'self' locks still pass if main.js grows fetch/XHR/beacon
+    // calls that either break under CSP or force allowlist widening — HTML
+    // "local js/ only" contracts miss JS-body network.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).not.toMatch(/\bfetch\s*\(/);
+    expect(mainJs).not.toMatch(/\bXMLHttpRequest\b/);
+    expect(mainJs).not.toMatch(/\bWebSocket\b/);
+    expect(mainJs).not.toMatch(/\bsendBeacon\s*\(/);
+
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      expect(parseCspDirectives(csp)["connect-src"]).toBe("'self'");
+    }
+  });
+
+  test("CSP forbids report-uri / report-to reporting endpoints", () => {
+    // Exact CSP strings + six-key host allowlists still pass if someone updates
+    // every copy together to add report-uri/report-to — browsers then POST
+    // violation reports to a third party (or a broken endpoint) while parity
+    // stays green. Explicit absence keeps the static site closed.
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      const directives = parseCspDirectives(csp);
+      expect(directives["report-uri"]).toBeUndefined();
+      expect(directives["report-to"]).toBeUndefined();
+      expect(csp).not.toMatch(/\breport-uri\b/i);
+      expect(csp).not.toMatch(/\breport-to\b/i);
+    }
+  });
+
+  test("CSP forbids upgrade-insecure-requests and block-all-mixed-content", () => {
+    // Exact CSP strings still pass if every copy gains these together — local
+    // `python3 -m http.server` / Playwright :4173 then break (or mixed assets
+    // get blocked) while host↔meta parity stays green. HSTS already covers
+    // HTTPS on production hosts.
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      const directives = parseCspDirectives(csp);
+      expect(directives["upgrade-insecure-requests"]).toBeUndefined();
+      expect(directives["block-all-mixed-content"]).toBeUndefined();
+      expect(csp).not.toMatch(/\bupgrade-insecure-requests\b/i);
+      expect(csp).not.toMatch(/\bblock-all-mixed-content\b/i);
+    }
+  });
+
+  test("main.js forbids storage and service-worker APIs on the static site", () => {
+    // Network-API bans still pass if main.js grows localStorage / sessionStorage
+    // / serviceWorker registration — the marketing site then gains client-side
+    // persistence or a SW lifecycle while CSP connect-src stays 'self'.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).not.toMatch(/\blocalStorage\b/);
+    expect(mainJs).not.toMatch(/\bsessionStorage\b/);
+    expect(mainJs).not.toMatch(/\bindexedDB\b/);
+    expect(mainJs).not.toMatch(/\bserviceWorker\b/);
+    expect(mainJs).not.toMatch(/\bnavigator\.storage\b/);
+  });
+
+  test("main.js forbids cookie / postMessage / SharedWorker channel sprawl", () => {
+    // Storage/serviceWorker bans still pass if main.js grows document.cookie,
+    // window.postMessage, or SharedWorker wiring — the static marketing site
+    // then gains persistence or cross-context channels while CSP connect-src
+    // and storage bans stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    expect(mainJs).not.toMatch(/\bdocument\.cookie\b/);
+    expect(mainJs).not.toMatch(/\bpostMessage\b/);
+    expect(mainJs).not.toMatch(/\bSharedWorker\b/);
+    expect(mainJs).not.toMatch(/\bBroadcastChannel\b/);
+  });
+
+  test("main.js forbids Worker / new Function / history / dynamic script injection", () => {
+    // Cookie/postMessage/SharedWorker bans still pass if main.js grows dedicated
+    // Worker threads, new Function eval-equivalents, history.pushState/replaceState
+    // soft navigation, or createElement("script") injection — the static site then
+    // gains executable channels while channel-name bans stay green.
+    const mainJs = fs.readFileSync(path.join(root, "js/main.js"), "utf8");
+    const codeOnly = mainJs.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(codeOnly).not.toMatch(/\bnew\s+Worker\b/);
+    expect(codeOnly).not.toMatch(/\bnew\s+Function\b/);
+    expect(codeOnly).not.toMatch(/\bhistory\.(?:push|replace)State\b/);
+    expect(codeOnly).not.toMatch(/createElement\s*\(\s*["']script["']/i);
+    expect(codeOnly).not.toMatch(/\bimportScripts\s*\(/);
+  });
+
+  test("HTML forbids base/iframe/object/embed markup that CSP only soft-denies", () => {
+    // object-src 'none' / base-uri 'self' still pass if markup introduces a
+    // <base> hijack or plugin/iframe embed while host directive maps stay
+    // aligned — deny directives alone do not prove the documents stay clean.
+    const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
+    const contactHtml = fs.readFileSync(path.join(root, "contact.html"), "utf8");
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).not.toMatch(/<base\b/i);
+      expect(html).not.toMatch(/<iframe\b/i);
+      expect(html).not.toMatch(/<object\b/i);
+      expect(html).not.toMatch(/<embed\b/i);
+    }
+  });
+
+  test("style-src forbids unsafe-inline beside HTML that forbids style= attributes", () => {
+    // Exact CSP strings + "no style=" HTML locks still pass independently if one
+    // side softens alone — reintroducing style= under a permissive style-src (or
+    // the reverse) enables style XSS while the other contract stays green.
+    const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
+    const contactHtml = fs.readFileSync(path.join(root, "contact.html"), "utf8");
+
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      const styleSrc = parseCspDirectives(csp)["style-src"] || "";
+      expect(styleSrc).not.toMatch(/'unsafe-inline'/);
+      expect(styleSrc).toContain("'self'");
+      expect(styleSrc).toContain("https://fonts.googleapis.com");
+    }
+
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).not.toMatch(/\sstyle\s*=/);
+    }
+  });
+
+  test("img-src allows data: while HTML forbids data: image/URI payloads", () => {
+    // Host/meta CSP exact strings include img-src 'self' data:, but that alone
+    // does not prove documents stay free of base64 embeds — same pattern as
+    // base/iframe bans beside object-src/base-uri.
+    const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
+    const contactHtml = fs.readFileSync(path.join(root, "contact.html"), "utf8");
+
+    for (const csp of [hostCsp, indexCsp, contactCsp]) {
+      expect(parseCspDirectives(csp)["img-src"]).toBe("'self' data:");
+    }
+
+    for (const html of [indexHtml, contactHtml]) {
+      expect(html).not.toMatch(/\b(?:src|href)=["']data:/i);
+    }
+  });
+
+  test("host CSP directive-name allowlist stays the documented ten only", () => {
+    // Exact CSP string equality still passes if a future softer matcher only
+    // checks named directive values while an unknown fetch directive is
+    // inserted — parsed name allowlists fail closed on silent CSP sprawl.
+    const host = parseCspDirectives(hostCsp);
+    expect(Object.keys(host).sort()).toEqual(
+      [
+        "base-uri",
+        "connect-src",
+        "default-src",
+        "font-src",
+        "form-action",
+        "frame-ancestors",
+        "img-src",
+        "object-src",
+        "script-src",
+        "style-src",
+      ].sort()
+    );
+    expect(host["frame-ancestors"]).toBe("'none'");
+    expect(host["report-uri"]).toBeUndefined();
+    expect(host["worker-src"]).toBeUndefined();
+  });
+
+  test("index meta CSP directive-name allowlist omits frame-ancestors only", () => {
+    // Host name allowlist + index exact string still pass independently if index
+    // gains frame-ancestors (invalid/ignored in meta) or drops a shared fetch
+    // directive while the host stays locked — four-way maps then drift while
+    // each exact string alone stays green.
+    const index = parseCspDirectives(indexCsp);
+    expect(Object.keys(index).sort()).toEqual(
+      [
+        "base-uri",
+        "connect-src",
+        "default-src",
+        "font-src",
+        "form-action",
+        "img-src",
+        "object-src",
+        "script-src",
+        "style-src",
+      ].sort()
+    );
+    expect(index["frame-ancestors"]).toBeUndefined();
+    expect(index["script-src"]).toBe("'self' 'unsafe-inline'");
+  });
+
+  test("contact meta CSP directive-name allowlist stays self-only script-src set", () => {
+    // Contact exact CSP string + per-directive value locks still pass if contact
+    // gains frame-ancestors / report-uri or drops form-action while host stays
+    // locked — contact enforcement then softens or sprawls while named values
+    // on remaining keys stay green.
+    const contact = parseCspDirectives(contactCsp);
+    expect(Object.keys(contact).sort()).toEqual(
+      [
+        "base-uri",
+        "connect-src",
+        "default-src",
+        "font-src",
+        "form-action",
+        "img-src",
+        "object-src",
+        "script-src",
+        "style-src",
+      ].sort()
+    );
+    expect(contact["frame-ancestors"]).toBeUndefined();
+    expect(contact["script-src"]).toBe("'self'");
+    expect(contact["script-src"]).not.toMatch(/'unsafe-inline'/);
   });
 });
