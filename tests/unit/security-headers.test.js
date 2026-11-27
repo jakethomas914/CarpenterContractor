@@ -290,6 +290,65 @@ describe("security headers parity (_headers ↔ vercel.json)", () => {
     expect(netlify["Content-Security-Policy"]).toBe(expected);
     expect(vercel["Content-Security-Policy"]).toBe(expected);
   });
+
+  test("Netlify and Vercel keep the identical ordered six-header value document", () => {
+    // Ordered key catalogs + per-key value equality still pass if one host
+    // reorders while the other keeps the documented sequence with matching
+    // values — review diffs then disagree about the hardened surface while
+    // sorted key-set and individual value locks stay green. Lock the exact
+    // ordered key→value document on both hosts together.
+    const expectedDocument = [
+      ["X-Frame-Options", "DENY"],
+      ["X-Content-Type-Options", "nosniff"],
+      ["Referrer-Policy", "strict-origin-when-cross-origin"],
+      [
+        "Permissions-Policy",
+        "camera=(), microphone=(), geolocation=(), payment=()",
+      ],
+      [
+        "Strict-Transport-Security",
+        "max-age=63072000; includeSubDomains; preload",
+      ],
+      [
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' mailto:; frame-ancestors 'none';",
+      ],
+    ];
+
+    const vercelConfig = JSON.parse(
+      fs.readFileSync(path.join(root, "vercel.json"), "utf8")
+    );
+    const vercelRoute = (vercelConfig.headers || []).find(
+      (entry) => entry.source === "/(.*)"
+    );
+    expect(vercelRoute).toBeTruthy();
+    expect(vercelRoute.headers.map((header) => [header.key, header.value])).toEqual(
+      expectedDocument
+    );
+
+    const netlifyRaw = fs.readFileSync(path.join(root, "_headers"), "utf8");
+    const netlifyDocument = [];
+    let inCatchAll = false;
+    for (const line of netlifyRaw.split("\n")) {
+      if (/^\/\*\s*$/.test(line)) {
+        inCatchAll = true;
+        continue;
+      }
+      if (inCatchAll) {
+        if (/^\S/.test(line)) {
+          break;
+        }
+        const match = line.match(/^\s+([A-Za-z0-9-]+):\s*(.+)\s*$/);
+        if (match) {
+          netlifyDocument.push([match[1], match[2]]);
+        }
+      }
+    }
+    expect(netlifyDocument).toEqual(expectedDocument);
+    expect(netlifyDocument).toEqual(
+      vercelRoute.headers.map((header) => [header.key, header.value])
+    );
+  });
 });
 
 describe("CSP four-way sync (HTML meta ↔ host headers)", () => {

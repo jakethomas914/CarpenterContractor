@@ -11432,3 +11432,254 @@ describe("eslint tests/** globals spread source catalog seam", () => {
     expect(spreads).toHaveLength(3);
   });
 });
+
+describe("eslint playwright.config.js languageOptions key allowlist seam", () => {
+  test("playwright languageOptions stays ecmaVersion+sourceType+globals only", () => {
+    // Curated globals writability + commonjs/ecmaVersion presence still pass if
+    // languageOptions grows parserOptions/parser/globals comments sprawl or drops
+    // sourceType while process/Buffer remain — Playwright config lint then drifts
+    // module posture while presence maps stay green. Lock the exact key set.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const pwBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.includes("playwright.config.js")
+    );
+    expect(pwBlock).toBeTruthy();
+    expect(Object.keys(pwBlock.languageOptions).sort()).toEqual(
+      ["ecmaVersion", "globals", "sourceType"].sort()
+    );
+    expect(pwBlock.languageOptions.ecmaVersion).toBe(2022);
+    expect(pwBlock.languageOptions.sourceType).toBe("commonjs");
+    expect(pwBlock.rules).toBeUndefined();
+    expect(pwBlock.plugins).toBeUndefined();
+    expect(pwBlock.settings).toBeUndefined();
+  });
+});
+
+describe("eslint playwright.config.js languageOptions.globals curated exact map", () => {
+  test("playwright globals keep exact node writability for config-critical keys", () => {
+    // Presence-only __dirname/Buffer/process checks still pass if writability
+    // flips (exports→readonly) or Jest/DOM globals bleed into the Playwright
+    // block while those three names remain — lint then false-positives on
+    // defineConfig CommonJS seams or invites browser globals into a Node-only
+    // config while presence stays green.
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const pwBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.includes("playwright.config.js")
+    );
+    expect(pwBlock).toBeTruthy();
+    const { globals: pwGlobals } = pwBlock.languageOptions;
+    expect(pwGlobals).toBeTruthy();
+
+    const expected = {
+      process: false,
+      Buffer: false,
+      __dirname: false,
+      __filename: false,
+      require: false,
+      module: false,
+      exports: true,
+      console: false,
+    };
+    for (const [name, writable] of Object.entries(expected)) {
+      expect(Object.prototype.hasOwnProperty.call(pwGlobals, name)).toBe(true);
+      expect(pwGlobals[name]).toBe(writable);
+    }
+
+    // Node-only block — Jest fixture and browser DOM names must stay out.
+    expect(Object.prototype.hasOwnProperty.call(pwGlobals, "describe")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(pwGlobals, "jest")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(pwGlobals, "document")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(pwGlobals, "window")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(pwGlobals, "IntersectionObserver")).toBe(
+      false
+    );
+  });
+});
+
+describe("eslint playwright.config.js globals spread source catalog seam", () => {
+  test("playwright block keeps the exact node-only globals spread", () => {
+    // Curated writability maps still pass if spreads grow jest/browser/commonjs
+    // (or reorder into a multi-package merge) while leftover Node keys remain —
+    // Playwright config then silently picks up fixture/DOM globals while exact
+    // maps for surviving keys stay green. Lock the source catalog.
+    const eslintSource = fs.readFileSync(
+      path.join(root, "eslint.config.js"),
+      "utf8"
+    );
+    const pwGlobals = eslintSource.match(
+      /files:\s*\[["']playwright\.config\.js["']\][\s\S]*?globals:\s*\{([\s\S]*?)\n\s*\}/
+    )?.[1];
+    expect(pwGlobals).toBeTruthy();
+    const spreads = [
+      ...pwGlobals.matchAll(/\.\.\.globals\.([A-Za-z0-9_]+)/g),
+    ].map((match) => match[1]);
+    expect(spreads).toEqual(["node"]);
+    expect(spreads).toHaveLength(1);
+    expect(spreads).not.toContain("jest");
+    expect(spreads).not.toContain("browser");
+    expect(spreads).not.toContain("commonjs");
+  });
+});
+
+describe("eslint playwright↔tests globals package-spread intentional asymmetry", () => {
+  test("playwright stays node-only while tests spread node+jest+browser", () => {
+    // Per-block presence catalogs still pass if both blocks are "harmonized" to
+    // the same spreads (playwright gains jest/browser, or tests collapse to
+    // node-only) — Playwright config then lint-fails on Node-only posture or
+    // fixtures lose Jest globals while each presence check stays green alone.
+    const eslintSource = fs.readFileSync(
+      path.join(root, "eslint.config.js"),
+      "utf8"
+    );
+
+    function globalsSpreadsForFiles(filesGlob) {
+      const escaped = filesGlob.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const block = eslintSource.match(
+        new RegExp(
+          `files:\\s*\\["${escaped}"\\][\\s\\S]*?globals:\\s*\\{([\\s\\S]*?)\\n\\s*\\}`
+        )
+      )?.[1];
+      expect(block).toBeTruthy();
+      return [...block.matchAll(/\.\.\.globals\.([A-Za-z0-9_]+)/g)].map(
+        (match) => match[1]
+      );
+    }
+
+    const pwSpreads = globalsSpreadsForFiles("playwright.config.js");
+    const testsSpreads = globalsSpreadsForFiles("tests/**/*.js");
+
+    expect(pwSpreads).toEqual(["node"]);
+    expect(pwSpreads).not.toContain("jest");
+    expect(pwSpreads).not.toContain("browser");
+
+    expect(testsSpreads).toEqual(["node", "jest", "browser"]);
+    expect(pwSpreads).not.toEqual(testsSpreads);
+  });
+});
+
+describe("Playwright webServer.command argv ↔ readiness origin dual", () => {
+  test("command tokens bind python3 http.server to the readiness URL origin port", () => {
+    // Whole-string command/url regex duals still pass if the argv shape drifts
+    // (python → node static server, dropped -m, host flag inserted) while the
+    // concatenated string and :4173 readiness URL stay coincidentally green —
+    // e2e then boots the wrong server binding while port presence stays green.
+    // Parse source only: requiring @playwright/test under Jest/jsdom throws.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const command = configSource.match(
+      /webServer:\s*\{[\s\S]*?\bcommand:\s*["']([^"']+)["']/
+    )?.[1];
+    const readinessURL = configSource.match(
+      /webServer:\s*\{[\s\S]*?\burl:\s*["']([^"']+)["']/
+    )?.[1];
+    const baseURL = configSource.match(/baseURL:\s*["']([^"']+)["']/)?.[1];
+    expect(command).toBeTruthy();
+    expect(readinessURL).toBeTruthy();
+    expect(baseURL).toBeTruthy();
+
+    const tokens = command.trim().split(/\s+/);
+    expect(tokens).toEqual(["python3", "-m", "http.server", "4173"]);
+    expect(tokens[0]).toBe("python3");
+    expect(tokens[1]).toBe("-m");
+    expect(tokens[2]).toBe("http.server");
+    expect(tokens).not.toContain("--bind");
+    expect(tokens).not.toContain("0.0.0.0");
+
+    const readiness = new URL(readinessURL);
+    const base = new URL(baseURL);
+    expect(readiness.hostname).toBe("127.0.0.1");
+    expect(readiness.port).toBe(tokens[3]);
+    expect(base.port).toBe(tokens[3]);
+    expect(readiness.origin).toBe(`http://127.0.0.1:${tokens[3]}`);
+    expect(readiness.origin).toBe(base.origin);
+    expect(readiness.pathname).toBe("/index.html");
+  });
+});
+
+describe("CI upload-artifact name ↔ gitignore playwright-report shape dual", () => {
+  test("artifact name stays slash-free while gitignore and path keep trailing slash", () => {
+    // Path/retention duals + gitignore body locks still pass if artifact `name:`
+    // grows a trailing slash (or collapses onto the directory path form) while
+    // gitignore keeps `playwright-report/` — Actions then mistitles the upload
+    // (or gitignore stops matching) while path/retention presence stays green.
+    // Lock the intentional name (no slash) ↔ path/gitignore (trailing slash) shape.
+    const ci = fs.readFileSync(path.join(root, ".github/workflows/ci.yml"), "utf8");
+    const uploadBlock = ci.match(
+      /uses:\s*actions\/upload-artifact@v4\s*\n\s*if:\s*always\(\)\s*\n\s*with:\s*\n([\s\S]*?)(?=\n\S|\n*$)/
+    );
+    expect(uploadBlock).toBeTruthy();
+    const artifactName = uploadBlock[1].match(/^\s*name:\s*(\S+)\s*$/m)?.[1];
+    const artifactPath = uploadBlock[1].match(/^\s*path:\s*(\S+)\s*$/m)?.[1];
+    expect(artifactName).toBe("playwright-report");
+    expect(artifactName).not.toMatch(/\//);
+    expect(artifactPath).toBe("playwright-report/");
+    expect(artifactPath.endsWith("/")).toBe(true);
+    expect(artifactName + "/").toBe(artifactPath);
+
+    const gitignore = fs.readFileSync(path.join(root, ".gitignore"), "utf8");
+    expect(gitignore).toMatch(/^playwright-report\/$/m);
+    expect(gitignore).not.toMatch(/^playwright-report$/m);
+  });
+});
+
+describe("service-card blurbs ↔ option label catalog dual honesty", () => {
+  test("Florida/scope blurbs coexist with the selectable option label catalog", () => {
+    // Ordered card title↔description + option value↔label locks still pass
+    // independently if Services blurbs invent commercial/nationwide scope while
+    // the lead form keeps the six residential labels (or reverse) — homepage
+    // offerings then overpromise vs mailto triage while each catalog stays green.
+    const cards = [
+      ...indexHtml.matchAll(
+        /<article class="service-card"[\s\S]*?<h3>([\s\S]*?)<\/h3>\s*<p>([\s\S]*?)<\/p>/g
+      ),
+    ].map((match) => ({
+      title: decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim(),
+      description: decodeBasicEntities(match[2]).replace(/\s+/g, " ").trim(),
+    }));
+    expect(cards.map((card) => card.title)).toEqual([
+      "Custom Trim & Millwork",
+      "Custom Cabinetry & Built-Ins",
+      "Doors & Entryways",
+      "Decks, Framing & Outdoor Structures",
+      "Kitchen & Bath Remodels",
+      "Repairs & Small Renovations",
+    ]);
+
+    const decks = cards.find((card) => /Decks, Framing/i.test(card.title));
+    expect(decks).toBeTruthy();
+    expect(decks.description).toMatch(/Florida weather/i);
+    expect(decks.description).toMatch(/framing repairs/i);
+    expect(decks.description).not.toMatch(
+      /commercial high-rise|nationwide|any climate|out of state/i
+    );
+
+    const kitchen = cards.find((card) => /Kitchen & Bath/i.test(card.title));
+    expect(kitchen).toBeTruthy();
+    expect(kitchen.description).toMatch(/start to finish/i);
+    expect(kitchen.description).not.toMatch(
+      /design only|cabinets supplied by others only|no finish carpentry/i
+    );
+
+    const repairs = cards.find((card) => /Repairs & Small/i.test(card.title));
+    expect(repairs).toBeTruthy();
+    expect(repairs.description).toMatch(/no job too small/i);
+    expect(repairs.description).not.toMatch(
+      /commercial only|large projects only|minimum square footage/i
+    );
+
+    const optionLabels = collectMatches(
+      contactHtml,
+      /<option\b[^>]*>([\s\S]*?)<\/option>/g
+    ).map((label) => decodeBasicEntities(label.replace(/\s+/g, " ").trim()));
+    expect(optionLabels).toEqual([
+      ...cards.map((card) => card.title),
+      "Not sure yet",
+    ]);
+    expect(optionLabels).toContain("Decks, Framing & Outdoor Structures");
+    expect(optionLabels).not.toContain("Decks & Outdoor Structures");
+  });
+});
