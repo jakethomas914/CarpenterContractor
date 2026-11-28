@@ -11683,3 +11683,249 @@ describe("service-card blurbs ↔ option label catalog dual honesty", () => {
     expect(optionLabels).not.toContain("Decks & Outdoor Structures");
   });
 });
+
+describe("eslint js/** globals spread source catalog seam", () => {
+  test("js block keeps the exact browser → commonjs spread order", () => {
+    // Curated writability maps + js↔tests asymmetry still pass if js spreads
+    // reorder (commonjs before browser) or a spread is dropped while leftover
+    // keys from the other package remain — classic-script lint then silently
+    // loses DOM or module.exports names while exact maps for surviving keys
+    // stay green. Lock the source catalog order (parallel to tests/playwright).
+    const eslintSource = fs.readFileSync(
+      path.join(root, "eslint.config.js"),
+      "utf8"
+    );
+    const jsGlobals = eslintSource.match(
+      /files:\s*\[["']js\/\*\*\/\*\.js["']\][\s\S]*?globals:\s*\{([\s\S]*?)\n\s*\}/
+    )?.[1];
+    expect(jsGlobals).toBeTruthy();
+    const spreads = [
+      ...jsGlobals.matchAll(/\.\.\.globals\.([A-Za-z0-9_]+)/g),
+    ].map((match) => match[1]);
+    expect(spreads).toEqual(["browser", "commonjs"]);
+    expect(spreads).toHaveLength(2);
+    expect(spreads).not.toContain("jest");
+    expect(spreads).not.toContain("node");
+  });
+});
+
+describe("Playwright top-level use value exact dual", () => {
+  test("top-level use keeps exact baseURL + trace literals together", () => {
+    // Key allowlist + separate baseURL/trace regexes still pass if one value
+    // softens while the other stays (baseURL → :8080 with retain-on-failure, or
+    // trace → on-first-retry with :4173) — e2e then boots the wrong origin or
+    // drops failure traces while key presence stays green. Lock both literals
+    // as one exact object. Parse source only (Jest/jsdom cannot require Playwright).
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    const useBlock = configSource.match(/\n\s*use:\s*\{([\s\S]*?)\n\s*\},/);
+    expect(useBlock).toBeTruthy();
+    const entries = {};
+    for (const match of useBlock[1].matchAll(
+      /^\s*([A-Za-z0-9_]+)\s*:\s*["']([^"']+)["']\s*,?\s*$/gm
+    )) {
+      entries[match[1]] = match[2];
+    }
+    expect(entries).toEqual({
+      baseURL: "http://127.0.0.1:4173",
+      trace: "retain-on-failure",
+    });
+    expect(Object.keys(entries)).toEqual(["baseURL", "trace"]);
+    expect(entries.baseURL).not.toMatch(/8080/);
+    expect(["on", "off", "on-first-retry", "retain-on-failure"]).toContain(
+      entries.trace
+    );
+    expect(entries.trace).not.toBe("on");
+    expect(entries.trace).not.toBe("off");
+    expect(entries.trace).not.toBe("on-first-retry");
+  });
+});
+
+describe("gallery-tile ↔ service-card title intentional asymmetry honesty", () => {
+  test("short gallery titles stay distinct from full lead-form service titles", () => {
+    // Family crosswalk + exact gallery/service catalogs still pass if gallery
+    // titles are "harmonized" onto full service-card / option labels (or reverse)
+    // — showcase chrome then duplicates mailto triage wording (or lead-form
+    // labels shrink) while each catalog alone stays internally green. Lock the
+    // intentional short↔full asymmetries for Decks / Cabinetry / Doors.
+    const serviceTitles = collectMatches(
+      indexHtml,
+      /<article class="service-card"[\s\S]*?<h3>([\s\S]*?)<\/h3>/g
+    ).map((title) => decodeBasicEntities(title.replace(/\s+/g, " ").trim()));
+    const galleryTitles = collectMatches(
+      indexHtml,
+      /class="gallery-tile"[^>]*>[\s\S]*?<strong>\s*([\s\S]*?)\s*<\/strong>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+
+    const intentionalAsymmetries = {
+      "Built-In Cabinetry": "Custom Cabinetry & Built-Ins",
+      "Entry Doors & Foyers": "Doors & Entryways",
+      "Decks & Outdoor Living": "Decks, Framing & Outdoor Structures",
+    };
+
+    for (const [galleryTitle, serviceTitle] of Object.entries(
+      intentionalAsymmetries
+    )) {
+      expect(galleryTitles).toContain(galleryTitle);
+      expect(serviceTitles).toContain(serviceTitle);
+      expect(galleryTitle).not.toBe(serviceTitle);
+      expect(galleryTitles).not.toContain(serviceTitle);
+      expect(serviceTitles).not.toContain(galleryTitle);
+    }
+
+    // Exact same-string pairs remain aligned (Trim is identical on both sides).
+    expect(galleryTitles).toContain("Custom Trim & Millwork");
+    expect(serviceTitles).toContain("Custom Trim & Millwork");
+  });
+});
+
+describe("area-chip order ↔ contact sidebar cities direct dual", () => {
+  test("homepage chips keep the same ordered city list as the contact sidebar", () => {
+    // Chips↔JSON-LD and sidebar↔JSON-LD locks still pass independently if one
+    // HTML surface softens while schema stays the bridge — conversion geography
+    // then disagrees across homepage pills vs contact sidebar while each
+    // JSON-LD pairwise check stays green alone. Lock the direct HTML dual.
+    const chips = collectMatches(
+      indexHtml,
+      /class="area-chip"[^>]*>[\s\S]*?<\/svg>([^<]+)/g
+    ).map((city) => city.trim());
+    expect(chips.length).toBeGreaterThan(0);
+
+    const contactAreaMatch = contactHtml.match(
+      /Southwest Florida<\/span>\s*<small>([^<]+)<\/small>/
+    );
+    expect(contactAreaMatch).toBeTruthy();
+    const listedCities = contactAreaMatch[1]
+      .split(",")
+      .map((city) => city.trim())
+      .filter(Boolean);
+
+    expect(chips).toEqual(listedCities);
+    expect(chips).toEqual([
+      "Naples",
+      "Fort Myers",
+      "Bonita Springs",
+      "Estero",
+      "Cape Coral",
+      "Marco Island",
+      "Sanibel",
+    ]);
+  });
+});
+
+describe("eslint js↔playwright sourceType intentional asymmetry", () => {
+  test("production js stays script while playwright.config stays commonjs", () => {
+    // Per-block sourceType/ecmaVersion presence still passes if js and
+    // playwright are "harmonized" (js→commonjs or playwright→script) — browser
+    // classic-script lint or Node config fixtures then break while each alone
+    // stays green. Lock the cross-block asymmetry (parallel to js↔tests).
+    const eslintConfig = require(path.join(root, "eslint.config.js"));
+    const jsBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.some((file) => file.includes("js/"))
+    );
+    const pwBlock = eslintConfig.find(
+      (block) =>
+        Array.isArray(block.files) && block.files.includes("playwright.config.js")
+    );
+    expect(jsBlock).toBeTruthy();
+    expect(pwBlock).toBeTruthy();
+    expect(jsBlock.languageOptions.sourceType).toBe("script");
+    expect(pwBlock.languageOptions.sourceType).toBe("commonjs");
+    expect(jsBlock.languageOptions.sourceType).not.toBe(
+      pwBlock.languageOptions.sourceType
+    );
+    expect(jsBlock.languageOptions.ecmaVersion).toBe(2019);
+    expect(pwBlock.languageOptions.ecmaVersion).toBe(2022);
+    expect(jsBlock.languageOptions.ecmaVersion).not.toBe(
+      pwBlock.languageOptions.ecmaVersion
+    );
+  });
+});
+
+describe("gallery Photos coming soon ↔ service-card offering blurbs dual honesty", () => {
+  test("gallery stays placeholder while service cards keep real offering copy", () => {
+    // Exact gallery caption catalog + exact service blurb catalogs still pass
+    // independently if Services invent "photos coming soon" / placeholder copy
+    // while gallery stays honest (or gallery captions claim finished projects
+    // while Services stay real) — showcase vs offerings honesty then splits.
+    const galleryCaptions = collectMatches(
+      indexHtml,
+      /class="gallery-tile"[^>]*>[\s\S]*?<span>\s*([\s\S]*?)\s*<\/span>/g
+    ).map((caption) => decodeBasicEntities(caption).replace(/\s+/g, " ").trim());
+    expect(galleryCaptions).toHaveLength(6);
+    expect(galleryCaptions.every((caption) => caption === "Photos coming soon")).toBe(
+      true
+    );
+
+    const blurbs = collectMatches(
+      indexHtml,
+      /<article class="service-card"[\s\S]*?<h3>[\s\S]*?<\/h3>\s*<p>([\s\S]*?)<\/p>/g
+    ).map((blurb) => decodeBasicEntities(blurb).replace(/\s+/g, " ").trim());
+    expect(blurbs).toHaveLength(6);
+    for (const blurb of blurbs) {
+      expect(blurb.length).toBeGreaterThan(40);
+      expect(blurb).not.toMatch(/photos coming soon|placeholder|lorem ipsum|todo\b/i);
+    }
+    expect(blurbs.some((blurb) => /Florida weather/i.test(blurb))).toBe(true);
+    expect(blurbs.some((blurb) => /no job too small/i.test(blurb))).toBe(true);
+  });
+});
+
+describe("Playwright reuseExistingServer ↔ forbidOnly CI inversion dual", () => {
+  test("reuseExistingServer and forbidOnly stay inverted CI env expressions", () => {
+    // Multi-regex CI hardening still passes if one expression softens while the
+    // other stays (!!CI forbidOnly with reuseExistingServer:true, or the reverse)
+    // — local servers then collide with CI reuse, or .only can ship, while each
+    // presence regex alone stays green. Lock both expressions together.
+    // Parse source only: requiring @playwright/test under Jest/jsdom throws.
+    const configSource = fs.readFileSync(
+      path.join(root, "playwright.config.js"),
+      "utf8"
+    );
+    expect(configSource).toMatch(/forbidOnly:\s*!!process\.env\.CI\b/);
+    expect(configSource).toMatch(
+      /reuseExistingServer:\s*!process\.env\.CI\b/
+    );
+    expect(configSource).not.toMatch(/forbidOnly:\s*!process\.env\.CI\b/);
+    expect(configSource).not.toMatch(
+      /reuseExistingServer:\s*!!process\.env\.CI\b/
+    );
+    expect(configSource).not.toMatch(/forbidOnly:\s*false\b/);
+    expect(configSource).not.toMatch(/reuseExistingServer:\s*true\b/);
+  });
+});
+
+describe("Decks gallery title ↔ Decks Florida service blurb dual honesty", () => {
+  test("Outdoor Living showcase coexists with Florida-weather decks offering copy", () => {
+    // Gallery title catalog + Decks service blurb locks still pass independently
+    // if the showcase invents nationwide/commercial outdoor living while the
+    // service card keeps Florida weather / framing repairs (or reverse) —
+    // gallery vs Services honesty then splits on outdoor scope.
+    const galleryTitles = collectMatches(
+      indexHtml,
+      /class="gallery-tile"[^>]*>[\s\S]*?<strong>\s*([\s\S]*?)\s*<\/strong>/g
+    ).map((raw) => decodeBasicEntities(raw).replace(/\s+/g, " ").trim());
+    expect(galleryTitles).toContain("Decks & Outdoor Living");
+    expect(galleryTitles).not.toContain("Decks, Framing & Outdoor Structures");
+
+    const cards = [
+      ...indexHtml.matchAll(
+        /<article class="service-card"[\s\S]*?<h3>([\s\S]*?)<\/h3>\s*<p>([\s\S]*?)<\/p>/g
+      ),
+    ].map((match) => ({
+      title: decodeBasicEntities(match[1]).replace(/\s+/g, " ").trim(),
+      description: decodeBasicEntities(match[2]).replace(/\s+/g, " ").trim(),
+    }));
+    const decks = cards.find((card) => /Decks, Framing/i.test(card.title));
+    expect(decks).toBeTruthy();
+    expect(decks.description).toMatch(/Florida weather/i);
+    expect(decks.description).toMatch(/framing repairs/i);
+    expect(decks.description).toMatch(/pergolas|composite decking/i);
+    expect(decks.description).not.toMatch(
+      /commercial high-rise|nationwide|any climate|out of state/i
+    );
+  });
+});
